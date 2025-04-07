@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="utf-8" />
+      <title>three.js app</title>
+      <link rel="stylesheet" type="text/css" href="../css/main.css" />
+      <!-- magia inexplicavel -->
+      <script type="module" src="/js/main.js"></script>
+   </head>
+   <body>
+      <div class="overlay">
+         <!-- OVERLAY DEV -->
+         <div class="header" id="dev-overlay">
+            <div id="fps-container"></div>
+            <div id="content">
+               <div id="data">
+                  <span id="speed"></span>
+                  <span id="position"></span>
+                  <span id="rotation"></span>
+               </div>
+               <div id="hint">
+                  <span>Dev Mode</span>
+                  <span>Press F2 to hide</span>
+               </div>
+            </div>
+         </div>
+
+         <!-- OVERLAY CONTROLES -->
+         <div class="ctrls" id="ctrlKeys">
+            <div class="ctrlIcon" id="ctrlIcoKeys"></div>
+            <div class="ctrlDesc">Controles</div>
+         </div>
+         <div class="ctrls" id="ctrlMouse">
+            <div class="ctrlIcon" id="ctrlIcoMouse"></div>
+            <div class="ctrlDesc">Camera</div>
+         </div>
+         <div class="ctrls" id="ctrlScroll">
+            <div class="ctrlIcon" id="ctrlIcoScroll"></div>
+            <div class="ctrlDesc">Zoom</div>
+         </div>
+      </div>
+
+      <div id="main"></div>
+   </body>
+</html>

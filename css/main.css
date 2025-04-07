@@ -1,0 +1,104 @@
+@import url("https://fonts.googleapis.com/css?family=Roboto:300,500,700");
+
+html,
+body {
+   margin: 0;
+   padding: 0;
+   overflow: hidden;
+   background: #393533;
+   color: #fff;
+   font-family: "Roboto", sans-serif;
+   font-weight: 300;
+}
+
+#pageMain {
+   position: absolute;
+   top: 0;
+   bottom: 0;
+   left: 0;
+   right: 0;
+   overflow: hidden;
+}
+
+/* OVERLAYS */
+.header {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	background: rgba(8, 8, 8, 0.055);
+	padding: 10px;
+	font-size: 12px;
+	display: none;
+	justify-content: space-between;	
+}
+
+.header #content {
+	display: flex;
+	align-items: center;
+	gap: 30px;
+}
+
+.header #content #data {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.header #content #hint {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+.ctrls {
+   width: 70px;
+	height: 45px;
+	position: absolute;
+	display: block;
+	bottom: 10px;
+	text-align: center;
+	color: #999;
+	pointer-events: none;
+	opacity: 1;
+	transition: opacity 0.5s;
+}
+
+#ctrlKeys {
+   left: 10px;
+}
+
+#ctrlMouse {
+   left: 100px;
+}
+
+#ctrlScroll {
+   left: 190px;
+}
+
+.ctrlIcon{
+	width: 35px;
+	height: 35px;
+	display: inline-block;
+	background: url("../textures/icoCtrls.png") 0% 50% / 300% 100% no-repeat;
+}
+
+
+#ctrlIcoMouse{
+	background-position: 50% 50%;
+}
+#ctrlIcoScroll{
+	background-position: 100% 50%;
+}
+.ctrlDesc{
+	font-size: 6px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	white-space: nowrap;
+	font-weight: 700;
+	display: block;
+	position: absolute;
+	bottom: 0;
+	width: 100%;
+	pointer-events: none;
+}
