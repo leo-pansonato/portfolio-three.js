@@ -1,9 +1,9 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 import GameComponent from "./GameComponent.js";
-
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 /**
- * Controlador de câmera
+ * Controlador de câmera usando OrbitControls
  */
 class CameraController extends GameComponent {
    constructor(camera, target, inputManager) {
@@ -12,113 +12,100 @@ class CameraController extends GameComponent {
       this.target = target;
       this.inputManager = inputManager;
 
-      // Configurações da câmera
-      this.distance = 10; // Distância da câmera para o alvo
-      this.cameraHeight = 1; // Altura da câmera em relação ao alvo
+      // Criar o controlador OrbitControls
+      this.orbitControls = new OrbitControls(this.camera, document.getElementById("main"));
 
-      // Ângulos de rotação (em radianos)
-      this.horizontalAngle = Math.PI; // Rotação horizontal (em torno do eixo Y)
-      this.verticalAngle = 0.3; // Rotação vertical (inclinação)
+      // Configurações iniciais
+      this.setupControls();
 
-      // Limites da inclinação vertical
-      this.minVerticalAngle = 0.01;
-      this.maxVerticalAngle = Math.PI / 2 - 0.1;
+      // Salvar a posição inicial do alvo para acompanhamento
+      this.lastTargetPosition = new THREE.Vector3();
+      if (this.target && this.target.getPosition) {
+         this.lastTargetPosition.copy(this.target.getPosition());
+      }
 
-      // Velocidade da rotação
-      this.rotationSpeed = 0.003;
+      // offset para seguir o jogador
+      this.cameraOffset = new THREE.Vector3(0, 1, 10);
 
-      // Sistema de inércia
-      this.momentum = {
-         horizontal: 0,
-         vertical: 0,
-         active: false,
-         friction: 0.98, // fator de desaceleração
-         minSpeed: 0.001, // limiar mínimo para parar a câmera
-      };
+      // Forçar seguir o jogador
+      this.alwaysFollowTarget = true;
 
-      // Configurações de zoom
-      this.minDistance = 3;
-      this.maxDistance = 30;
-      this.zoomSpeed = 0.5;
+      // Posição inicial
+      // this.resetCameraPosition();
+   }
 
-      this.cameraLookOffset = new THREE.Vector3(0, 0, 0);
+   setupControls() {
+      // Configura o ponto de órbita (target)
+      if (this.target && this.target.getPosition) {
+         this.orbitControls.target.copy(this.target.getPosition());
+      }
+
+      // Definir limites de distância (zoom)
+      this.orbitControls.minDistance = 3;
+      this.orbitControls.maxDistance = 30;
+
+      // Definir limites de rotação vertical
+      this.orbitControls.minPolarAngle = 0.1;
+      this.orbitControls.maxPolarAngle = Math.PI / 2 - 0.1;
+
+      // Suavização (inércia)
+      this.orbitControls.enableDamping = true;
+      this.orbitControls.dampingFactor = 0.05;
+
+      // Velocidade de rotação
+      this.orbitControls.rotateSpeed = 0.8;
+
+      // Velocidade de zoom
+      this.orbitControls.zoomSpeed = 0.8;
+
+      // Desabilitar movimento lateral
+      this.orbitControls.enablePan = false;
    }
 
    update(deltaTime) {
-      if (!this.target || !this.camera || !this.inputManager) return;
+      if (!this.target || !this.target.getPosition) return;
 
-      const deltaTimeAdjusted = Math.min(deltaTime, 0.1) * 60; // Evita deltas muito grandes
+      // Verifique se o alvo moveu-se e atualize o centro da órbita
+      const currentPosition = this.target.getPosition();
 
-      // Verifica se o botão do mouse está pressionado
-      if (this.inputManager.isMouseDown()) {
-         // Estamos movendo ativamente a câmera, desative a inércia
-         const mouseDelta = this.inputManager.getMouseDelta();
+      // Atualizar o centro da órbita para a nova posição do alvo
+      this.orbitControls.target.copy(currentPosition);
 
-         // Limpa o delta do mouse após usá-lo
-         this.inputManager.resetMouseDelta();
+      // Atualizar a posição de referência
+      if (this.alwaysFollowTarget) {
+         const playerMovement = new THREE.Vector3().subVectors(
+            currentPosition,
+            this.lastTargetPosition
+         );
 
-         // Armazena velocidade atual para inércia
-         this.momentum.horizontal = -mouseDelta.x * this.rotationSpeed;
-         this.momentum.vertical = mouseDelta.y * this.rotationSpeed;
-
-         // Atualiza os ângulos diretamente
-         this.horizontalAngle += this.momentum.horizontal;
-         this.verticalAngle += this.momentum.vertical;
-
-         // Marca que está em modo ativo
-         this.momentum.active = true;
-      } else if (this.momentum.active) {
-         // Aplicar inércia quando o mouse é solto
-         this.horizontalAngle += this.momentum.horizontal * deltaTimeAdjusted;
-         this.verticalAngle += this.momentum.vertical * deltaTimeAdjusted;
-
-         // Aplicar atrito para desacelerar gradualmente
-         this.momentum.horizontal *= this.momentum.friction;
-         this.momentum.vertical *= this.momentum.friction;
-
-         // Verificar se a velocidade caiu abaixo do limiar mínimo
-         if (
-            Math.abs(this.momentum.horizontal) < this.momentum.minSpeed &&
-            Math.abs(this.momentum.vertical) < this.momentum.minSpeed
-         ) {
-            this.momentum.horizontal = 0;
-            this.momentum.vertical = 0;
-            this.momentum.active = false;
+         if (playerMovement.length() > 0) {
+            this.camera.position.add(playerMovement);
          }
       }
 
-      // Limitar o ângulo vertical para não virar demais
-      this.verticalAngle = Math.max(
-         this.minVerticalAngle,
-         Math.min(this.maxVerticalAngle, this.verticalAngle)
-      );
+      // Atualizar a posição de referência
+      this.lastTargetPosition.copy(currentPosition);
 
-      // Calcula a posição da câmera com base nos ângulos
-      const targetPosition = this.target.getPosition().clone();
-
-      // Cálculo da posição usando coordenadas esféricas
-      const x =
-         Math.sin(this.horizontalAngle) * Math.cos(this.verticalAngle) * this.distance;
-      const y = Math.sin(this.verticalAngle) * this.distance + this.cameraHeight;
-      const z =
-         Math.cos(this.horizontalAngle) * Math.cos(this.verticalAngle) * this.distance;
-
-      // Posiciona a câmera diretamente sem suavização
-      this.camera.position.set(
-         targetPosition.x + x,
-         targetPosition.y + y,
-         targetPosition.z + z
-      );
-
-      // A câmera sempre olha para o alvo
-      const lookAtPosition = targetPosition.clone().add(this.cameraLookOffset);
-      this.camera.lookAt(lookAtPosition);
+      // (para inércia/suavização funcionarem)
+      this.orbitControls.update();
    }
 
-   // Método para ajustar o zoom
-   adjustZoom(amount) {
-      const newDistance = this.distance + amount * this.zoomSpeed;
-      this.distance = Math.max(this.minDistance, Math.min(this.maxDistance, newDistance));
+   // Método para alterar suavização
+   setSmoothing(enabled, factor = 0.05) {
+      this.orbitControls.enableDamping = enabled;
+      if (enabled) {
+         this.orbitControls.dampingFactor = factor;
+      }
+   }
+
+   // Método para obter a posição atual da câmera
+   getPosition() {
+      return this.camera.position;
+   }
+
+   // Método para habilitar/desabilitar os controles
+   enable(enabled = true) {
+      this.orbitControls.enabled = enabled;
    }
 }
 

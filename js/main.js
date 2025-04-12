@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import CameraController from "./components/newCameraController";
+import CameraController from "./components/CameraController";
 import Environment from "./components/Environment";
 import Player from "./components/Player";
 import InputManager from "./managers/InputManager";
