@@ -6,7 +6,7 @@ import Player from "./components/Player";
 import InputManager from "./managers/InputManager";
 import PerformanceManager from "./managers/PerformanceManager";
 import UIManager from "./managers/UIManager";
-
+import PhysicsManager from "./managers/PhysicsManager";
 
 /**
  * Classe principal do jogo
@@ -24,6 +24,9 @@ class Game {
 
       // Instanciando a cena
       this.scene = new THREE.Scene();
+      
+      // Instanciando o gerenciador de física
+      this.physicsManager = new PhysicsManager();
 
       // Instanciando a camera
       const FOV = 75;
@@ -38,6 +41,7 @@ class Game {
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.setClearColor(0xFFFFff, 1);
 
       const renderMultiplier = window.devicePixelRatio;
       this.renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -47,8 +51,8 @@ class Game {
       // Criando componentes do jogo
       this.ui = new UIManager();
       this.inputManager = new InputManager(this);
-      this.environment = new Environment(this.scene);
-      this.player = new Player(this.scene, this.inputManager);
+      this.environment = new Environment(this.scene, this.physicsManager);
+      this.player = new Player(this.scene, this.inputManager, this.physicsManager);
       this.cameraController = new CameraController(
          this.camera,
          this.player,
@@ -56,7 +60,7 @@ class Game {
       );
 
       // Adicionar componentes à lista de componentes
-      this.components.push(this.environment, this.player, this.cameraController);
+      this.components = [this.environment, this.player, this.cameraController];
 
       // Redimensionamento de tela
       window.addEventListener("resize", () => this.handleResize());
@@ -81,6 +85,9 @@ class Game {
       if (this.performanceManager.update(now)) {
          const deltaTime = this.performanceManager.getDeltaTime();
 
+         // Atualizar física
+         this.physicsManager.update(deltaTime);
+         
          // Atualizar estado do jogo
          this.update(deltaTime);
 
@@ -91,7 +98,8 @@ class Game {
          this.ui.updatePlayerInfo(
             this.player.getPosition(),
             this.player.getRotation(),
-            this.player.getCurrentSpeed() * 60 // unidades por segundo
+            this.player.getCurrentSpeed() * 60, // unidades por segundo
+            this.player.getWheelAngle()
          );
       }
 

@@ -1,18 +1,22 @@
 import * as THREE from "three";
+import * as CANNON from 'cannon-es';
 import GameComponent from "./GameComponent";
 
 /**
  * Ambiente de jogo
  */
 class Environment extends GameComponent {
-   constructor(scene) {
+   constructor(scene, physicsManager) {
       super();
       this.scene = scene;
+      this.physicsManager = physicsManager;
       this.createPlane();
       this.setupLighting();
+      this.createObstacles();
    }
 
    createPlane() {
+      // Plano visual
       const planeGeometry = new THREE.PlaneGeometry(100, 100);
       const planeMaterial = new THREE.MeshStandardMaterial({
          color: 0xaaaaaa,
@@ -22,6 +26,47 @@ class Environment extends GameComponent {
       plane.rotation.x = -Math.PI / 2;
       plane.receiveShadow = true;
       this.scene.add(plane);
+      
+      // Plano físico
+      const groundShape = new CANNON.Plane();
+      const groundBody = new CANNON.Body({
+         mass: 0,
+         material: this.physicsManager.getGroundMaterial()
+      });
+      groundBody.addShape(groundShape);
+      groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotação para corresponder ao plano visual
+      
+      this.physicsManager.world.addBody(groundBody);
+   }
+   
+   createObstacles() {
+      // caixas como obstáculos
+      const obstaclePositions = [
+         { x: 5, y: 1, z: 5 },
+         { x: -5, y: 1, z: 8 },
+         { x: 8, y: 1, z: -5 }
+      ];
+      
+      obstaclePositions.forEach((pos) => {
+         // Criar caixa visual
+         const boxSize = { x: 1, y: 1, z: 1 };
+         const boxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
+         const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xaa4444 });
+         const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+         boxMesh.position.set(pos.x, pos.y, pos.z);
+         boxMesh.castShadow = true;
+         boxMesh.receiveShadow = true;
+         this.scene.add(boxMesh);
+         
+         // Criar corpo físico
+         const boxShape = new CANNON.Box(new CANNON.Vec3(boxSize.x/2, boxSize.y/2, boxSize.z/2));
+         const boxBody = new CANNON.Body({ mass: 5 });
+         boxBody.addShape(boxShape);
+         boxBody.position.set(pos.x, pos.y, pos.z);
+         
+         // Adicionar ao gerenciador de física
+         this.physicsManager.addBody(boxBody, boxMesh);
+      });
    }
 
    setupLighting() {
@@ -29,12 +74,12 @@ class Environment extends GameComponent {
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
       this.scene.add(ambientLight);
 
-      // Luz direcional principal
+      // Luz principal
       const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
       directionalLight.position.set(10, 10, 10);
       directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 2048;
-      directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.shadow.mapSize.width = 1024;
+      directionalLight.shadow.mapSize.height = 1024;
       this.scene.add(directionalLight);
    }
 }
