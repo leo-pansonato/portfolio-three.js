@@ -11,6 +11,7 @@ class Environment extends GameComponent {
       this.scene = scene;
       this.physicsManager = physicsManager;
       this.createPlane();
+      this.creatSkybox();
       this.setupLighting();
       this.createObstacles();
    }
@@ -38,6 +39,17 @@ class Environment extends GameComponent {
       
       this.physicsManager.world.addBody(groundBody);
    }
+
+   creatSkybox() {
+      const sphere = new THREE.SphereGeometry(300, 300, 300);
+      const sphereMaterial = new THREE.MeshBasicMaterial();
+  
+      sphere.applyMatrix4(new THREE.Matrix4().makeScale(-2, 1, 1));
+      sphereMaterial.map = new THREE.TextureLoader().load('/../textures/cartoonSKY.jpg');
+  
+      this.skyMesh = new THREE.Mesh(sphere, sphereMaterial);
+      this.scene.add(this.skyMesh);
+    }
    
    createObstacles() {
       // caixas como obstáculos
@@ -78,8 +90,8 @@ class Environment extends GameComponent {
       const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
       directionalLight.position.set(10, 10, 10);
       directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 1024;
-      directionalLight.shadow.mapSize.height = 1024;
+      directionalLight.shadow.mapSize.width = 2048;
+      directionalLight.shadow.mapSize.height = 2048;
       this.scene.add(directionalLight);
    }
 }
