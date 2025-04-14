@@ -8,21 +8,25 @@ Este projeto é um jogo 3D simples desenvolvido com Three.js, onde o jogador con
 
 ```
 portfolio-three.js
+
 ├── textures
+│   ├── cartoonSKY.png
 │   └── icoCtrl.png
 ├── css
 │   └── main.css
 ├── js
 │   ├── components
-│   │   ├── GameComponent.js
-│   │   ├── Entity.js
-│   │   ├── Player.js
 │   │   ├── CameraController.js
-│   │   └── Environment.js
+│   │   ├── Entity.js
+│   │   ├── Environment.js
+│   │   ├── GameComponent.js
+│   │   ├── Material.js
+│   │   └── PLayer.js
 │   ├── managers
 │   │   ├── InputManager.js
-│   │   ├── UIManager.js
-│   │   └── PerformanceManager.js
+│   │   ├── PerformanceManager.js
+│   │   ├── PhysicsManager.js
+│   │   └── UIManager.js
 │   ├── loaders
 │   │   └── ModelLoader.js
 │   └── main.js
