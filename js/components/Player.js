@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import * as CANNON from 'cannon-es';
 import Entity from "./Entity";
-import { velocity } from "three/tsl";
 
 /**
  * Player jogável usando RaycastVehicle do Cannon.js
@@ -13,13 +12,15 @@ class Player extends Entity {
       this.physicsManager = physicsManager;
       
       // Configurações do veículo
-      this.maxSpeed = 20;          // Velocidade máxima do veículo
-      this.maxForce = 595;         // Força máxima do motor
-      this.brakeForce = 1;         // Força de frenagem
-      this.eBrakeForce = 10;       // Força do freio de estacionamento
-      this.maxSteerVal = 0.5;      // Ângulo máximo de esterçamento
-      this.steerSpeed = 2.0;       // Velocidade de esterçamento (quanto maior, mais rápido)
-      this.steerReturn = 2.0;      // Velocidade de retorno do volante (quanto maior, mais rápido)
+      this.maxSpeed = 20;        // Velocidade máxima do veículo
+      this.maxForce = 400;       // Força máxima do motor
+      this.maxBoostForce = 1.5;  // Força máxima do boost
+      this.boostForce = 1;       // Força do boost   
+      this.brakeForce = 5;       // Força de frenagem
+      this.eBrakeForce = 10;     // Força do freio de estacionamento
+      this.maxSteerVal = 0.5;    // Ângulo máximo de esterçamento
+      this.steerSpeed = 2.0;     // Velocidade de esterçamento (quanto maior, mais rápido)
+      this.steerReturn = 2.0;    // Velocidade de retorno do volante (quanto maior, mais rápido)
       this.tractionDisplacement = "all"; // Tração traseira, dianteira ou integral (front|rear|all)
       
       // Estado atual do veículo
@@ -38,7 +39,7 @@ class Player extends Entity {
       const chassisShape = new CANNON.Box(new CANNON.Vec3(chassisSize.x/2, chassisSize.y/2, chassisSize.z/2)); // Metade por causa da fisica do cannon
       this.chassisBody = new CANNON.Body({ mass: 150 });
       this.chassisBody.addShape(chassisShape);
-      this.chassisBody.position.set(0, 10, 0);
+      this.chassisBody.position.set(0, 1, 0);
       this.chassisBody.angularVelocity.set(0, 0, 0);
       
       // Configuração visual do chassi
@@ -60,13 +61,13 @@ class Player extends Entity {
       const options = {
          radius: 0.4,
          directionLocal: new CANNON.Vec3(0, -1, 0), // Direção da suspensão
-         suspensionStiffness: 90,               // Rigidez da suspensão
+         suspensionStiffness: 50,               // Rigidez da suspensão
          suspensionRestLength: 0.4,             // Comprimento de descanso da suspensão
-         frictionSlip: 1,                       // Quanto a roda pode "escorregar"
+         frictionSlip: 2,                       // Quanto a roda pode "escorregar"
          dampingRelaxation: 2.3,                // Amortecimento de relaxamento
          dampingCompression: 4.5,               // Amortecimento de compressão
          maxSuspensionForce: 100000,            // Força máxima da suspensão
-         rollInfluence: 0.01,                   // Influência na rolagem do veículo
+         rollInfluence: 0.2,                    // Influência na rolagem do veículo
          axleLocal: new CANNON.Vec3(0, 0, 1),   // Eixo local da roda
          chassisConnectionPointLocal: new CANNON.Vec3(1, 0, 1), // Ponto de conexão com o chassi
          maxSuspensionTravel: 0.9,              // Curso máximo da suspensão
@@ -79,21 +80,21 @@ class Player extends Entity {
          chassisBody: this.chassisBody,
       });
       
-      // Adicionar as rodas
+      // Adiciona as rodas
       // 0 - frontal esquerda
-      options.chassisConnectionPointLocal.set(-0.9, -0.2, 0.9);
+      options.chassisConnectionPointLocal.set(-1, -0.2, 0.65);
       this.vehicle.addWheel(options);
       
       // 1 - frontal direita
-      options.chassisConnectionPointLocal.set(-0.9, -0.2, -0.9);
+      options.chassisConnectionPointLocal.set(-1, -0.2, -0.65);
       this.vehicle.addWheel(options);
 
       // 2- traseira esquerda
-      options.chassisConnectionPointLocal.set(0.9, -0.2, 0.9);
+      options.chassisConnectionPointLocal.set(1, -0.2, 0.65);
       this.vehicle.addWheel(options);
       
       // 3- traseira direita
-      options.chassisConnectionPointLocal.set(0.9, -0.2, -0.9);
+      options.chassisConnectionPointLocal.set(1, -0.2, -0.65);
       this.vehicle.addWheel(options);
       
       // Adicionar o veículo ao mundo físico
@@ -101,7 +102,7 @@ class Player extends Entity {
       
       // Criar as mesh para as rodas
       this.wheelMeshes = [];
-      const wheelGeometry = new THREE.CylinderGeometry(options.radius, options.radius, 0.3, 12);
+      const wheelGeometry = new THREE.CylinderGeometry(options.radius, options.radius, 0.3, 32);
       const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
       
       // Girar para orientação correta
@@ -176,6 +177,15 @@ class Player extends Entity {
       const accelerating = this.inputManager.isKeyPressed("arrowup");
       const braking = this.inputManager.isKeyPressed("arrowdown");
       const handbraking = this.inputManager.isKeyPressed("b") || this.inputManager.isKeyPressed(" ");
+      const boosting = this.inputManager.isKeyPressed("shift");
+
+      this.boostForce *= 0.80; // Reduz a força do boost ao longo do tempo
+
+      if (boosting && this.boostForce < 1) {
+         this.boostForce = 4;
+      } else {
+         this.boostForce = 1;
+      }
 
       // Aplicação de aceleração
       if (accelerating) {
@@ -196,6 +206,8 @@ class Player extends Entity {
       if (handbraking) {
          handbrakeForce = this.eBrakeForce;
       }
+
+      engineForce *= this.boostForce;
 
       // Aplicar força do motor nas rodas
       if (this.tractionDisplacement == "rear") {
