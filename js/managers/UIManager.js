@@ -11,7 +11,7 @@ class UIManager extends GameComponent {
       this.speedCounter = document.getElementById("speed");
       this.positionCounter = document.getElementById("position");
       this.rotationCounter = document.getElementById("rotation");
-      this.wheelAngleDisplay = document.getElementById("wheel-angle");
+      this.wheelAngleCounter = document.getElementById("wheel-angle");
       
       this.ui = {
          overlays: {
@@ -41,8 +41,12 @@ class UIManager extends GameComponent {
       this.changeDevMode(!this.devMode);
    }
 
-   updatePlayerInfo(position, rotation, speed, wheelAngle) {
+   updatePlayerInfo(position, rotation, speed, wheelAngle, physicsManager) {
       if (this.devMode) {
+         // Atualiza o debugger
+         physicsManager.updateDebugger();
+
+         // Atualiza os contadores de velocidade, posição e rotação
          this.speedCounter.textContent = `Speed: ${speed.toFixed(2)}`;
          this.positionCounter.textContent = `Position:  X: ${position.x.toFixed(
             2
@@ -50,7 +54,7 @@ class UIManager extends GameComponent {
          this.rotationCounter.textContent = `Rotation:  X: ${rotation.x.toFixed(
             2
          )} Y: ${rotation.y.toFixed(2)} Z: ${rotation.z.toFixed(2)}`;
-         this.wheelAngleDisplay.textContent = `Wheel Angle: ${wheelAngle.toFixed(2)}°`;  
+         this.wheelAngleCounter.textContent = `Wheel Angle: ${wheelAngle.toFixed(2)}°`;  
       }
    }
 }

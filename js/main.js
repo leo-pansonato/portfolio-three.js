@@ -26,7 +26,7 @@ class Game {
       this.scene = new THREE.Scene();
       
       // Instanciando o gerenciador de física
-      this.physicsManager = new PhysicsManager();
+      this.physicsManager = new PhysicsManager(this.scene);
 
       // Instanciando a camera
       const FOV = 75;
@@ -99,7 +99,8 @@ class Game {
             this.player.getPosition(),
             this.player.getRotation(),
             this.player.getCurrentSpeed() * 60, // unidades por segundo
-            this.player.getWheelAngle()
+            this.player.getWheelAngle(),
+            this.physicsManager
          );
       }
 
