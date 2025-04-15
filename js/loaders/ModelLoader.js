@@ -15,7 +15,7 @@ class ModelLoader {
                resolve(model);
             },
             (xhr) => {
-               console.log((xhr.loaded / xhr.total * 100) + '% carregado');
+               console.log("Modelo "+(xhr.loaded / xhr.total * 100) + '% carregado');
             },
             (error) => {
                console.error('Erro ao carregar modelo:', error);
