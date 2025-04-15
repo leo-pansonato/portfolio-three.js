@@ -1,24 +1,24 @@
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 class ModelLoader {
    constructor() {
       this.loader = new GLTFLoader();
    }
 
-   loadModel(url, scale = {x: 0.1, y: 0.1, z: 0.1}) {
+   async loadModel(path, scale = {x: 1, y: 1, z: 1}) {
       return new Promise((resolve, reject) => {
          this.loader.load(
-            url,
+            path,
             (gltf) => {
-               // Ajustar a escala do modelo
-               gltf.scene.scale.set(scale);
-               resolve(gltf.scene);
+               const model = gltf.scene;
+               model.scale.set(scale.x, scale.y, scale.z);
+               resolve(model);
             },
             (xhr) => {
-               console.log((xhr.loaded / xhr.total) * 100 + "% carregado");
+               console.log((xhr.loaded / xhr.total * 100) + '% carregado');
             },
             (error) => {
-               console.error("An error occurred while loading the model:", error);
+               console.error('Erro ao carregar modelo:', error);
                reject(error);
             }
          );
