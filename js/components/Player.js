@@ -176,11 +176,11 @@ class Player extends Entity {
             if (child.isMesh) {
                child.castShadow = true;
                child.receiveShadow = true;
-               child.material.metalness = 0.1;
+               child.material.roughness = 0; // Ajustar a rugosidade do material
+               child.material.clearcoatRoughness = 0; // Ajustar a rugosidade do revestimento
+               child.material.clearcoat = 1; // Ajustar o revestimento
             }
          });
-
-         console.log("Modelo do carro carregado com sucesso");
 
          // Atualizar posição das rodas para se alinharem ao novo modelo
          for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
@@ -193,6 +193,10 @@ class Player extends Entity {
       } catch (error) {
          console.error("Erro ao carregar o modelo do carro:", error);
       }
+   }
+
+   async loadWheelModel () {
+
    }
 
    update(deltaTime) {
