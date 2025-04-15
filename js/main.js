@@ -59,6 +59,9 @@ class Game {
          this.inputManager
       );
 
+      // Inicialize o UIManager com o PhysicsManager
+      this.ui.setupDevMode(this.physicsManager);
+
       // Adicionar componentes à lista de componentes
       this.components = [this.environment, this.player, this.cameraController];
 
@@ -85,11 +88,11 @@ class Game {
       if (this.performanceManager.update(now)) {
          const deltaTime = this.performanceManager.getDeltaTime();
 
+         // Atualizar estados
+         this.update(deltaTime);
+
          // Atualizar física
          this.physicsManager.update(deltaTime);
-         
-         // Atualizar estado do jogo
-         this.update(deltaTime);
 
          // Renderizar cena
          this.render();

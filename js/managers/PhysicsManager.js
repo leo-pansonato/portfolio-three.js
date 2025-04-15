@@ -6,16 +6,14 @@ import CannonDebugger from 'cannon-es-debugger';
  */
 class PhysicsManager {
    constructor(scene) {
+      this.scene = scene;
       this.world = new CANNON.World();
       this.world.gravity.set(0, -9.82, 0); // Gravidade padrão
       this.world.defaultContactMaterial.friction = 0.2;
       this.world.broadphase = new CANNON.SAPBroadphase(this.world);
       this.world.allowSleep = true;
 
-      this.debugger = new CannonDebugger(scene, this.world, {
-         color: 0x00ff00,
-         scale: 1
-      })
+      this.debugger = null;
 
       // Materiais para interação entre rodas e solo
       this.groundMaterial = new CANNON.Material('ground');
@@ -49,10 +47,28 @@ class PhysicsManager {
       }
    }
 
-   updateDebugger() {
-      this.debugger.update();
+   addDebugger() {
+      if (!this.debugger && this.scene) {
+         this.debugger = new CannonDebugger(this.scene, this.world, {
+            color: 0x00ff00,
+            scale: 1
+         });
+      }
    }
 
+   updateDebugger() {
+      if (this.debugger) {
+         this.debugger.update();
+      }
+   }
+
+   removeDebugger() {
+      if (this.debugger) {
+         this.debugger.destroy();
+         this.debugger = null;
+      }
+   }
+   
    addBody(body, mesh) {
       this.world.addBody(body);
       this.bodies.push(body);

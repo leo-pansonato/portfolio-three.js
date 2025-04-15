@@ -12,6 +12,7 @@ class UIManager extends GameComponent {
       this.positionCounter = document.getElementById("position");
       this.rotationCounter = document.getElementById("rotation");
       this.wheelAngleCounter = document.getElementById("wheel-angle");
+      this.physicsManager = null;
       
       this.ui = {
          overlays: {
@@ -23,17 +24,28 @@ class UIManager extends GameComponent {
             scroll: document.getElementById("ctrlScroll"),
          },
       };
-      this.setupDevMode();
    }
 
-   setupDevMode() {
+   setupDevMode(physicsManager) {
+      if (!physicsManager) return;
+      
+      this.physicsManager = physicsManager;
       this.changeDevMode(this.devMode);
    }
 
    changeDevMode(mode) {
+      if (!this.physicsManager) return;
+      
+      // if (mode) {
+      //    this.physicsManager.addDebugger();
+      // } else {
+      //    this.physicsManager.removeDebugger();
+      // }
+      
       if (this.devOverlay) {
          this.devOverlay.style.display = mode ? "flex" : "none";
       }
+      
       this.devMode = mode;
    }
 
@@ -41,21 +53,21 @@ class UIManager extends GameComponent {
       this.changeDevMode(!this.devMode);
    }
 
-   updatePlayerInfo(position, rotation, speed, wheelAngle, physicsManager) {
-      if (this.devMode) {
-         // Atualiza o debugger
-         physicsManager.updateDebugger();
+   updatePlayerInfo(position, rotation, speed, wheelAngle) {
+      if (!this.devMode || !this.physicsManager) return;
+      
+      // Atualizar o debugger física
+      this.physicsManager.updateDebugger();
 
-         // Atualiza os contadores de velocidade, posição e rotação
-         this.speedCounter.textContent = `Speed: ${speed.toFixed(2)}`;
-         this.positionCounter.textContent = `Position:  X: ${position.x.toFixed(
-            2
-         )} Y: ${position.y.toFixed(2)} Z: ${position.z.toFixed(2)}`;
-         this.rotationCounter.textContent = `Rotation:  X: ${rotation.x.toFixed(
-            2
-         )} Y: ${rotation.y.toFixed(2)} Z: ${rotation.z.toFixed(2)}`;
-         this.wheelAngleCounter.textContent = `Wheel Angle: ${wheelAngle.toFixed(2)}°`;  
-      }
+      // Atualiza os contadores de velocidade, posição e rotação
+      this.speedCounter.textContent = `Speed: ${speed.toFixed(2)}`;
+      this.positionCounter.textContent = `Position:  X: ${position.x.toFixed(
+         2
+      )} Y: ${position.y.toFixed(2)} Z: ${position.z.toFixed(2)}`;
+      this.rotationCounter.textContent = `Rotation:  X: ${rotation.x.toFixed(
+         2
+      )} Y: ${rotation.y.toFixed(2)} Z: ${rotation.z.toFixed(2)}`;
+      this.wheelAngleCounter.textContent = `Wheel Angle: ${wheelAngle.toFixed(2)}°`;  
    }
 }
 
