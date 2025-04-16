@@ -38,13 +38,15 @@ class PhysicsManager {
    update(deltaTime) {
       // Limitando o delta time para evitar problemas
       const timeStep = Math.min(deltaTime, 1/30);
-      this.world.step(timeStep);
       
       // Atualizar as posições dos meshes baseado nos corpos físicos
       for (let i = 0; i < this.bodies.length; i++) {
          this.meshes[i].position.copy(this.bodies[i].position);
          this.meshes[i].quaternion.copy(this.bodies[i].quaternion);
       }
+
+      // Atualizar o mundo físico
+      this.world.step(timeStep);
    }
 
    addDebugger() {
