@@ -14,11 +14,13 @@ class ModelLoader {
     * @returns {Promise<THREE.Group>} Modelo carregado
     */
    async loadModel(path, scale = {x: 1, y: 1, z: 1}) {
-      const cacheKey = `${path}_${JSON.stringify(scale)}`;
+      const cacheKey = path;
       
       // Verificar se o modelo já está em cache
       if (this.loadingCache[cacheKey]) {
-         return this.loadingCache[cacheKey].clone();
+         const model = this.loadingCache[cacheKey].clone();
+         model.scale.set(scale.x, scale.y, scale.z);
+         return model;
       }
       
       // Verificar se o arquivo existe
@@ -39,12 +41,12 @@ class ModelLoader {
             (gltf) => {
                try {
                   const model = gltf.scene;
+
+                  // Armazenar no cache
+                  this.loadingCache[cacheKey] = model.clone();
                   
                   // Aplicar escala
                   model.scale.set(scale.x, scale.y, scale.z);
-                  
-                  // Armazenar no cache
-                  this.loadingCache[cacheKey] = model.clone();
                   
                   resolve(model);
                } catch (processError) {
@@ -58,6 +60,7 @@ class ModelLoader {
             },
             (error) => {
                console.error('Erro ao carregar modelo:', error);
+               reject(error);
             }
          );
       });
