@@ -9,7 +9,7 @@ class PhysicsManager {
       this.scene = scene;
       this.world = new CANNON.World();
       this.world.gravity.set(0, -9.82, 0); // Gravidade padrão
-      this.world.defaultContactMaterial.friction = 0.2;
+      this.world.defaultContactMaterial.friction = 0.002;
       this.world.broadphase = new CANNON.SAPBroadphase(this.world);
       this.world.allowSleep = true;
 
@@ -24,7 +24,7 @@ class PhysicsManager {
          this.wheelMaterial,
          this.groundMaterial,
          {
-            friction: 0.5,
+            friction: 0.005,
             restitution: 0.3,
             contactEquationStiffness: 1000
          }
