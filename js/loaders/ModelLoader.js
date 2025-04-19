@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 class ModelLoader {
    constructor() {
@@ -13,25 +13,14 @@ class ModelLoader {
     * @param {Object} scale Escala a ser aplicada
     * @returns {Promise<THREE.Group>} Modelo carregado
     */
-   async loadModel(path, scale = {x: 1, y: 1, z: 1}) {
+   async loadModel(path, scale = { x: 1, y: 1, z: 1 }) {
       const cacheKey = path;
-      
+
       // Verificar se o modelo já está em cache
       if (this.loadingCache[cacheKey]) {
          const model = this.loadingCache[cacheKey].clone();
          model.scale.set(scale.x, scale.y, scale.z);
          return model;
-      }
-      
-      // Verificar se o arquivo existe
-      try {
-         const response = await fetch(path, { method: 'HEAD' });
-         if (!response.ok) {
-            console.warn(`Arquivo não encontrado: ${path}`);
-            throw new Error("Arquivo não encontrado");
-         }
-      } catch (error) {
-         console.warn(`Não foi possível verificar o arquivo: ${path}`);
       }
       
       // Carregar o modelo
@@ -44,10 +33,10 @@ class ModelLoader {
 
                   // Armazenar no cache
                   this.loadingCache[cacheKey] = model.clone();
-                  
+
                   // Aplicar escala
                   model.scale.set(scale.x, scale.y, scale.z);
-                  
+
                   resolve(model);
                } catch (processError) {
                   console.error("Erro ao processar modelo:", processError);
@@ -59,13 +48,13 @@ class ModelLoader {
                console.log(`Modelo ${path}: ${(xhr.loaded / xhr.total * 100).toFixed(1)}% carregado`);
             },
             (error) => {
-               console.error('Erro ao carregar modelo:', error);
+               console.error("Erro ao carregar modelo:", error);
                reject(error);
             }
          );
       });
    }
-   
+
    /**
     * Limpa o cache de modelos
     */
