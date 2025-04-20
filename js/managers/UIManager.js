@@ -53,21 +53,26 @@ class UIManager extends GameComponent {
       this.changeDevMode(!this.devMode);
    }
 
-   updatePlayerInfo(position, rotation, speed, wheelAngle) {
+   updatePlayerInfo(deltaTime, player) {
       if (!this.devMode || !this.physicsManager) return;
+      
+      const speed = player.getCurrentSpeed();
+      const position = player.getPosition();
+      const rotation = player.getRotation();
+      const wheelAngle = player.getWheelAngle();
       
       // Atualizar o debugger física
       this.physicsManager.updateDebugger();
 
       // Atualiza os contadores de velocidade, posição e rotação
-      this.speedCounter.textContent = `Speed: ${speed.toFixed(2)}`;
-      this.positionCounter.textContent = `Position:  X: ${position.x.toFixed(
+      this.speedCounter.textContent = speed.toFixed(2);
+      this.positionCounter.textContent = `X: ${position.x.toFixed(
          2
       )} Y: ${position.y.toFixed(2)} Z: ${position.z.toFixed(2)}`;
-      this.rotationCounter.textContent = `Rotation:  X: ${rotation.x.toFixed(
+      this.rotationCounter.textContent = `X: ${rotation.x.toFixed(
          2
       )} Y: ${rotation.y.toFixed(2)} Z: ${rotation.z.toFixed(2)}`;
-      this.wheelAngleCounter.textContent = `Wheel Angle: ${wheelAngle.toFixed(2)}°`;  
+      this.wheelAngleCounter.textContent = wheelAngle.toFixed(2) + "°";  
    }
 }
 

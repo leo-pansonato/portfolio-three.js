@@ -11,19 +11,24 @@
       <div class="overlay">
          <!-- OVERLAY DEV -->
          <div class="header" id="dev-overlay">
-            <div id="fps-container"></div>
             <div id="content">
-               <div id="data">
-                  <span id="speed"></span>
-                  <span id="position"></span>
-                  <span id="rotation"></span>
-                  <span id="wheel-angle"></span>
+               <div class="content-column">
+                  <p>PLAYER</p>
+                  <div class="info"><span>speed</span><span id="speed"></span></div>
+                  <div class="info"><span>position</span><span id="position"></span></div>
+                  <div class="info"><span>rotation</span><span id="rotation"></span></div>
+                  <div class="info"><span>wheel-angle</span><span id="wheel-angle"></span></div>
                </div>
-               <div id="hint">
+               <div class="content-column">
+                  <button>BMW M4</button>
+                  <button>MERCEDES G63</button>
+               </div>
+               <div class="content-column">
                   <span>Dev Mode</span>
                   <span>Press F2 to hide</span>
                </div>
             </div>
+            <div id="fps-container"></div>
          </div>
 
          <!-- OVERLAY CONTROLES -->

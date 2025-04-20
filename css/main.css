@@ -1,4 +1,8 @@
-@import url("https://fonts.googleapis.com/css?family=Roboto:300,500,700");
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;900&display=swap');
+
+* {
+	font-family: "Poppins", sans-serif;
+}
 
 html,
 body {
@@ -7,49 +11,48 @@ body {
    overflow: hidden;
    background: #393533;
    color: #fff;
-   font-family: "Roboto", sans-serif;
    font-weight: 300;
-}
-
-#pageMain {
-   position: absolute;
-   top: 0;
-   bottom: 0;
-   left: 0;
-   right: 0;
-   overflow: hidden;
 }
 
 /* OVERLAYS */
 .header {
 	position: absolute;
-	color: #000;
 	top: 0;
 	left: 0;
-	right: 0;
-	background: rgba(8, 8, 8, 0.055);
-	padding: 10px;
-	font-size: 12px;
-	display: none;
-	justify-content: space-between;	
 }
 
 .header #content {
 	display: flex;
-	align-items: center;
-	gap: 30px;
+	flex-direction: column;
+	gap: 20px;
+	padding: 10px;
+	min-width: 300px;
+	font-size: 12px;
+	justify-content: space-between;
+	background: #374a57c0;
+	backdrop-filter: blur(5px);
+	border-bottom-right-radius: 20px;
 }
 
-.header #content #data {
+#content .content-column {
+	margin-left: 20px;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
+	gap: 5px;
+	p {
+		margin: 0 0 0 -20px;
+		padding: 0;
+		font-weight: 500;
+	}
 }
 
-.header #content #hint {
+.content-column .info {
 	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
+	flex-direction: row;
+	width: 100%;
+	justify-content: space-between;
+	align-items: center;
 }
 
 .ctrl {
