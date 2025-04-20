@@ -24,7 +24,7 @@ class Game {
 
       // Instanciando a cena
       this.scene = new THREE.Scene();
-      
+
       // Instanciando o gerenciador de física
       this.physicsManager = new PhysicsManager(this.scene);
 
@@ -41,7 +41,7 @@ class Game {
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      this.renderer.setClearColor(0xFFFFff, 1);
+      this.renderer.setClearColor(0xffffff, 1);
 
       const renderMultiplier = window.devicePixelRatio;
       this.renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -94,17 +94,13 @@ class Game {
          // Atualizar física
          this.physicsManager.update(deltaTime);
 
+         // Atualizar UI
+         this.ui.updatePlayerInfo(deltaTime, this.player);
+         
+         this.environment.update(deltaTime, this.player.getPosition());
+
          // Renderizar cena
          this.render();
-
-         // Atualizar UI
-         this.ui.updatePlayerInfo(
-            this.player.getPosition(),
-            this.player.getRotation(),
-            this.player.getCurrentSpeed() * 60, // unidades por segundo
-            this.player.getWheelAngle(),
-            this.physicsManager
-         );
       }
 
       // Continua o loop
