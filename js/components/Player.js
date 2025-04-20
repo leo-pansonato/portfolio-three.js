@@ -2,6 +2,7 @@ import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import Entity from "./Entity";
 import ModelLoader from "../loaders/ModelLoader";
+import VehicleManager from "../managers/VehicleManager";
 
 /**
  * Player jogável usando RaycastVehicle do Cannon.js
@@ -12,44 +13,106 @@ class Player extends Entity {
       this.inputManager = inputManager;
       this.physicsManager = physicsManager;
       this.modelLoader = new ModelLoader();
+      this.vehicleManager = new VehicleManager(scene, physicsManager);
+      
+      // ID do veículo atual
+      this.currentVehicleId = "bmw_f82"; // bmw_f82 / mercedes_g63
+      this.vehicleData = {};
 
-      // Configurações do veículo
-      this.maxSpeed = 20; // Velocidade máxima do veículo
-      this.maxForce = 400; // Força máxima do motor
-      this.maxBoostForce = 1.5; // Força máxima do boost
-      this.boostForce = 1; // Força do boost
-      this.brakeForce = 5; // Força de frenagem
-      this.eBrakeForce = 10; // Força do freio de estacionamento
-      this.maxSteerVal = 0.5; // Ângulo máximo de esterçamento
-      this.steerSpeed = 2.0; // Velocidade de esterçamento (quanto maior, mais rápido)
-      this.steerReturn = 2.0; // Velocidade de retorno do volante (quanto maior, mais rápido)
-      this.tractionDisplacement = "all"; // Tração traseira, dianteira ou integral (front|rear|all)
+      // Inicializar a configuração do veículo
+      this.initVehicleConfigs();
 
-      // Estado atual do veículo
-      this.currentSteering = 0;
-      this.currentSpeed = 0;
+      // Inicializar o veículo físico
+      this.initPhysics();
 
-      // Inicializa o veículo
-      this.initialize();
+      // Inicializar o veículo visual
+      this.initVisuals();
+
+      // Adicionar veiculo à cena
       this.addToScene();
 
-      // Carregar o modelo 3D
-      this.loadCarModel();
+      // Carregar o modelo do veículo
+      this.loadVehicle(this.currentVehicleId);
+
+      // Inicializar a visualização dos raycasts de suspensão
+      this.initSuspensionRaycastVisualizer();
    }
 
-   initialize() {
-      // Criar o chassi do veículo
-      const chassisSize = { x: 4.2, y: 1, z: 1.7 };
+   initVehicleConfigs() {
+      this.vehicleData = this.vehicleManager.vehicleCatalog[this.currentVehicleId];
+   }
 
+   /**
+    * Inicializar o veículo físico
+    */
+   initPhysics() {
+      // Criar o chassi do veículo
+      const physicsData = this.vehicleData.physics;
+      const chassisSize = physicsData.size;
+
+      // Criar o corpo físico
       const chassisShape = new CANNON.Box(
          new CANNON.Vec3(chassisSize.x / 2, chassisSize.y / 2, chassisSize.z / 2)
-      ); // Metade por causa da fisica do cannon
-      this.chassisBody = new CANNON.Body({ mass: 150 });
+      );
+      this.chassisBody = new CANNON.Body({ mass: physicsData.mass });
       this.chassisBody.addShape(chassisShape);
-      this.chassisBody.position.set(0, 1, 0);
+      this.chassisBody.position.set(0, 1, 10);
       this.chassisBody.angularVelocity.set(0, 0, 0);
 
-      // Configuração visual do chassi
+      // Configurar e criar o veículo
+      this.setupVehicle(this.vehicleData);
+   }
+
+   /**
+    * Configurar o veículo físico com as rodas
+    * @param {Object} vehicleData Dados físicos do veículo
+    */
+   setupVehicle(vehicleData) {
+      const physicsData = vehicleData.physics;
+      // Criar o veículo raycast
+      this.vehicle = new CANNON.RaycastVehicle({
+         chassisBody: this.chassisBody,
+      });
+
+      // Opções das rodas
+      const options = {
+         radius: physicsData.wheelRadius,
+         directionLocal: new CANNON.Vec3(0, -1, 0),
+         chassisConnectionPointLocal: new CANNON.Vec3(1, 0, 1),
+         axleLocal: new CANNON.Vec3(0, 0, 1),
+         suspensionStiffness: physicsData.suspensionStiffness,
+         suspensionRestLength: physicsData.suspensionRestLength,
+         maxSuspensionTravel: physicsData.maxSuspensionTravel,
+         dampingCompression: physicsData.dampingCompression,
+         dampingRelaxation: physicsData.dampingRelaxation,
+         rollInfluence: physicsData.rollInfluence,
+         maxSuspensionForce: 100000,
+         frictionSlip: physicsData.frictionSlip,
+         customSlidingRotationalSpeed: 20,
+         useCustomSlidingRotationalSpeed: true,
+      };
+
+      // Adicionar as rodas
+      for (let i = 0; i < vehicleData.wheels.adjustments.length; i++) {
+         options.chassisConnectionPointLocal.set(
+            vehicleData.wheels.adjustments[i].position.x,
+            vehicleData.wheels.adjustments[i].position.y,
+            vehicleData.wheels.adjustments[i].position.z
+         );
+         this.vehicle.addWheel(options);
+      }
+
+      // Adicionar o veículo ao mundo físico
+      this.vehicle.addToWorld(this.physicsManager.world);
+   }
+
+   /**
+    * Inicializar os elementos visuais do veículo
+    */
+   initVisuals() {
+      // Criar mesh básica de placeholder
+      const chassisSize =
+         this.vehicleManager.vehicleCatalog[this.currentVehicleId].physics.size;
       const chassisGeometry = new THREE.BoxGeometry(
          chassisSize.x,
          chassisSize.y,
@@ -59,86 +122,24 @@ class Player extends Entity {
       this.mesh = new THREE.Mesh(chassisGeometry, chassisMaterial);
       this.mesh.castShadow = true;
 
-      // Criar o marcador frontal
-      const frontMarker = new THREE.Mesh(
-         new THREE.BoxGeometry(0.1, 0.5, 1.3),
-         new THREE.MeshStandardMaterial({ color: 0x3e7efa })
-      );
-      frontMarker.position.x = -1.5; // Frente do carro
-      frontMarker.position.y = 0.15; // Altura do carro
-      this.mesh.add(frontMarker);
-
-      // Opções das rodas
-      const options = {
-         radius: 0.35,
-         directionLocal: new CANNON.Vec3(0, -1, 0), // Direção da suspensão
-         suspensionStiffness: 50, // Rigidez da suspensão
-         suspensionRestLength: 0.6, // Comprimento de descanso da suspensão
-         frictionSlip: 2, // Quanto a roda pode derrapar
-         dampingRelaxation: 2.3, // Amortecimento de relaxamento
-         dampingCompression: 4.5, // Amortecimento de compressão
-         maxSuspensionForce: 100000, // Força máxima da suspensão
-         rollInfluence: 0.2, // Influência na rolagem do veículo
-         axleLocal: new CANNON.Vec3(0, 0, 1), // Eixo local da roda
-         chassisConnectionPointLocal: new CANNON.Vec3(1, 0, 1), // Ponto de conexão com o chassi
-         maxSuspensionTravel: 0.9, // Curso máximo da suspensão
-         customSlidingRotationalSpeed: -30, // Velocidade de rotação personalizada
-         useCustomSlidingRotationalSpeed: true, // Usar velocidade personalizada
-      };
-
-      // Criar o veículo raycast
-      this.vehicle = new CANNON.RaycastVehicle({
-         chassisBody: this.chassisBody,
-      });
-
-      // Adiciona as rodas
-      // 0 - frontal esquerda
-      options.chassisConnectionPointLocal.set(-1.36, 0, 0.7);
-      this.vehicle.addWheel(options);
-
-      // 1 - frontal direita
-      options.chassisConnectionPointLocal.set(-1.36, 0, -0.7);
-      this.vehicle.addWheel(options);
-
-      // 2- traseira esquerda
-      options.chassisConnectionPointLocal.set(1.22, 0, 0.7);
-      this.vehicle.addWheel(options);
-
-      // 3- traseira direita
-      options.chassisConnectionPointLocal.set(1.22, 0, -0.7);
-      this.vehicle.addWheel(options);
-
-      // Adicionar o veículo ao mundo físico
-      this.vehicle.addToWorld(this.physicsManager.world);
-
-      // Criar as mesh para as rodas
+      // Criar mesh básica para as rodas
       this.wheelMeshes = [];
+      const wheelRadius =
+         this.vehicleManager.vehicleCatalog[this.currentVehicleId].physics.wheelRadius;
       const wheelGeometry = new THREE.CylinderGeometry(
-         options.radius,
-         options.radius,
-         0.28,
+         wheelRadius,
+         wheelRadius,
+         0.15,
          32
       );
+      wheelGeometry.rotateX(Math.PI / 2);
       const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
 
-      // Girar para orientação correta
-      wheelGeometry.rotateX(Math.PI / 2);
-
-      // Criar as quatro rodas
       for (let i = 0; i < 4; i++) {
          const wheelMesh = new THREE.Mesh(wheelGeometry, wheelMaterial);
          wheelMesh.castShadow = true;
          this.scene.add(wheelMesh);
          this.wheelMeshes.push(wheelMesh);
-      }
-
-      const wheelSizeAdjustment = 1.1;
-      for (let i = 0; i < this.wheelMeshes.length; i++) {
-         this.wheelMeshes[i].scale.set(
-            wheelSizeAdjustment,
-            wheelSizeAdjustment,
-            wheelSizeAdjustment
-         );
       }
 
       // Guardar referência à mesh original
@@ -148,209 +149,450 @@ class Player extends Entity {
       this.physicsManager.addBody(this.chassisBody, this.mesh);
    }
 
-   async loadCarModel() {
+   /**
+    * Carregar um veículo específico
+    * @param {String} vehicleId ID do veículo no catálogo
+    */
+   async loadVehicle(vehicleId) {
       try {
-         // Carregar o modelo
-         const carModel = await this.modelLoader.loadModel(
-            "/assets/models/car/car.gltf",
-            { x: 0.9, y: 0.9, z: 0.9 }
+         console.log(`Carregando veículo: ${vehicleId}`);
+
+         // Carregar os novos modelos
+         const vehicleModels = await this.vehicleManager.loadVehicle(
+            vehicleId,
+            this.vehicle
          );
 
-         // Remover a mesh atual da cena
+         // Remover o modelo atual da cena
          this.scene.remove(this.mesh);
 
-         // Substituir pela mesh do modelo carregado
-         this.mesh = carModel;
-
-         this.mesh.castShadow = true;
-         this.mesh.receiveShadow = true;
-
-         this.mesh.position.copy(this.chassisBody.position);
-
-         this.fixAlignment({ x: 0, y: -0.6, z: 0 }, { x: 0, y: -Math.PI / 2, z: 0 });
-
-         this.scene.add(this.mesh);
-
-         // Configurar sombras e materiais
-         this.mesh.traverse((child) => {
-            if (child.isMesh) {
-               child.castShadow = true;
-               child.receiveShadow = true;
-               child.material.roughness = 0; // Ajustar a rugosidade do material
-               child.material.clearcoatRoughness = 0; // Ajustar a rugosidade do revestimento
-               child.material.clearcoat = 1; // Ajustar o revestimento
+         // Remover as rodas atuais da cena
+         this.wheelMeshes.forEach((wheel) => {
+            if (wheel.parent) {
+               this.scene.remove(wheel);
             }
-         });
+         }); 
 
-         // Atualizar posição das rodas para se alinharem ao novo modelo
-         for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
-            this.vehicle.updateWheelTransform(i);
-            const transform = this.vehicle.wheelInfos[i].worldTransform;
-
-            this.wheelMeshes[i].position.copy(transform.position);
-            this.wheelMeshes[i].quaternion.copy(transform.quaternion);
+         // Atualizar a referência ao modelo do chassi
+         if (vehicleModels.body) {
+            this.mesh = vehicleModels.body;
+            this.scene.add(this.mesh);
          }
+
+         // Atualizar as referências às rodas
+         if (vehicleModels.wheels) {
+            this.wheelMeshes = vehicleModels.wheels;
+         }
+
+         // Atualizar o ID atual
+         this.currentVehicleId = vehicleId;
       } catch (error) {
-         console.error("Erro ao carregar o modelo do carro:", error);
+         console.error(`Erro ao carregar veículo ${vehicleId}:`, error);
       }
    }
 
-   async loadWheelModel () {
-
-   }
-
+   /**
+    * Atualizar a física e a visualização do veículo
+    * @param {Number} deltaTime Delta de tempo desde o último frame
+    */
    update(deltaTime) {
+      // Limitar o delta time para evitar problemas com FPS baixo
       const timeStep = Math.min(deltaTime, 1 / 30);
 
-      // ===== CONTROLE DE DIREÇÃO =====
+      // Atualizar a direção (volante)
+      this.updateSteering(timeStep);
+
+      // Atualizar aceleração e frenagem
+      this.updateDriving(timeStep);
+
+      // Atualizar o modelo visual do chassi
+      this.updateChassisMesh();
+
+      // Atualizar os modelos visuais das rodas
+      this.updateWheelMeshes();
+
+      // Atualizar a visualização dos raycasts de suspensão
+      this.updateSuspensionRaycastVisualizer();
+   }
+
+   /**
+    * Atualizar a direção do veículo (volante)
+    * @param {Number} timeStep Delta de tempo limitado
+    */
+   updateSteering(timeStep) {
+      // Determinar o valor alvo para a direção
       let targetSteering = 0;
       if (this.inputManager.isKeyPressed("arrowleft")) {
-         targetSteering = this.maxSteerVal;
+         targetSteering = this.vehicleData.configs.maxSteerVal;
       } else if (this.inputManager.isKeyPressed("arrowright")) {
-         targetSteering = -this.maxSteerVal;
+         targetSteering = -this.vehicleData.configs.maxSteerVal;
       }
 
-      // Ajustar gradualmente em direção ao alvo
-      const speedFactor = Math.min(Math.abs(this.currentSpeed) / 100, 1);
-      const effectiveSteerSpeed = this.steerSpeed * (1 - speedFactor * 0.5);
-      const effectiveReturnSpeed = this.steerReturn * (1 + speedFactor * 0.5);
+      // Ajustar a resposta da direção com base na velocidade
+      const speedFactor = Math.min(Math.abs(this.vehicleData.configs.currentSpeed) / 100, 1);
+      const effectiveSteerSpeed = this.vehicleData.configs.steerSpeed * (1 - speedFactor * 0.5);
+      const effectiveReturnSpeed =
+         this.vehicleData.configs.steerReturn * (1 + speedFactor * 0.5);
 
+      // Movimento gradual do volante
       if (targetSteering !== 0) {
          // Movimento em direção ao valor alvo
-         if (this.currentSteering < targetSteering) {
-            this.currentSteering += effectiveSteerSpeed * timeStep;
-            if (this.currentSteering > targetSteering)
-               this.currentSteering = targetSteering;
-         } else if (this.currentSteering > targetSteering) {
-            this.currentSteering -= effectiveSteerSpeed * timeStep;
-            if (this.currentSteering < targetSteering)
-               this.currentSteering = targetSteering;
+         if (this.vehicleData.configs.currentSteering < targetSteering) {
+            this.vehicleData.configs.currentSteering += effectiveSteerSpeed * timeStep;
+            if (this.vehicleData.configs.currentSteering > targetSteering) {
+               this.vehicleData.configs.currentSteering = targetSteering;
+            }
+         } else if (this.vehicleData.configs.currentSteering > targetSteering) {
+            this.vehicleData.configs.currentSteering -= effectiveSteerSpeed * timeStep;
+            if (this.vehicleData.configs.currentSteering < targetSteering) {
+               this.vehicleData.configs.currentSteering = targetSteering;
+            }
          }
       } else {
-         // Retorno automático para zero
-         if (Math.abs(this.currentSteering) < effectiveReturnSpeed * timeStep) {
-            this.currentSteering = 0;
-         } else if (this.currentSteering > 0) {
-            this.currentSteering -= effectiveReturnSpeed * timeStep;
-         } else if (this.currentSteering < 0) {
-            this.currentSteering += effectiveReturnSpeed * timeStep;
+         // Retorno automático para centro
+         if (
+            Math.abs(this.vehicleData.configs.currentSteering) <
+            effectiveReturnSpeed * timeStep
+         ) {
+            this.vehicleData.configs.currentSteering = 0;
+         } else if (this.vehicleData.configs.currentSteering > 0) {
+            this.vehicleData.configs.currentSteering -= effectiveReturnSpeed * timeStep;
+         } else if (this.vehicleData.configs.currentSteering < 0) {
+            this.vehicleData.configs.currentSteering += effectiveReturnSpeed * timeStep;
          }
       }
 
-      // Aplicar às rodas 0 e 1 (frente esquerda e direita)
-      this.vehicle.setSteeringValue(this.currentSteering, 0);
-      this.vehicle.setSteeringValue(this.currentSteering, 1);
+      // Aplicar a direção às rodas dianteiras
+      this.vehicle.setSteeringValue(this.vehicleData.configs.currentSteering, 0);
+      this.vehicle.setSteeringValue(this.vehicleData.configs.currentSteering, 1);
+   }
 
-      // ==== CONTROLE DE ACELERAÇÃO/FRENAGEM ====
+   /**
+    * Atualizar aceleração, frenagem e tração do veículo
+    * @param {Number} timeStep Delta de tempo
+    */
+   updateDriving(timeStep) {
+      // Calcular a velocidade atual
       const velocity = this.vehicle.chassisBody.velocity;
       const chassisForward = new CANNON.Vec3();
       this.chassisBody.vectorToWorldFrame(new CANNON.Vec3(-1, 0, 0), chassisForward);
-      this.currentSpeed = velocity.dot(chassisForward); // Atualiza a velocidade atual com a velocidade forward
-      const isAlmostStopped = this.currentSpeed < 2.0;
+      this.vehicleData.configs.currentSpeed = velocity.dot(chassisForward);
 
+      // Flag para marchas
+      const isAlmostStopped = this.vehicleData.configs.currentSpeed > -2.0;
+
+      // Inicializar forças
       let engineForce = 0;
       let brakeForce = 0;
       let handbrakeForce = 0;
 
-      // Determinar aceleração e frenagem com inputs independentes
+      // Verificar inputs
       const accelerating = this.inputManager.isKeyPressed("arrowup");
       const braking = this.inputManager.isKeyPressed("arrowdown");
-      const handbraking =
-         this.inputManager.isKeyPressed("b") || this.inputManager.isKeyPressed(" ");
+      const handbraking = this.inputManager.isKeyPressed(" ");
       const boosting = this.inputManager.isKeyPressed("shift");
 
-      this.boostForce *= 0.8; // Reduz a força do boost ao longo do tempo
-
-      if (boosting && this.boostForce < 1) {
-         this.boostForce = 4;
-      } else {
-         this.boostForce = 1;
+      // Gerenciar boost
+      this.vehicleData.configs.boostForce *= 0.8; // Diminui com o tempo
+      if (boosting && this.vehicleData.configs.boostForce < 1) {
+         this.vehicleData.configs.boostForce = 4; // Aplicar força máxima
+      } else if (this.vehicleData.configs.boostForce < 1) {
+         this.vehicleData.configs.boostForce = 1; // Retornar ao normal
       }
 
-      // Aplicação de aceleração
+      // Determinar força do motor
       if (accelerating) {
-         engineForce = -this.maxForce;
+         engineForce = this.vehicleData.configs.maxForce;
       }
 
-      // Aplicação de frenagem normal
+      // Gerenciar frenagem e marcha-ré
       if (braking) {
          if (isAlmostStopped && !accelerating) {
-            // Aceleração reversa apenas se não estiver acelerando para frente também
-            engineForce = this.maxForce;
+            // Marcha-ré
+            engineForce = -this.vehicleData.configs.maxForce;
          } else {
-            brakeForce = this.brakeForce;
+            // Frenagem normal
+            brakeForce = this.vehicleData.configs.brakeForce;
          }
       }
 
-      // Aplicação de freio de mão independente
+      // Freio de mão
       if (handbraking) {
-         handbrakeForce = this.eBrakeForce;
+         handbrakeForce = this.vehicleData.configs.eBrakeForce;
       }
 
-      engineForce *= this.boostForce;
+      // Aplicar boost
+      engineForce *= this.vehicleData.configs.boostForce;
 
-      // Aplicar força do motor nas rodas
-      if (this.tractionDisplacement == "rear") {
-         this.vehicle.applyEngineForce(engineForce, 2); // Traseira esquerda
-         this.vehicle.applyEngineForce(engineForce, 3); // Traseira direita
-      } else if (this.tractionDisplacement == "front") {
-         this.vehicle.applyEngineForce(engineForce, 0); // Frontal esquerda
-         this.vehicle.applyEngineForce(engineForce, 1); // Frontal direita
-      } else {
-         this.vehicle.applyEngineForce(engineForce, 0); // Frontal esquerda
-         this.vehicle.applyEngineForce(engineForce, 1); // Frontal direita
-         this.vehicle.applyEngineForce(engineForce, 2); // Traseira esquerda
-         this.vehicle.applyEngineForce(engineForce, 3); // Traseira direita
+      // Aplicar força do motor conforme configuração de tração
+      this.applyEngineForce(engineForce);
+
+      // Aplicar frenagem
+      this.applyBraking(brakeForce, handbrakeForce);
+   }
+
+   /**
+    * Aplicar a força do motor com base no tipo de tração
+    * @param {Number} force Força a ser aplicada
+    */
+   applyEngineForce(force) {
+      switch (this.vehicleData.configs.tractionDisplacement) {
+         case "rear":
+            // Tração traseira
+            this.vehicle.applyEngineForce(force, 2); // Traseira esquerda
+            this.vehicle.applyEngineForce(force, 3); // Traseira direita
+            break;
+         case "front":
+            // Tração dianteira
+            this.vehicle.applyEngineForce(force, 0); // Frontal esquerda
+            this.vehicle.applyEngineForce(force, 1); // Frontal direita
+            break;
+         case "all":
+         default:
+            // Tração integral
+            this.vehicle.applyEngineForce(force, 0); // Frontal esquerda
+            this.vehicle.applyEngineForce(force, 1); // Frontal direita
+            this.vehicle.applyEngineForce(force, 2); // Traseira esquerda
+            this.vehicle.applyEngineForce(force, 3); // Traseira direita
+            break;
       }
+   }
 
-      // Aplicar freios nas rodas dianteiras
-      this.vehicle.setBrake(brakeForce, 0); // Frontal esquerda
-      this.vehicle.setBrake(brakeForce, 1); // Frontal direita
+   /**
+    * Aplicar frenagem ao veículo
+    * @param {Number} normalBrake Força de frenagem normal
+    * @param {Number} handBrake Força do freio de mão
+    */
+   applyBraking(normalBrake, handBrake) {
+      // Frear rodas dianteiras (com freio normal)
+      this.vehicle.setBrake(normalBrake, 0); // Frontal esquerda
+      this.vehicle.setBrake(normalBrake, 1); // Frontal direita
 
-      // Aplica freio de mão ou freio nas rodas traseiras
-      this.vehicle.setBrake(handbrakeForce != 0 ? handbrakeForce : brakeForce, 2); // Traseira esquerda
-      this.vehicle.setBrake(handbrakeForce != 0 ? handbrakeForce : brakeForce, 3); // Traseira direita
+      // Frear rodas traseiras (com handbrake se ativado)
+      const rearBrakeForce = handBrake > 0 ? handBrake : normalBrake;
+      this.vehicle.setBrake(rearBrakeForce, 2); // Traseira esquerda
+      this.vehicle.setBrake(rearBrakeForce, 3); // Traseira direita
+   }
 
-      // Atualizar a posição e rotação do modelo 3D do carro
-      if (this.mesh && this.originalMesh !== this.mesh) {
-         this.fixAlignment({ x: 0, y: -0.6, z: 0 }, { x: 0, y: -Math.PI / 2, z: 0 });
+   /**
+    * Atualizar o modelo visual do chassi
+    */
+   updateChassisMesh() {
+      if (this.mesh && this.mesh !== this.originalMesh) {
+         // Obter a configuração de alinhamento do veículo atual
+         const vehicleConfig = this.vehicleManager.vehicleCatalog[this.currentVehicleId];
+         const chassisTransform = this.chassisBody;
+         const chassisAdjustment = vehicleConfig?.body || null;
+
+         // Aplicar a transformação e ajustes à mesh do chassi
+         this.fixCarAlignment(this.mesh, chassisTransform, chassisAdjustment);
       }
+   }
 
-      // Atualizar a posição e rotação das rodas
+   /**
+    * Atualizar os modelos visuais das rodas
+    */
+   updateWheelMeshes() {
       for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
+         // Atualizar transformação física da roda
          this.vehicle.updateWheelTransform(i);
-         const transform = this.vehicle.wheelInfos[i].worldTransform;
+         const wheelTransform = this.vehicle.wheelInfos[i].worldTransform;
 
-         this.wheelMeshes[i].position.copy(transform.position);
-         this.wheelMeshes[i].quaternion.copy(transform.quaternion);
+         // Obter ajustes específicos para esta roda
+         const vehicleConfig = this.vehicleManager.vehicleCatalog[this.currentVehicleId];
+         const wheelAdjustment = vehicleConfig?.wheels?.adjustments?.[i] || null;
+
+         // Aplicar a transformação e ajustes à mesh da roda
+         this.fixWheelAlignment(i, this.wheelMeshes[i], wheelTransform, wheelAdjustment);
       }
    }
 
-   fixAlignment(
-      offset = { x: 0, y: 0, z: 0 },
-      rotation = { x: 0, y: -Math.PI / 2, z: 0 }
-   ) {
-      // Copy the physics body position to the mesh
-      this.mesh.position.copy(this.chassisBody.position);
+   /**
+    * Fixa o alinhamento do chassi
+    * @param {THREE.Object3D} carMesh Mesh do veículo
+    * @param {Object} chassisTransform Chassi físico
+    * @param {Object} adjustments Ajustes específicos para este chassi
+    */
+   fixCarAlignment(carMesh, chassisTransform, adjustments) {
+      // Copiar a posição e rotação do corpo físico
+      carMesh.position.copy(chassisTransform.position);
+      carMesh.quaternion.copy(chassisTransform.quaternion);
 
-      // Apply the position offset in local space
-      const localOffset = new THREE.Vector3(offset.x, offset.y, offset.z);
-      localOffset.applyQuaternion(this.chassisBody.quaternion);
-      this.mesh.position.add(localOffset);
+      if (adjustments) {
+         // Ajuste de posição
+         if (adjustments.position) {
+            const localOffset = new THREE.Vector3(
+               adjustments.position.x,
+               adjustments.position.y,
+               adjustments.position.z
+            );
+            localOffset.applyQuaternion(chassisTransform.quaternion);
+            carMesh.position.add(localOffset);
+         }
 
-      // Apply the rotation
-      this.mesh.quaternion.copy(this.chassisBody.quaternion);
-      this.mesh.rotateX(rotation.x);
-      this.mesh.rotateY(rotation.y);
-      this.mesh.rotateZ(rotation.z);
+         // Ajuste de rotação
+         if (adjustments.rotation) {
+            carMesh.rotateX(adjustments.rotation.x);
+            carMesh.rotateY(adjustments.rotation.y);
+            carMesh.rotateZ(adjustments.rotation.z);
+         }
+      }
    }
 
+   /**
+    * Corrige o alinhamento de uma roda específica
+    * @param {Number} wheelIndex Índice da roda (0-3)
+    * @param {THREE.Object3D} wheelMesh Mesh da roda
+    * @param {Object} wheelTransform Transform da roda física
+    * @param {Object} adjustments Ajustes específicos para esta roda
+    */
+   fixWheelAlignment(wheelIndex, wheelMesh, wheelTransform, adjustments) {
+      // Resetar rotações da roda para aplicar na ordem correta
+      // wheelMesh.rotation.set(0, 0, 0);
+      
+      // Copiar a posição do corpo físico
+      wheelMesh.position.copy(wheelTransform.position);
+      
+      // Copiar a rotação do corpo físico
+      wheelMesh.quaternion.copy(wheelTransform.quaternion);
+      
+      // Espelhar as rodas do lado direito (impares)
+      if (wheelIndex % 2 === 1) {
+         // wheelMesh.rotateY(Math.PI);
+      }
+      
+      if (adjustments) {
+         // Ajuste de rotação adicional
+         if (adjustments.rotation) {
+            wheelMesh.rotateX(adjustments.rotation.x);
+            wheelMesh.rotateY(adjustments.rotation.y);
+            wheelMesh.rotateZ(adjustments.rotation.z);
+         }
+      }
+   }
+
+   /**
+    * Inicializa a visualização dos raycasts de suspensão
+    */
+   initSuspensionRaycastVisualizer() {
+      // Criar linhas para representar os raycasts
+      this.suspensionRays = [];
+      const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+      
+      for (let i = 0; i < 4; i++) {
+         // Criar geometria de linha (será atualizada a cada frame)
+         const geometry = new THREE.BufferGeometry();
+         const positions = new Float32Array(2 * 3); // 2 pontos, 3 coordenadas por ponto
+         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+         
+         // Criar a linha e adicionar à cena
+         const line = new THREE.Line(geometry, material);
+         this.scene.add(line);
+         this.suspensionRays.push(line);
+      }
+      
+      // Flag para controlar a visualização
+      this.showSuspensionRays = true;
+   }
+
+   /**
+    * Atualiza a visualização dos raycasts de suspensão
+    */
+   updateSuspensionRaycastVisualizer() {
+      // Se a visualização estiver desativada, sair da função
+      if (!this.showSuspensionRays) return;
+      
+      // Atualizar cada linha de raycast
+      for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
+         const wheelInfo = this.vehicle.wheelInfos[i];
+         const ray = this.suspensionRays[i];
+         
+         // Obter o ponto de conexão da roda no espaço mundial
+         const connectionPoint = new CANNON.Vec3();
+         this.vehicle.chassisBody.pointToWorldFrame(
+            wheelInfo.chassisConnectionPointLocal, 
+            connectionPoint
+         );
+         
+         // Calcular a direção do raycast no espaço mundial
+         const direction = new CANNON.Vec3();
+         this.vehicle.chassisBody.vectorToWorldFrame(
+            wheelInfo.directionLocal, 
+            direction
+         );
+         
+         // Normalizar e escalar a direção pelo comprimento máximo da suspensão
+         direction.normalize();
+         const maxLength = wheelInfo.suspensionRestLength + wheelInfo.maxSuspensionTravel;
+         direction.scale(maxLength, direction);
+         
+         // Calcular o ponto final do raycast
+         const endPoint = new CANNON.Vec3();
+         endPoint.copy(connectionPoint);
+         endPoint.vadd(direction, endPoint);
+         
+         // Atualizar a geometria da linha
+         const positions = ray.geometry.attributes.position.array;
+         
+         // Ponto inicial (conexão com o chassi)
+         positions[0] = connectionPoint.x;
+         positions[1] = connectionPoint.y;
+         positions[2] = connectionPoint.z;
+         
+         // Ponto final (comprimento total do raycast)
+         positions[3] = endPoint.x;
+         positions[4] = endPoint.y;
+         positions[5] = endPoint.z;
+         
+         // Marcar a geometria para atualização
+         ray.geometry.attributes.position.needsUpdate = true;
+      }
+   }
+
+   /**
+    * Alterar o veículo atual
+    * @param {String} vehicleId ID do novo veículo
+    */
+   changeVehicle(vehicleId) {
+      if (this.vehicleManager.vehicleCatalog[vehicleId]) {
+         // Remover o veículo atual da cena
+         this.scene.remove(this.mesh);
+         this.wheelMeshes.forEach((wheel) => {
+            if (wheel.parent) {
+               this.scene.remove(wheel);
+            }
+         });
+
+         this.currentVehicleId = vehicleId;
+         
+
+         return this.loadVehicle(vehicleId);
+      } else {
+         console.error(`Veículo ${vehicleId} não encontrado no catálogo`);
+         return false;
+      }
+   }
+
+   /**
+    * Obter a velocidade atual do veículo
+    * @returns {Number} Velocidade atual
+    */
    getCurrentSpeed() {
-      return this.currentSpeed;
+      return this.vehicleData.configs.currentSpeed * 3.6 * -1; 
    }
 
+   /**
+    * Obter o ângulo atual do volante
+    * @returns {Number} Ângulo em graus
+    */
    getWheelAngle() {
       return this.vehicle.wheelInfos[0].steering * (180 / Math.PI);
+   }
+
+   getMovimentDirection() {
+      const direction = new CANNON.Vec3(0, 0, 0);
+      this.chassisBody.vectorToWorldFrame(new CANNON.Vec3(-1, 0, 0), direction);
+      return direction;
    }
 }
 
