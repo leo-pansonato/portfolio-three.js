@@ -24,14 +24,19 @@ class CameraController extends GameComponent {
          this.lastTargetPosition.copy(this.target.getPosition());
       }
 
-      // offset para seguir o jogador
-      this.cameraOffset = new THREE.Vector3(0, 1, 10);
-
       // Forçar seguir o jogador
       this.alwaysFollowTarget = true;
 
+      this.fixedCamera = true;
+
+      this.selectedCamera = {
+         NEAR: { distance: 2, fov: 45 },
+         FAR: { distance: 5, fov: 60 },
+         FIRS_PERSON: { distance: 0, fov: 75 }
+      }
+
       // Posição inicial
-      // this.resetCameraPosition();
+      this.applyCameraPosition();
    }
 
    setupControls() {
@@ -41,19 +46,19 @@ class CameraController extends GameComponent {
       }
 
       // Definir limites de distância (zoom)
-      this.orbitControls.minDistance = 3;
-      this.orbitControls.maxDistance = 30;
+      this.orbitControls.minDistance = 1;
+      this.orbitControls.maxDistance = 15;
 
       // Definir limites de rotação vertical
       this.orbitControls.minPolarAngle = 0.1;
-      this.orbitControls.maxPolarAngle = Math.PI / 2 - 0.1;
+      this.orbitControls.maxPolarAngle = Math.PI / 2 - 0;
 
       // Suavização (inércia)
       this.orbitControls.enableDamping = true;
       this.orbitControls.dampingFactor = 0.05;
 
       // Velocidade de rotação
-      this.orbitControls.rotateSpeed = 0.8;
+      this.orbitControls.rotateSpeed = 0.6;
 
       // Velocidade de zoom
       this.orbitControls.zoomSpeed = 0.8;
@@ -63,39 +68,74 @@ class CameraController extends GameComponent {
    }
 
    update(deltaTime) {
-      if (!this.target || !this.target.getPosition) return;
-
-      // Verifique se o alvo moveu-se e atualize o centro da órbita
+      const timeStep = Math.min(deltaTime, 1 / 30);
+      if (!this.target) return;
+      
       const currentPosition = this.target.getPosition();
-
-      // Atualizar o centro da órbita para a nova posição do alvo
-      this.orbitControls.target.copy(currentPosition);
-
-      // Atualizar a posição de referência
+      
       if (this.alwaysFollowTarget) {
          const playerMovement = new THREE.Vector3().subVectors(
             currentPosition,
             this.lastTargetPosition
          );
-
+         
          if (playerMovement.length() > 0) {
             this.camera.position.add(playerMovement);
          }
       }
-
-      // Atualizar a posição de referência
+      
+      
+      // Usar apenas um método de seguimento
+      if (!this.inputManager.isMouseDown()) {
+         this.applyCameraPosition(timeStep);
+      }
+      
+      this.orbitControls.target.copy(currentPosition);
       this.lastTargetPosition.copy(currentPosition);
-
-      // (para inércia/suavização funcionarem)
       this.orbitControls.update();
    }
 
-   // Método para alterar suavização
-   setSmoothing(enabled, factor = 0.05) {
-      this.orbitControls.enableDamping = enabled;
-      if (enabled) {
-         this.orbitControls.dampingFactor = factor;
+   applyCameraPosition(deltaTime = 1/30) {
+      // Obter posição do target
+      const targetPosition = this.target.getPosition();
+      
+      // CORREÇÃO: Converter CANNON.Vec3 para THREE.Vector3
+      const cannonDirection = this.target.getMovimentDirection();
+      const movementDirection = new THREE.Vector3(
+         cannonDirection.x, 
+         cannonDirection.y, 
+         cannonDirection.z
+      ).normalize();
+      
+      // Verificar se está em marcha ré
+      let isReversing = false;
+      if (this.target.getCurrentSpeed) {
+         isReversing = this.target.getCurrentSpeed() > -0.5;
       }
+      
+      // Configurações da posição da câmera
+      const distanceBase = 2;  // Distância da câmera ao veículo
+      const heightBase = 0.8;  // Altura da câmera
+      
+      const directionVector = movementDirection.clone();
+      if (!isReversing) {
+         directionVector.negate();
+      }
+      
+      // Escalar pelo distanceBase
+      directionVector.multiplyScalar(distanceBase);
+      
+      // Adicionar componente de altura
+      directionVector.y = heightBase;
+      
+      // Calcular a nova posição da câmera
+      const newCameraPosition = targetPosition.clone().add(directionVector);
+      
+      // Calcular fator de interpolação baseado em deltaTime
+      const lerpFactor = Math.min(2.5 * deltaTime, 1.0);
+      
+      // Aplicar suavização para evitar movimentos bruscos (lerp)
+      this.camera.position.lerp(newCameraPosition, lerpFactor);
    }
 
    // Método para obter a posição atual da câmera

@@ -22,6 +22,7 @@ class PerformanceManager extends GameComponent {
       if (this.fpsCounter) {
          this.stats.showPanel(0);
          this.fpsCounter.appendChild(this.stats.dom);
+         this.stats.dom.style.position = "relative";
       }
    }
 
