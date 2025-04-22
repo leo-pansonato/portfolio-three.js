@@ -30,9 +30,10 @@ class CameraController extends GameComponent {
       this.fixedCamera = true;
 
       this.selectedCamera = {
-         NEAR: { distance: 2, fov: 45 },
+         ORBIT: { distance: 3, fov: 75 },
+         NEAR: { distance: 2, fov: 75 },
          FAR: { distance: 5, fov: 60 },
-         FIRS_PERSON: { distance: 0, fov: 75 }
+         FIRST_PERSON: { distance: 0, fov: 75 }
       }
 
       // Posição inicial
@@ -73,7 +74,10 @@ class CameraController extends GameComponent {
       
       const currentPosition = this.target.getPosition();
       
-      if (this.alwaysFollowTarget) {
+      // Usar apenas um método de seguimento
+      if (!this.inputManager.isMouseDown()) {
+         this.applyCameraPosition(timeStep);
+      } else {
          const playerMovement = new THREE.Vector3().subVectors(
             currentPosition,
             this.lastTargetPosition
@@ -84,22 +88,15 @@ class CameraController extends GameComponent {
          }
       }
       
-      
-      // Usar apenas um método de seguimento
-      if (!this.inputManager.isMouseDown()) {
-         this.applyCameraPosition(timeStep);
-      }
-      
       this.orbitControls.target.copy(currentPosition);
       this.lastTargetPosition.copy(currentPosition);
       this.orbitControls.update();
    }
 
-   applyCameraPosition(deltaTime = 1/30) {
+   applyCameraPosition(timeStep = 1/30) {
       // Obter posição do target
       const targetPosition = this.target.getPosition();
       
-      // CORREÇÃO: Converter CANNON.Vec3 para THREE.Vector3
       const cannonDirection = this.target.getMovimentDirection();
       const movementDirection = new THREE.Vector3(
          cannonDirection.x, 
@@ -107,18 +104,12 @@ class CameraController extends GameComponent {
          cannonDirection.z
       ).normalize();
       
-      // Verificar se está em marcha ré
-      let isReversing = false;
-      if (this.target.getCurrentSpeed) {
-         isReversing = this.target.getCurrentSpeed() > -0.5;
-      }
-      
       // Configurações da posição da câmera
       const distanceBase = 2;  // Distância da câmera ao veículo
       const heightBase = 0.8;  // Altura da câmera
       
       const directionVector = movementDirection.clone();
-      if (!isReversing) {
+      if (this.target.getCurrentSpeed() < -0.5) {
          directionVector.negate();
       }
       
@@ -131,11 +122,11 @@ class CameraController extends GameComponent {
       // Calcular a nova posição da câmera
       const newCameraPosition = targetPosition.clone().add(directionVector);
       
-      // Calcular fator de interpolação baseado em deltaTime
-      const lerpFactor = Math.min(2.5 * deltaTime, 1.0);
+      // Calcular fator de interpolação baseado em timeStep
+      const lerpFactor = Math.min(2.5 * timeStep, 1.0);
       
       // Aplicar suavização para evitar movimentos bruscos (lerp)
-      this.camera.position.lerp(newCameraPosition, lerpFactor);
+      this.camera.position.lerp(newCameraPosition, 1); // adicionar o lerp
    }
 
    // Método para obter a posição atual da câmera
