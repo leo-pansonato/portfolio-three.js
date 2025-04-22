@@ -23,7 +23,7 @@ class Environment extends GameComponent {
       const planeGeometry = new THREE.PlaneGeometry(200, 200);
       const planeMaterial = new THREE.MeshStandardMaterial({
          color: 0x0f0f0f,
-         roughness: 0.8,
+         roughness: 0.7,
       });
       const plane = new THREE.Mesh(planeGeometry, planeMaterial);
       plane.rotation.x = -Math.PI / 2;
@@ -91,7 +91,7 @@ class Environment extends GameComponent {
          // Criar caixa visual
          const boxSize = { x: 1, y: 1, z: 1 };
          const boxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
-         const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xaa4444 });
+         const boxMaterial = new THREE.MeshStandardMaterial({ roughness: 0.4,  color: 0xaa4444 });
          const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
          boxMesh.position.set(pos.x, pos.y, pos.z);
          boxMesh.castShadow = true;
@@ -136,6 +136,9 @@ class Environment extends GameComponent {
       // Evitar artefatos de sombra
       directionalLight.shadow.bias = -0.001;
 
+      // const helper = new THREE.DirectionalLightHelper(directionalLight, 5, 0xff0000);
+      // this.scene.add(helper);
+
       // Adicionar a luz à cena
       this.scene.add(directionalLight);
       this.scene.add(directionalLight.target);
@@ -144,7 +147,7 @@ class Environment extends GameComponent {
       this.directionalLight = directionalLight;
    }
 
-   // Adicionar método para atualizar a posição da luz
+   // Atualizar a posição da luz
    update(deltaTime, playerPosition) {
       if (playerPosition && this.directionalLight) {
          // Atualizar a posição da luz para seguir o player
