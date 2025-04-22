@@ -16,9 +16,9 @@ class Entity extends GameComponent {
       }
    }
 
-   removeFromScene() {
-      if (this.mesh && this.scene) {
-         this.scene.remove(this.mesh);
+   removeFromScene(mesh = this.mesh) {
+      if (mesh && this.scene) {
+         this.scene.remove(mesh);
       }
    }
 

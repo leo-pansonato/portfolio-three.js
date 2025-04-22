@@ -14,7 +14,7 @@ class Player extends Entity {
       this.physicsManager = physicsManager;
       this.modelLoader = new ModelLoader();
       this.vehicleManager = new VehicleManager(scene, physicsManager);
-      
+
       // ID do veículo atual
       this.currentVehicleId = "bmw_f82"; // bmw_f82 / mercedes_g63
       this.vehicleData = {};
@@ -35,7 +35,7 @@ class Player extends Entity {
       this.loadVehicle(this.currentVehicleId);
 
       // Inicializar a visualização dos raycasts de suspensão
-      this.initSuspensionRaycastVisualizer();
+      // this.initSuspensionRaycastVisualizer();
    }
 
    initVehicleConfigs() {
@@ -56,7 +56,7 @@ class Player extends Entity {
       );
       this.chassisBody = new CANNON.Body({ mass: physicsData.mass });
       this.chassisBody.addShape(chassisShape);
-      this.chassisBody.position.set(0, 1, 10);
+      this.chassisBody.position.set(0, 1, 3);
       this.chassisBody.angularVelocity.set(0, 0, 0);
 
       // Configurar e criar o veículo
@@ -111,8 +111,7 @@ class Player extends Entity {
     */
    initVisuals() {
       // Criar mesh básica de placeholder
-      const chassisSize =
-         this.vehicleManager.vehicleCatalog[this.currentVehicleId].physics.size;
+      const chassisSize = this.vehicleData.physics.size;
       const chassisGeometry = new THREE.BoxGeometry(
          chassisSize.x,
          chassisSize.y,
@@ -124,8 +123,7 @@ class Player extends Entity {
 
       // Criar mesh básica para as rodas
       this.wheelMeshes = [];
-      const wheelRadius =
-         this.vehicleManager.vehicleCatalog[this.currentVehicleId].physics.wheelRadius;
+      const wheelRadius = this.vehicleData.physics.wheelRadius;
       const wheelGeometry = new THREE.CylinderGeometry(
          wheelRadius,
          wheelRadius,
@@ -171,7 +169,7 @@ class Player extends Entity {
             if (wheel.parent) {
                this.scene.remove(wheel);
             }
-         }); 
+         });
 
          // Atualizar a referência ao modelo do chassi
          if (vehicleModels.body) {
@@ -212,7 +210,7 @@ class Player extends Entity {
       this.updateWheelMeshes();
 
       // Atualizar a visualização dos raycasts de suspensão
-      this.updateSuspensionRaycastVisualizer();
+      // this.updateSuspensionRaycastVisualizer();
    }
 
    /**
@@ -229,8 +227,12 @@ class Player extends Entity {
       }
 
       // Ajustar a resposta da direção com base na velocidade
-      const speedFactor = Math.min(Math.abs(this.vehicleData.configs.currentSpeed) / 100, 1);
-      const effectiveSteerSpeed = this.vehicleData.configs.steerSpeed * (1 - speedFactor * 0.5);
+      const speedFactor = Math.min(
+         Math.abs(this.vehicleData.configs.currentSpeed) / 100,
+         1
+      );
+      const effectiveSteerSpeed =
+         this.vehicleData.configs.steerSpeed * (1 - speedFactor * 0.5);
       const effectiveReturnSpeed =
          this.vehicleData.configs.steerReturn * (1 + speedFactor * 0.5);
 
@@ -293,13 +295,13 @@ class Player extends Entity {
       const boosting = this.inputManager.isKeyPressed("shift");
 
       // Gerenciar boost
-      this.vehicleData.configs.boostForce *= 0.8; // Diminui com o tempo
-      if (boosting && this.vehicleData.configs.boostForce < 1) {
-         this.vehicleData.configs.boostForce = 4; // Aplicar força máxima
-      } else if (this.vehicleData.configs.boostForce < 1) {
-         this.vehicleData.configs.boostForce = 1; // Retornar ao normal
+      if (boosting) {
+         this.vehicleData.configs.boostForce = this.vehicleData.configs.maxBoostForce;
+      } else {
+         this.vehicleData.configs.boostForce = 1;
       }
-
+      
+      
       // Determinar força do motor
       if (accelerating) {
          engineForce = this.vehicleData.configs.maxForce;
@@ -380,9 +382,8 @@ class Player extends Entity {
    updateChassisMesh() {
       if (this.mesh && this.mesh !== this.originalMesh) {
          // Obter a configuração de alinhamento do veículo atual
-         const vehicleConfig = this.vehicleManager.vehicleCatalog[this.currentVehicleId];
          const chassisTransform = this.chassisBody;
-         const chassisAdjustment = vehicleConfig?.body || null;
+         const chassisAdjustment = this.vehicleData?.body || null;
 
          // Aplicar a transformação e ajustes à mesh do chassi
          this.fixCarAlignment(this.mesh, chassisTransform, chassisAdjustment);
@@ -398,9 +399,7 @@ class Player extends Entity {
          this.vehicle.updateWheelTransform(i);
          const wheelTransform = this.vehicle.wheelInfos[i].worldTransform;
 
-         // Obter ajustes específicos para esta roda
-         const vehicleConfig = this.vehicleManager.vehicleCatalog[this.currentVehicleId];
-         const wheelAdjustment = vehicleConfig?.wheels?.adjustments?.[i] || null;
+         const wheelAdjustment = this.vehicleData?.wheels?.adjustments?.[i] || null;
 
          // Aplicar a transformação e ajustes à mesh da roda
          this.fixWheelAlignment(i, this.wheelMeshes[i], wheelTransform, wheelAdjustment);
@@ -449,18 +448,18 @@ class Player extends Entity {
    fixWheelAlignment(wheelIndex, wheelMesh, wheelTransform, adjustments) {
       // Resetar rotações da roda para aplicar na ordem correta
       // wheelMesh.rotation.set(0, 0, 0);
-      
+
       // Copiar a posição do corpo físico
       wheelMesh.position.copy(wheelTransform.position);
-      
+
       // Copiar a rotação do corpo físico
       wheelMesh.quaternion.copy(wheelTransform.quaternion);
-      
+
       // Espelhar as rodas do lado direito (impares)
       if (wheelIndex % 2 === 1) {
          // wheelMesh.rotateY(Math.PI);
       }
-      
+
       if (adjustments) {
          // Ajuste de rotação adicional
          if (adjustments.rotation) {
@@ -478,19 +477,19 @@ class Player extends Entity {
       // Criar linhas para representar os raycasts
       this.suspensionRays = [];
       const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-      
+
       for (let i = 0; i < 4; i++) {
          // Criar geometria de linha (será atualizada a cada frame)
          const geometry = new THREE.BufferGeometry();
          const positions = new Float32Array(2 * 3); // 2 pontos, 3 coordenadas por ponto
-         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-         
+         geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
          // Criar a linha e adicionar à cena
          const line = new THREE.Line(geometry, material);
          this.scene.add(line);
          this.suspensionRays.push(line);
       }
-      
+
       // Flag para controlar a visualização
       this.showSuspensionRays = true;
    }
@@ -501,49 +500,46 @@ class Player extends Entity {
    updateSuspensionRaycastVisualizer() {
       // Se a visualização estiver desativada, sair da função
       if (!this.showSuspensionRays) return;
-      
+
       // Atualizar cada linha de raycast
       for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
          const wheelInfo = this.vehicle.wheelInfos[i];
          const ray = this.suspensionRays[i];
-         
+
          // Obter o ponto de conexão da roda no espaço mundial
          const connectionPoint = new CANNON.Vec3();
          this.vehicle.chassisBody.pointToWorldFrame(
-            wheelInfo.chassisConnectionPointLocal, 
+            wheelInfo.chassisConnectionPointLocal,
             connectionPoint
          );
-         
+
          // Calcular a direção do raycast no espaço mundial
          const direction = new CANNON.Vec3();
-         this.vehicle.chassisBody.vectorToWorldFrame(
-            wheelInfo.directionLocal, 
-            direction
-         );
-         
+         this.vehicle.chassisBody.vectorToWorldFrame(wheelInfo.directionLocal, direction);
+
          // Normalizar e escalar a direção pelo comprimento máximo da suspensão
          direction.normalize();
          const maxLength = wheelInfo.suspensionRestLength + wheelInfo.maxSuspensionTravel;
          direction.scale(maxLength, direction);
-         
+
          // Calcular o ponto final do raycast
          const endPoint = new CANNON.Vec3();
          endPoint.copy(connectionPoint);
          endPoint.vadd(direction, endPoint);
-         
+
          // Atualizar a geometria da linha
          const positions = ray.geometry.attributes.position.array;
-         
+
          // Ponto inicial (conexão com o chassi)
          positions[0] = connectionPoint.x;
          positions[1] = connectionPoint.y;
          positions[2] = connectionPoint.z;
-         
+
          // Ponto final (comprimento total do raycast)
          positions[3] = endPoint.x;
          positions[4] = endPoint.y;
          positions[5] = endPoint.z;
-         
+
          // Marcar a geometria para atualização
          ray.geometry.attributes.position.needsUpdate = true;
       }
@@ -554,23 +550,24 @@ class Player extends Entity {
     * @param {String} vehicleId ID do novo veículo
     */
    changeVehicle(vehicleId) {
-      if (this.vehicleManager.vehicleCatalog[vehicleId]) {
-         // Remover o veículo atual da cena
-         this.scene.remove(this.mesh);
-         this.wheelMeshes.forEach((wheel) => {
-            if (wheel.parent) {
-               this.scene.remove(wheel);
-            }
-         });
-
-         this.currentVehicleId = vehicleId;
-         
-
-         return this.loadVehicle(vehicleId);
-      } else {
+      if (!this.vehicleManager.vehicleCatalog[vehicleId]) {
          console.error(`Veículo ${vehicleId} não encontrado no catálogo`);
          return false;
       }
+
+      this.vehicle.removeFromWorld(this.physicsManager.world);
+      this.removeFromScene();
+      this.wheelMeshes.forEach((wheel) => {
+         if (wheel.parent) {
+            this.scene.remove(wheel);
+         }
+      });
+
+      this.currentVehicleId = vehicleId;
+      this.initVehicleConfigs();
+      this.initPhysics();
+
+      return this.loadVehicle(vehicleId);
    }
 
    /**
@@ -578,7 +575,7 @@ class Player extends Entity {
     * @returns {Number} Velocidade atual
     */
    getCurrentSpeed() {
-      return this.vehicleData.configs.currentSpeed * 3.6 * -1; 
+      return this.vehicleData.configs.currentSpeed * 3.6 * -1;
    }
 
    /**
