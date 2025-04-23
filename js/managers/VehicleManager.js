@@ -55,25 +55,25 @@ class VehicleManager {
                currentSpeed: 0,
             },
             wheels: {
-               modelPath: "/assets/models/wheel/rodas.gltf",
-               scale: { x: 0.4, y: 0.4, z: 0.4 },
+               modelPath: "/assets/models/wheel2/rodass.gltf",
+               scale: { x: 0.5, y: 0.5, z: 0.5 },
                adjustments: [
                   // (0: frontal esquerda, 1: frontal direita, 2: traseira esquerda, 3: traseira direita)
                   {
                      position: { x: 0.74, y: 0, z: -0.4 },
-                     rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                     rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                   {
                      position: { x: 0.74, y: 0, z: 0.4 },
-                     rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                     rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                   {
                      position: { x: -0.645, y: 0, z: -0.4 },
-                     rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                     rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                   {
                      position: { x: -0.645, y: 0, z: 0.4 },
-                     rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                     rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                ],
             },
@@ -96,7 +96,7 @@ class VehicleManager {
                size: { x: 2.3, y: 0.6, z: 0.9 },
                wheelRadius: 0.165,
                suspensionStiffness: 60,
-               suspensionRestLength: 0.285,
+               suspensionRestLength: 0.25,
                frictionSlip: 2.5,
                maxSuspensionTravel: 0.2,
                dampingRelaxation: 2.3,
@@ -105,10 +105,10 @@ class VehicleManager {
             },
             configs: {
                maxSpeed: 20,
-               maxForce: 200,
+               maxForce: 300,
                maxBoostForce: 3,
                boostForce: 1,
-               brakeForce: 3,
+               brakeForce: 9,
                eBrakeForce: 7,
                maxSteerVal: 0.6,
                steerSpeed: 1.3,
@@ -120,28 +120,28 @@ class VehicleManager {
                currentSpeed: 0,
             },
             wheels: {
-               modelPath: "/assets/models/wheel/rodas.gltf",
-               scale: { x: 0.4, y: 0.4, z: 0.4 },
+               modelPath: "/assets/models/wheel2/rodass.gltf",
+               scale: { x: 0.45, y: 0.45, z: 0.45 },
                adjustments: [
                   {
                      // traseira direita
                      position: { x: 0.747, y: 0, z: -0.405 },
-                     rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                     rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                   {
                      // traseira esquerda
                      position: { x: 0.747, y: 0, z: 0.405 },
-                     rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                     rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                   {
                      // frontal direita
                      position: { x: -0.664, y: 0, z: -0.4 },
-                     rotation: { x: Math.PI / 2, y: 0 , z: 0  },
+                     rotation: { x: -Math.PI / 2, y: 0 , z: Math.PI / 2  },
                   },
                   {
                      // frontal esquerda
                      position: { x: -0.664, y: 0, z: 0.4 },
-                     rotation: { x: Math.PI / 2, y: 0, z: 0 },
+                     rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 },
                   }
                ],
             },
