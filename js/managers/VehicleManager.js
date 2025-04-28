@@ -96,7 +96,7 @@ class VehicleManager {
                size: { x: 2.3, y: 0.6, z: 0.9 },
                wheelRadius: 0.165,
                suspensionStiffness: 60,
-               suspensionRestLength: 0.25,
+               suspensionRestLength: 0.26,
                frictionSlip: 2.5,
                maxSuspensionTravel: 0.2,
                dampingRelaxation: 2.3,
@@ -108,9 +108,9 @@ class VehicleManager {
                maxForce: 300,
                maxBoostForce: 3,
                boostForce: 1,
-               brakeForce: 9,
+               brakeForce: 5,
                eBrakeForce: 7,
-               maxSteerVal: 0.6,
+               maxSteerVal: 0.5,
                steerSpeed: 1.3,
                steerReturn: 2.0,
                tractionDisplacement: "rear", // "front", "rear", "all"
@@ -121,26 +121,26 @@ class VehicleManager {
             },
             wheels: {
                modelPath: "/assets/models/wheel2/rodass.gltf",
-               scale: { x: 0.45, y: 0.45, z: 0.45 },
+               scale: { x: 0.425, y: 0.425, z: 0.425 },
                adjustments: [
                   {
-                     // traseira direita
-                     position: { x: 0.747, y: 0, z: -0.405 },
+                     // frontal esquerda
+                     position: { x: 0.747, y: 0, z: -0.4 },
                      rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                   {
-                     // traseira esquerda
-                     position: { x: 0.747, y: 0, z: 0.405 },
+                     // frontal direita
+                     position: { x: 0.747, y: 0, z: 0.4 },
                      rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 },
                   },
                   {
-                     // frontal direita
-                     position: { x: -0.664, y: 0, z: -0.4 },
+                     // traseira esquerda
+                     position: { x: -0.664, y: 0, z: -0.405 },
                      rotation: { x: -Math.PI / 2, y: 0 , z: Math.PI / 2  },
                   },
                   {
-                     // frontal esquerda
-                     position: { x: -0.664, y: 0, z: 0.4 },
+                     // traseira direita
+                     position: { x: -0.664, y: 0, z: 0.40 },
                      rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 },
                   }
                ],
