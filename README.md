@@ -4,13 +4,19 @@
 
 Este projeto é um jogo 3D simples desenvolvido com Three.js, onde o jogador controla um carro em um ambiente virtual. O modelo 3D do carro é carregado a partir de um arquivo GLTF, e o jogo inclui controles básicos de movimentação e rotação.
 
+![Three.js Car Game Print](textures/print.png)
+
 ## Estrutura do Projeto
 
 ```
-portfolio-three.js
-
+├── assets
+│   └── models.png
+│       ├── bmw
+│       ├── mercedes
+│       └── wheel
 ├── textures
 │   ├── cartoonSKY.png
+│   ├── print.png
 │   └── icoCtrl.png
 ├── css
 │   └── main.css
@@ -26,6 +32,7 @@ portfolio-three.js
 │   │   ├── InputManager.js
 │   │   ├── PerformanceManager.js
 │   │   ├── PhysicsManager.js
+│   │   ├── VehicleManager.js
 │   │   └── UIManager.js
 │   ├── loaders
 │   │   └── ModelLoader.js
@@ -49,11 +56,12 @@ portfolio-three.js
    ```
 
 3. **Abra o arquivo `index.html` em um navegador**:
-   Você pode abrir o arquivo diretamente ou usar um servidor local para servir os arquivos.
+   Você pode abrir o arquivo diretamente ou usar o Vite executando `npx vite` no terminal.
 
 ## Tecnologias Utilizadas
 
 - Three.js: Biblioteca JavaScript para criar gráficos 3D.
+- Cannon.js: Biblioteca JavaScript para criar físicas.
 - GLTF: Formato de arquivo eficiente para modelos 3D.
 - HTML/CSS: Para a estrutura e estilo da aplicação.
 
