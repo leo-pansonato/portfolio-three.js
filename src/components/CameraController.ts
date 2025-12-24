@@ -1,163 +1,182 @@
 import * as THREE from "three";
 import GameComponent from "./GameComponent";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import InputManager from "../managers/InputManager";
+import { CameraConfig, CameraMode } from "../managers/VehicleManager";
+import Player from "./Player";
 
-// Interface para o objeto que a câmera vai seguir (geralmente o Player)
-interface ITarget {
-  getPosition(): THREE.Vector3;
-  getMovimentDirection(): THREE.Vector3; // Mantive o typo original 'Moviment'
-  getCurrentSpeed(): number;
-}
-
-/**
- * Controlador de câmera usando OrbitControls
- */
 export default class CameraController extends GameComponent {
-  private camera: THREE.PerspectiveCamera;
-  private target: ITarget | null;
-  private inputManager: InputManager;
-  private orbitControls: OrbitControls;
-  private lastTargetPosition: THREE.Vector3;
-  
-  // Propriedades adicionais inferidas do uso no InputManager
-  public alwaysFollowTarget: boolean;
-  public fixedCamera: boolean;
-  public selectedCamera: any; 
+	private camera: THREE.PerspectiveCamera;
+	private target: Player | null;
+	private inputManager: InputManager;
 
-  constructor(camera: THREE.PerspectiveCamera, target: any, inputManager: InputManager) {
-    super();
-    this.camera = camera;
-    this.target = target;
-    this.inputManager = inputManager;
+	private lastTargetPosition: THREE.Vector3 = new THREE.Vector3();
 
-    // Criar o controlador OrbitControls
-    const domElement = document.getElementById("main");
-    if(!domElement) throw new Error("DOM Element #main not found");
+	private currentMode: CameraMode = CameraMode.FIRST_PERSON;
+	private availableModes: CameraMode[] = [CameraMode.THIRD_PERSON, CameraMode.HOOD, CameraMode.FIRST_PERSON];
 
-    this.orbitControls = new OrbitControls(this.camera, domElement);
+	private currentAngles = { yaw: 0, pitch: 0 };
+	private targetAngles = { yaw: 0, pitch: 0 };
 
-    // Configurações iniciais
-    this.setupControls();
+	private readonly MOUSE_SENSITIVITY = 0.002;
+	private readonly AUTO_CENTER_DELAY = 2.0;
+	private readonly AUTO_CENTER_SPEED = 3.0;
+	private readonly SMOOTH_ROTATION_SPEED = 10.0;
 
-    // Salvar a posição inicial do alvo para acompanhamento
-    this.lastTargetPosition = new THREE.Vector3();
-    if (this.target && this.target.getPosition) {
-      this.lastTargetPosition.copy(this.target.getPosition());
-    }
+	private _lookAtPos = new THREE.Vector3();
+	private _offset = new THREE.Vector3();
 
-    // Forçar seguir o jogador
-    this.alwaysFollowTarget = true;
-    this.fixedCamera = true;
+	constructor(camera: THREE.PerspectiveCamera, target: Player, inputManager: InputManager) {
+		super();
+		this.camera = camera;
+		this.target = target;
+		this.inputManager = inputManager;
 
-    this.selectedCamera = {
-      ORBIT: { distance: 3, fov: 75 },
-      NEAR: { distance: 2, fov: 75 },
-      FAR: { distance: 5, fov: 60 },
-      FIRST_PERSON: { distance: 0, fov: 75 },
-    };
+		if (this.target) {
+			this.lastTargetPosition.copy(this.target.getPosition());
+		}
 
-    // Posição inicial
-    this.applyCameraPosition();
-  }
+		this.currentAngles.yaw = 0;
+		this.targetAngles.yaw = 0;
+	}
 
-  // Método inferido chamado pelo InputManager
-  cycleCameraMode() {
-      console.log("Cycle camera mode not implemented yet");
-  }
+	cycleCameraMode() {
+		const currentIndex = this.availableModes.indexOf(this.currentMode);
 
-  setupControls(): void {
-    // Configura o ponto de órbita (target)
-    if (this.target && this.target.getPosition) {
-      this.orbitControls.target.copy(this.target.getPosition());
-    }
+		// calcula o proximo fazendo o corte pelo tamanho do array
+		const nextIndex = (currentIndex + 1) % this.availableModes.length;
+		this.currentMode = this.availableModes[nextIndex];
 
-    // Definir limites de distância (zoom)
-    this.orbitControls.minDistance = 1;
-    this.orbitControls.maxDistance = 15;
+		// Resetar angulos ao trocar
+		this.targetAngles.yaw = 0;
+		this.targetAngles.pitch = 0;
+		this.currentAngles.yaw = 0;
+		this.currentAngles.pitch = 0;
 
-    // Definir limites de rotação vertical
-    this.orbitControls.minPolarAngle = 0.1;
-    this.orbitControls.maxPolarAngle = Math.PI / 2 - 0;
+		console.log("Camera Mode:", this.currentMode);
+	}
 
-    // Suavização (inércia)
-    this.orbitControls.enableDamping = true;
-    this.orbitControls.dampingFactor = 0.05;
+	update(deltaTime: number): void {
+		if (!this.target) return;
 
-    // Velocidade de rotação
-    this.orbitControls.rotateSpeed = 0.6;
+		const currentTargetPos = this.target.getPosition();
+		const config = this.target.getCameraConfig()[this.currentMode];
 
-    // Velocidade de zoom
-    this.orbitControls.zoomSpeed = 0.8;
+      this.camera.fov = config.fov || 75;
 
-    // Desabilitar movimento lateral
-    this.orbitControls.enablePan = false;
-  }
+		// lógica de Rotação
+		if (this.currentMode === CameraMode.FIRST_PERSON || this.currentMode === CameraMode.HOOD) {
+			this.updateRigidCamera(deltaTime, config, currentTargetPos);
+		} else {
+			this.updateOrbitCamera(deltaTime, config, currentTargetPos);
+		}
 
-  update(deltaTime: number): void {
-    const timeStep = Math.min(deltaTime, 1 / 30);
-    if (!this.target) return;
+		this.camera.updateProjectionMatrix();
+	}
 
-    const currentPosition = this.target.getPosition();
+	// Terceira Pessoa (orbital)
+	private updateOrbitCamera(deltaTime: number, config: CameraConfig, targetPos: THREE.Vector3): void {
+		// const carRotation = this.target!.getRotation();
 
-    // Usar apenas um método de seguimento
-    // if (!this.inputManager.isMouseDown()) {
-    //    this.applyCameraPosition(timeStep);
-    // } else {
-      const playerMovement = new THREE.Vector3().subVectors(currentPosition, this.lastTargetPosition);
+		// Input Mouse
+		const mouseDelta = this.inputManager.getAndResetMouseDelta();
+		if (this.inputManager.isPointerLocked()) {
+			this.targetAngles.yaw -= mouseDelta.x * this.MOUSE_SENSITIVITY;
+			this.targetAngles.pitch += mouseDelta.y * this.MOUSE_SENSITIVITY;
+			this.targetAngles.pitch = Math.max(-0.3, Math.min(1.5, this.targetAngles.pitch));
+		}
 
-      if (playerMovement.length() > 0) {
-        this.camera.position.add(playerMovement);
-      }
-    // }
+		// --- AUTO CENTER ---
+		/*
+        if (this.inputManager.getTimeSinceLastInput() > this.AUTO_CENTER_DELAY) {
+            const idealYaw = carRotation.y; 
+            const t = 1.0 - Math.pow(0.01, deltaTime * this.AUTO_CENTER_SPEED);
+            this.targetAngles.yaw = this.lerpAngle(this.targetAngles.yaw, idealYaw, t);
+            this.targetAngles.pitch = THREE.MathUtils.lerp(this.targetAngles.pitch, 0.2, t);
+        }
+        */
+		// ------------------------------
 
-    this.orbitControls.target.copy(currentPosition);
-    this.lastTargetPosition.copy(currentPosition);
-    this.orbitControls.update();
-  }
+		// suavização
+		const rotationSmoothness = deltaTime * this.SMOOTH_ROTATION_SPEED;
+		this.currentAngles.yaw = this.lerpAngle(this.currentAngles.yaw, this.targetAngles.yaw, rotationSmoothness);
+		this.currentAngles.pitch = THREE.MathUtils.lerp(this.currentAngles.pitch, this.targetAngles.pitch, rotationSmoothness);
 
-  applyCameraPosition(timeStep: number = 1 / 30): void {
-    if (!this.target) return;
+		// posição
+		let distance = config.distance;
+		let heightOffset = config.height;
+		const hDistance = distance * Math.cos(this.currentAngles.pitch);
 
-    // Obter posição do target
-    const targetPosition = this.target.getPosition();
+		this._offset.set(
+			hDistance * Math.sin(this.currentAngles.yaw),
+			distance * Math.sin(this.currentAngles.pitch) + heightOffset,
+			hDistance * Math.cos(this.currentAngles.yaw)
+		);
 
-    // Nota: Mantive o typo 'getMovimentDirection' para compatibilidade com seu código original
-    const cannonDirection = this.target.getMovimentDirection();
-    const movementDirection = new THREE.Vector3(cannonDirection.x, cannonDirection.y, cannonDirection.z).normalize();
+		this.camera.position.copy(targetPos).add(this._offset);
 
-    // Configurações da posição da câmera
-    const distanceBase = 2; // Distância da câmera ao veículo
-    const heightBase = 0.8; // Altura da câmera
+		// olhar para o carro
+		this._lookAtPos.copy(targetPos);
+		if (config.lookAtOffset) {
+			this._lookAtPos.y += config.lookAtOffset.y;
+			this._lookAtPos.x += config.lookAtOffset.x || 0;
+			this._lookAtPos.z += config.lookAtOffset.z || 0;
+		}
+		this.camera.lookAt(this._lookAtPos);
+	}
 
-    const directionVector = movementDirection.clone();
-    if (this.target.getCurrentSpeed() < -0.5) {
-      directionVector.negate();
-    }
+	// Primeira Pessoa e Capô (rigida)
+	private updateRigidCamera(deltaTime: number, config: CameraConfig, targetPos: THREE.Vector3): void {
+		const carRotation = this.target!.getRotation();
 
-    // Escalar pelo distanceBase
-    directionVector.multiplyScalar(distanceBase);
+		// configurar posição da camera
+		const defaultX = 0.175;
+		const defaultY = 0.53;
+		const defaultZ = -0.2;
 
-    // Adicionar componente de altura
-    directionVector.y = heightBase;
+		this._offset.set(config.offset?.x ?? defaultX, config.offset?.y ?? defaultY, config.offset?.z ?? defaultZ);
 
-    // Calcular a nova posição da câmera
-    const newCameraPosition = targetPosition.clone().add(directionVector);
+		// aplica a rotação do carro ao offset para posicionar a câmera
+      if (carRotation) this._offset.applyEuler(carRotation);
+		this.camera.position.copy(targetPos).add(this._offset);
 
-    // Calcular fator de interpolação baseado em timeStep
-    // const lerpFactor = Math.min(2.5 * timeStep, 1.0); // (Não utilizado no código original, mas mantido a lógica)
+		// input do mouse
+		const mouseDelta = this.inputManager.getAndResetMouseDelta();
+		if (this.inputManager.isPointerLocked()) {
+			this.targetAngles.yaw -= mouseDelta.x * this.MOUSE_SENSITIVITY;
+			this.targetAngles.pitch -= mouseDelta.y * this.MOUSE_SENSITIVITY;
+		}
 
-    // Aplicar suavização para evitar movimentos bruscos (lerp)
-    this.camera.position.lerp(newCameraPosition, 1); 
-  }
+		// limites de rotação
+		this.targetAngles.pitch = Math.max(-1.0, Math.min(1.0, this.targetAngles.pitch));
+		this.targetAngles.yaw = Math.max(-2.0, Math.min(2.0, this.targetAngles.yaw));
 
-  // Método para obter a posição atual da câmera
-  getPosition(): THREE.Vector3 {
-    return this.camera.position;
-  }
+		// auto center
+		if (this.inputManager.getTimeSinceLastInput() > 0.5) {
+			const t = deltaTime * this.AUTO_CENTER_SPEED;
+			this.targetAngles.yaw = THREE.MathUtils.lerp(this.targetAngles.yaw, 0, t);
+			this.targetAngles.pitch = THREE.MathUtils.lerp(this.targetAngles.pitch, 0, t);
+		}
 
-  // Método para habilitar/desabilitar os controles
-  enable(enabled: boolean = true): void {
-    this.orbitControls.enabled = enabled;
-  }
+		// vetor apontando para frente (Z+)
+		const lookVector = new THREE.Vector3(0, 0, 20);
+
+		// aplicar rotação do mouse no vetor
+		lookVector.applyEuler(new THREE.Euler(-this.targetAngles.pitch, this.targetAngles.yaw, 0, "YXZ"));
+
+		// aplicar rotação do CARRO no vetor
+      if (carRotation) lookVector.applyEuler(carRotation);
+
+		// somar posição da câmera para ter o ponto final no mundo 3D
+		this._lookAtPos.copy(this.camera.position).add(lookVector);
+
+		// olhar para esse ponto calculado
+		this.camera.lookAt(this._lookAtPos);
+	}
+
+	private lerpAngle(start: number, end: number, t: number): number {
+		let d = end - start;
+		if (d > Math.PI) d -= 2 * Math.PI;
+		if (d < -Math.PI) d += 2 * Math.PI;
+		return start + d * t;
+	}
 }

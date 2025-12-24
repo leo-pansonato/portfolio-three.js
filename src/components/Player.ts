@@ -1,47 +1,9 @@
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import Entity from "./Entity";
-import ModelLoader from "../loaders/ModelLoader";
-import VehicleManager from "../managers/VehicleManager";
+import VehicleManager, { CameraConfig, CameraMode, VehicleConfig } from "../managers/VehicleManager";
 import InputManager from "../managers/InputManager";
 import PhysicsManager from "../managers/PhysicsManager";
-
-// Interface auxiliar para os dados do veículo
-// (Reflete a estrutura que vem do VehicleManager)
-interface VehicleData {
-	physics: {
-		mass: number;
-		size: { x: number; y: number; z: number };
-		wheelRadius: number;
-		suspensionStiffness: number;
-		suspensionRestLength: number;
-		maxSuspensionTravel: number;
-		dampingCompression: number;
-		dampingRelaxation: number;
-		rollInfluence: number;
-		frictionSlip: number;
-	};
-	configs: {
-		maxSteerVal: number;
-		currentSteering: number;
-		currentSpeed: number;
-		steerSpeed: number;
-		steerReturn: number;
-		maxForce: number;
-		maxBoostForce: number;
-		boostForce: number;
-		brakeForce: number;
-		eBrakeForce: number;
-		tractionDisplacement: string;
-	};
-	wheels: {
-		adjustments: Array<{
-			position: { x: number; y: number; z: number };
-			rotation?: { x: number; y: number; z: number };
-		}>;
-	};
-	body?: any; // Configurações visuais do corpo
-}
 
 /**
  * Player jogável usando RaycastVehicle do Cannon.js
@@ -49,35 +11,27 @@ interface VehicleData {
 export default class Player extends Entity {
 	private inputManager: InputManager;
 	private physicsManager: PhysicsManager;
-	private modelLoader: ModelLoader;
 	private vehicleManager: VehicleManager;
 
 	private currentVehicleId: string;
-	private vehicleData!: VehicleData;
+	private vehicleData!: VehicleConfig;
 
 	public chassisBody!: CANNON.Body;
 	public vehicle!: CANNON.RaycastVehicle;
-	public declare mesh: THREE.Mesh | THREE.Object3D; // Sobrescreve a propriedade da classe pai Entity
+	public declare mesh: THREE.Mesh | THREE.Object3D;
 	private originalMesh!: THREE.Object3D;
 	private wheelMeshes: THREE.Object3D[];
-
-	// Visualização de Debug (opcional)
-	private suspensionRays: THREE.Line[];
-	private showSuspensionRays: boolean;
 
 	constructor(scene: THREE.Scene, inputManager: InputManager, physicsManager: PhysicsManager) {
 		super(scene);
 		this.inputManager = inputManager;
 		this.physicsManager = physicsManager;
-		this.modelLoader = new ModelLoader();
-		this.vehicleManager = new VehicleManager(scene, physicsManager);
+		this.vehicleManager = new VehicleManager(scene);
 
 		// ID do veículo atual
 		this.currentVehicleId = "bmw_f82"; // bmw_f82 / mercedes_g63
 
 		this.wheelMeshes = [];
-		this.suspensionRays = [];
-		this.showSuspensionRays = false;
 
 		// Inicializar a configuração do veículo
 		this.initVehicleConfigs();
@@ -93,15 +47,13 @@ export default class Player extends Entity {
 
 		// Carregar o modelo do veículo
 		this.loadVehicle(this.currentVehicleId);
-
-		// Inicializar a visualização dos raycasts de suspensão
-		// this.initSuspensionRaycastVisualizer();
 	}
 
 	initVehicleConfigs(): void {
-		// Acessando propriedade privada via cast any ou assumindo que vehicleManager expõe isso
-		// Idealmente, VehicleManager deveria ter um método getVehicleConfig(id)
-		this.vehicleData = (this.vehicleManager as any).vehicleCatalog[this.currentVehicleId];
+		const vehicleConfig = this.vehicleManager.getVehicleConfig(this.currentVehicleId);
+		if (!vehicleConfig) throw new Error(`Configuração do veículo ${this.currentVehicleId} não encontrada.`);
+
+		this.vehicleData = vehicleConfig;
 	}
 
 	/**
@@ -126,7 +78,7 @@ export default class Player extends Entity {
 	/**
 	 * Configurar o veículo físico com as rodas
 	 */
-	setupVehicle(vehicleData: VehicleData): void {
+	setupVehicle(vehicleData: VehicleConfig): void {
 		const physicsData = vehicleData.physics;
 		// Criar o veículo raycast
 		this.vehicle = new CANNON.RaycastVehicle({
@@ -265,9 +217,9 @@ export default class Player extends Entity {
 	updateSteering(timeStep: number): void {
 		// Determinar o valor alvo para a direção
 		let targetSteering = 0;
-		if (this.inputManager.isKeyPressed("arrowleft")) {
+		if (this.inputManager.isActionActive("VEHICLE_LEFT")) {
 			targetSteering = this.vehicleData.configs.maxSteerVal;
-		} else if (this.inputManager.isKeyPressed("arrowright")) {
+		} else if (this.inputManager.isActionActive("VEHICLE_RIGHT")) {
 			targetSteering = -this.vehicleData.configs.maxSteerVal;
 		}
 
@@ -325,10 +277,10 @@ export default class Player extends Entity {
 		let handbrakeForce = 0;
 
 		// Verificar inputs
-		const accelerating = this.inputManager.isKeyPressed("arrowup");
-		const braking = this.inputManager.isKeyPressed("arrowdown");
-		const handbraking = this.inputManager.isKeyPressed(" ");
-		const boosting = this.inputManager.isKeyPressed("shift");
+		const accelerating = this.inputManager.isActionActive("VEHICLE_THROTTLE");
+		const braking = this.inputManager.isActionActive("VEHICLE_BRAKE");
+		const handbraking = this.inputManager.isActionActive("VEHICLE_HANDBRAKE");
+		const boosting = this.inputManager.isActionActive("VEHICLE_BOOST");
 
 		// Gerenciar boost
 		if (boosting) {
@@ -472,9 +424,7 @@ export default class Player extends Entity {
 	 * Corrige o alinhamento de uma roda específica
 	 */
 	fixWheelAlignment(wheelIndex: number, wheelMesh: THREE.Object3D, wheelTransform: CANNON.Transform, adjustments: any): void {
-		// Resetar rotações da roda para aplicar na ordem correta
-		// wheelMesh.rotation.set(0, 0, 0);
-
+      
 		// Copiar a posição do corpo físico
 		wheelMesh.position.set(wheelTransform.position.x, wheelTransform.position.y, wheelTransform.position.z);
 
@@ -488,7 +438,7 @@ export default class Player extends Entity {
 
 		// Espelhar as rodas do lado direito (impares)
 		if (wheelIndex % 2 === 1) {
-			// wheelMesh.rotateY(Math.PI);
+			wheelMesh.rotateY(Math.PI);
 		}
 
 		if (adjustments) {
@@ -498,78 +448,6 @@ export default class Player extends Entity {
 				wheelMesh.rotateY(adjustments.rotation.y);
 				wheelMesh.rotateZ(adjustments.rotation.z);
 			}
-		}
-	}
-
-	/**
-	 * Inicializa a visualização dos raycasts de suspensão
-	 */
-	initSuspensionRaycastVisualizer(): void {
-		// Criar linhas para representar os raycasts
-		this.suspensionRays = [];
-		const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-
-		for (let i = 0; i < 4; i++) {
-			// Criar geometria de linha (será atualizada a cada frame)
-			const geometry = new THREE.BufferGeometry();
-			const positions = new Float32Array(2 * 3); // 2 pontos, 3 coordenadas por ponto
-			geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-
-			// Criar a linha e adicionar à cena
-			const line = new THREE.Line(geometry, material);
-			this.scene.add(line);
-			this.suspensionRays.push(line);
-		}
-
-		// Flag para controlar a visualização
-		this.showSuspensionRays = true;
-	}
-
-	/**
-	 * Atualiza a visualização dos raycasts de suspensão
-	 */
-	updateSuspensionRaycastVisualizer(): void {
-		// Se a visualização estiver desativada, sair da função
-		if (!this.showSuspensionRays) return;
-
-		// Atualizar cada linha de raycast
-		for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
-			const wheelInfo = this.vehicle.wheelInfos[i];
-			const ray = this.suspensionRays[i];
-
-			// Obter o ponto de conexão da roda no espaço mundial
-			const connectionPoint = new CANNON.Vec3();
-			this.vehicle.chassisBody.pointToWorldFrame(wheelInfo.chassisConnectionPointLocal, connectionPoint);
-
-			// Calcular a direção do raycast no espaço mundial
-			const direction = new CANNON.Vec3();
-			this.vehicle.chassisBody.vectorToWorldFrame(wheelInfo.directionLocal, direction);
-
-			// Normalizar e escalar a direção pelo comprimento máximo da suspensão
-			direction.normalize();
-			const maxLength = wheelInfo.suspensionRestLength + wheelInfo.maxSuspensionTravel;
-			direction.scale(maxLength, direction);
-
-			// Calcular o ponto final do raycast
-			const endPoint = new CANNON.Vec3();
-			endPoint.copy(connectionPoint);
-			endPoint.vadd(direction, endPoint);
-
-			// Atualizar a geometria da linha
-			const positions = ray.geometry.attributes.position.array as Float32Array;
-
-			// Ponto inicial (conexão com o chassi)
-			positions[0] = connectionPoint.x;
-			positions[1] = connectionPoint.y;
-			positions[2] = connectionPoint.z;
-
-			// Ponto final (comprimento total do raycast)
-			positions[3] = endPoint.x;
-			positions[4] = endPoint.y;
-			positions[5] = endPoint.z;
-
-			// Marcar a geometria para atualização
-			ray.geometry.attributes.position.needsUpdate = true;
 		}
 	}
 
@@ -597,12 +475,20 @@ export default class Player extends Entity {
 		return this.loadVehicle(vehicleId);
 	}
 
+	resetCar() {
+		if (this.chassisBody) {
+			this.chassisBody.position.y += 1;
+			this.chassisBody.quaternion.set(0, 0, 0, 1);
+			this.chassisBody.velocity.set(0, 0, 0);
+			this.chassisBody.angularVelocity.set(0, 0, 0);
+		}
+	}
 	override getPosition(): THREE.Vector3 {
 		return this.mesh.position;
 	}
 
-	override getRotation(): THREE.Euler {
-		return this.mesh.rotation;
+	getCameraConfig(): Record<CameraMode, CameraConfig> {
+		return this.vehicleData.cameraSettings;
 	}
 
 	/**

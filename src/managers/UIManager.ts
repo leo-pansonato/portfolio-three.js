@@ -1,15 +1,6 @@
 import GameComponent from "../components/GameComponent";
+import Player from "../components/Player";
 import PhysicsManager from "./PhysicsManager";
-import * as THREE from "three";
-
-// Interface para representar o Player esperado por este manager
-// (Já que não temos o arquivo Player.ts ainda)
-interface IPlayer {
-	getCurrentSpeed(): number;
-	getPosition(): THREE.Vector3;
-	getRotation(): THREE.Euler;
-	getWheelAngle(): number;
-}
 
 /**
  * Gerenciador de interface do usuário
@@ -60,12 +51,11 @@ export default class UIManager extends GameComponent {
 	changeDevMode(mode: boolean): void {
 		if (!this.physicsManager) return;
 
-		// Código comentado mantido do original
-		// if (mode) {
-		//    this.physicsManager.addDebugger();
-		// } else {
-		//    this.physicsManager.removeDebugger();
-		// }
+		if (mode) {
+		   // this.physicsManager.addDebugger();
+		} else {
+		   // this.physicsManager.removeDebugger();
+		}
 
 		if (this.devOverlay) {
 			this.devOverlay.style.display = mode ? "flex" : "none";
@@ -78,7 +68,7 @@ export default class UIManager extends GameComponent {
 		this.changeDevMode(!this.devMode);
 	}
 
-	updatePlayerInfo(deltaTime: number, player: IPlayer): void {
+	updatePlayerInfo(_deltaTime: number, player: Player): void {
 		if (!this.devMode || !this.physicsManager) return;
 
 		const speed = player.getCurrentSpeed();
@@ -92,16 +82,12 @@ export default class UIManager extends GameComponent {
 		// Atualiza os contadores
 		if (this.speedCounter) this.speedCounter.textContent = speed.toFixed(2);
 
-		if (this.positionCounter) {
+		if (this.positionCounter)
 			this.positionCounter.textContent = `X: ${position.x.toFixed(2)} Y: ${position.y.toFixed(2)} Z: ${position.z.toFixed(2)}`;
-		}
 
-		if (this.rotationCounter) {
-			this.rotationCounter.textContent = `X: ${rotation.x.toFixed(2)} Y: ${rotation.y.toFixed(2)} Z: ${rotation.z.toFixed(2)}`;
-		}
+		if (this.rotationCounter)
+			this.rotationCounter.textContent = `X: ${rotation?.x.toFixed(2)} Y: ${rotation?.y.toFixed(2)} Z: ${rotation?.z.toFixed(2)}`;
 
-		if (this.wheelAngleCounter) {
-			this.wheelAngleCounter.textContent = wheelAngle.toFixed(2) + "°";
-		}
+		if (this.wheelAngleCounter) this.wheelAngleCounter.textContent = wheelAngle.toFixed(2) + "°";
 	}
 }

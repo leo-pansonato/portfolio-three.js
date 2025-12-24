@@ -7,151 +7,140 @@ import InputManager from "./managers/InputManager";
 import PerformanceManager from "./managers/PerformanceManager";
 import UIManager from "./managers/UIManager";
 import PhysicsManager from "./managers/PhysicsManager";
-
-// Interface para garantir que os componentes no array tenham o método update
-interface UpdatableComponent {
-  update?: (deltaTime: number, ...args: any[]) => void;
-}
+import GameComponent from "./components/GameComponent";
 
 /**
  * Classe principal do jogo
  */
 class Game {
-  // Propriedades declaradas com '!' pois são iniciadas no initialize()
-  public components: UpdatableComponent[];
-  public lastTime: number;
-  
-  public performanceManager!: PerformanceManager;
-  public scene!: THREE.Scene;
-  public physicsManager!: PhysicsManager;
-  public camera!: THREE.PerspectiveCamera;
-  public renderer!: THREE.WebGLRenderer;
-  
-  public ui!: UIManager;
-  public inputManager!: InputManager;
-  public environment!: Environment;
-  public player!: Player;
-  public cameraController!: CameraController;
-  
-  // Binding do loop para manter o contexto 'this' correto no requestAnimationFrame
-  private gameLoopBound: (now: number) => void;
+	public components: GameComponent[];
+	public lastTime: number;
 
-  constructor() {
-    this.components = [];
-    this.lastTime = performance.now();
-    this.gameLoopBound = this.gameLoop.bind(this);
-    this.initialize();
-  }
+	public performanceManager!: PerformanceManager;
+	public scene!: THREE.Scene;
+	public physicsManager!: PhysicsManager;
+	public camera!: THREE.PerspectiveCamera;
+	public renderer!: THREE.WebGLRenderer;
 
-  initialize(): void {
-    // Criando o gerenciador de desempenho
-    this.performanceManager = new PerformanceManager(240);
+	public ui!: UIManager;
+	public inputManager!: InputManager;
+	public environment!: Environment;
+	public player!: Player;
+	public cameraController!: CameraController;
 
-    // Instanciando a cena
-    this.scene = new THREE.Scene();
+	// binding do loop para manter o contexto 'this' correto no requestAnimationFrame
+	private gameLoopBound: (now: number) => void;
 
-    // Instanciando o gerenciador de física
-    this.physicsManager = new PhysicsManager(this.scene);
+	constructor() {
+		this.components = [];
+		this.lastTime = performance.now();
+		this.gameLoopBound = this.gameLoop.bind(this);
+		this.initialize();
+	}
 
-    // Instanciando a camera
-    const FOV = 75;
-    this.camera = new THREE.PerspectiveCamera(
-      FOV,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
+	initialize(): void {
+		// gerenciador de desempenho
+		this.performanceManager = new PerformanceManager();
 
-    // Instanciando o renderizador e adicionando ao DOM
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.setClearColor(0xa8a8f8, 1);
+		// instanciando a cena
+		this.scene = new THREE.Scene();
 
-    const renderMultiplier = window.devicePixelRatio;
-    this.renderer.setSize(window.innerWidth, window.innerHeight, false);
-    this.renderer.setPixelRatio(renderMultiplier);
+		// instanciando o gerenciador de física
+		this.physicsManager = new PhysicsManager(this.scene);
 
-    // Tratamento de erro caso o elemento "main" não exista
-    const container = document.getElementById("main");
-    if (container) {
-      container.appendChild(this.renderer.domElement);
-    } else {
-      console.error("Elemento #main não encontrado no DOM!");
-    }
+		// instanciando a camera
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-    // Criando componentes do jogo
-    this.ui = new UIManager();
-    this.inputManager = new InputManager(this); // Passa a instância do Game
-    this.environment = new Environment(this.scene, this.physicsManager);
-    this.player = new Player(this.scene, this.inputManager, this.physicsManager);
-    
-    this.cameraController = new CameraController(
-      this.camera,
-      this.player,
-      this.inputManager
-    );
+		// instanciando o renderizador e adicionando ao DOM
+		this.renderer = new THREE.WebGLRenderer({ antialias: true });
+		this.renderer.shadowMap.enabled = true;
+		this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+		this.renderer.setClearColor(0xa8a8f8, 1);
 
-    // Inicialize o UIManager com o PhysicsManager
-    this.ui.setupDevMode(this.physicsManager);
+		const renderMultiplier = window.devicePixelRatio;
+		this.renderer.setSize(window.innerWidth, window.innerHeight, true);
+		this.renderer.setPixelRatio(renderMultiplier);
 
-    // Adicionar componentes à lista de componentes para update automático
-    this.components = [this.environment, this.player, this.cameraController];
+		// linkando o renderizador ao container no HTML
+		const container = document.getElementById("main");
+		if (container) container.appendChild(this.renderer.domElement);
 
-    // Redimensionamento de tela
-    window.addEventListener("resize", () => this.handleResize());
+		// criando componentes do jogo
+		this.ui = new UIManager();
+		this.inputManager = new InputManager(this);
+		this.environment = new Environment(this.scene, this.physicsManager);
+		this.player = new Player(this.scene, this.inputManager, this.physicsManager);
 
-    // Inicia o loop do jogo
-    requestAnimationFrame(this.gameLoopBound);
-  }
+		this.cameraController = new CameraController(this.camera, this.player, this.inputManager);
 
-  handleResize(): void {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+		// inicialize o UIManager com o PhysicsManager
+		this.ui.setupDevMode(this.physicsManager);
 
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+		// adicionar componentes à lista de componentes para update automático
+		this.components = [this.environment, this.player, this.cameraController];
 
-    this.renderer.setSize(width, height, false);
-  }
+		// redimensionamento de tela
+		window.addEventListener("resize", () => this.handleResize());
 
-  gameLoop(now: number): void {
-    // Verificar se é hora de renderizar um novo quadro
-    if (this.performanceManager.update(now)) {
-      const deltaTime = this.performanceManager.getDeltaTime();
+		// inicia o loop do jogo
+		requestAnimationFrame(this.gameLoopBound);
+	}
 
-      // Atualizar estados (Game logic)
-      this.update(deltaTime);
+	handleResize(): void {
+		const width = window.innerWidth;
+		const height = window.innerHeight;
 
-      // Atualizar física (Cannon.js)
-      this.physicsManager.update(deltaTime);
+		this.camera.aspect = width / height;
+		this.camera.updateProjectionMatrix();
 
-      // Atualizar UI
-      this.ui.updatePlayerInfo(deltaTime, this.player);
-      
-      // Atualizar ambiente (luzes seguindo o player, etc)
-      this.environment.update(deltaTime, this.player.getPosition() as THREE.Vector3);
+		const renderMultiplier = window.devicePixelRatio;
+		this.renderer.setSize(width, height, true);
+		this.renderer.setPixelRatio(renderMultiplier);
+	}
 
-      // Renderizar cena (Three.js)
-      this.render();
-    }
+	gameLoop(now: number): void {
+		requestAnimationFrame(this.gameLoopBound);
 
-    // Continua o loop
-    requestAnimationFrame(this.gameLoopBound);
-  }
+		// deltaTime real (segundos)
+		let deltaTime = (now - this.lastTime) / 1000;
+		this.lastTime = now;
 
-  update(deltaTime: number): void {
-    // Atualizar todos os componentes registrados
-    this.components.forEach((component) => {
-      if (component.update) {
-        component.update(deltaTime);
-      }
-    });
-  }
+      // limitar deltaTime para evitar saltos grandes
+		if (deltaTime > 0.1) {
+			deltaTime = 0.1;
+		}
 
-  render(): void {
-    this.renderer.render(this.scene, this.camera);
-  }
+		// contadores de performance
+		if (this.performanceManager) {
+			this.performanceManager.update();
+		}
+
+		// atualizar fisica
+		this.physicsManager.update(deltaTime);
+
+		// atualizar lógica do Jogo (componentes)
+		this.update(deltaTime);
+
+		// atualizar UI e ambiente
+		this.ui.updatePlayerInfo(deltaTime, this.player);
+		this.environment.update(deltaTime, this.player.getPosition() as THREE.Vector3);
+
+		// renderizar cena (Three.js)
+		this.render();
+	}
+
+	update(deltaTime: number): void {
+		// atualizar todos os componentes registrados
+		this.components.forEach((component) => {
+			if (component.update) {
+				component.update(deltaTime);
+			}
+		});
+	}
+
+	render(): void {
+		this.renderer.render(this.scene, this.camera);
+	}
 }
 
 // Iniciar o jogo

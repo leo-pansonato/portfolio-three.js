@@ -3,8 +3,23 @@ import * as CANNON from "cannon-es";
 import ModelLoader from "../loaders/ModelLoader";
 import PhysicsManager from "./PhysicsManager";
 
+export enum CameraMode {
+	THIRD_PERSON = "THIRD_PERSON",
+	HOOD = "HOOD",
+	FIRST_PERSON = "FIRST_PERSON",
+}
+
+export interface CameraConfig {
+	distance: number; // Distancia atrás do carro
+	height: number; // Altura relativa ao chão/carro
+	fov: number; // Campo de visão
+	lerpSpeed: number; // Quão rápido a camera segue (1 = instantaneo, 0.05 = pesado)
+	lookAtOffset: { y: number, x?: number, z?: number }; // Para olhar um pouco acima do centro do carro
+	offset?: { x: number; y: number; z: number }; // Ajuste fino para câmera de capô/interior
+}
+
 // Interfaces para a configuração do veículo
-interface VehicleConfig {
+export interface VehicleConfig {
 	body: {
 		modelPath: string;
 		scale: { x: number; y: number; z: number };
@@ -23,6 +38,11 @@ interface VehicleConfig {
 		dampingRelaxation: number;
 		dampingCompression: number;
 		rollInfluence: number;
+	};
+	cameraSettings: {
+		[CameraMode.THIRD_PERSON]: CameraConfig;
+		[CameraMode.HOOD]: CameraConfig;
+		[CameraMode.FIRST_PERSON]: CameraConfig;
 	};
 	configs: any;
 	wheels: {
@@ -45,20 +65,18 @@ interface LoadedVehicle {
  */
 export default class VehicleManager {
 	private scene: THREE.Scene;
-	private physicsManager: PhysicsManager;
 	private modelLoader: ModelLoader;
 	private vehicleCatalog: { [key: string]: VehicleConfig };
 
-	constructor(scene: THREE.Scene, physicsManager: PhysicsManager) {
+	constructor(scene: THREE.Scene) {
 		this.scene = scene;
-		this.physicsManager = physicsManager;
 		this.modelLoader = new ModelLoader();
 
 		// Veículos disponíveis
 		this.vehicleCatalog = {
 			mercedes_g63: {
 				body: {
-					modelPath: "/assets/models/mercedes_g63/car.gltf",
+					modelPath: "/assets/models/mercedes_g63/scene.gltf",
 					scale: { x: 0.5, y: 0.5, z: 0.5 },
 					position: { x: 0, y: -0.33, z: 0 },
 					rotation: { x: 0, y: Math.PI / 2, z: 0 },
@@ -81,6 +99,31 @@ export default class VehicleManager {
 					dampingCompression: 4.5,
 					rollInfluence: 0.3,
 				},
+				cameraSettings: {
+					[CameraMode.THIRD_PERSON]: {
+						distance: 2.5,
+						height: 0.8,
+						fov: 60,
+						lerpSpeed: 0.1,
+						lookAtOffset: { y: 0.5,  x: 0, z: 0 },
+					},
+					[CameraMode.HOOD]: {
+                  fov: 75,
+						lerpSpeed: 0.2,
+						offset: { x: 0, y: 0.54, z: 0.65 },
+						distance: 0,
+						height: 0,
+						lookAtOffset: { y: 0 },
+					},
+					[CameraMode.FIRST_PERSON]: {
+                  fov: 90,
+						lerpSpeed: 0.3,
+                  offset: { x: 0.20, y: 0.60, z: -0.08 },
+						distance: 0,
+						height: 0,
+						lookAtOffset: { y: 0 },
+					},
+				},
 				configs: {
 					maxSpeed: 20,
 					maxForce: 400,
@@ -96,19 +139,19 @@ export default class VehicleManager {
 					currentSpeed: 0,
 				},
 				wheels: {
-					modelPath: "/assets/models/wheel2/rodass.gltf",
+					modelPath: "/assets/models/wheel/scene.gltf",
 					scale: { x: 0.5, y: 0.5, z: 0.5 },
 					adjustments: [
 						{ position: { x: 0.74, y: 0, z: -0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: 0.74, y: 0, z: 0.4 }, rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: 0.74, y: 0, z: 0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
 						{ position: { x: -0.645, y: 0, z: -0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: -0.645, y: 0, z: 0.4 }, rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: -0.645, y: 0, z: 0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
 					],
 				},
 			},
 			bmw_f82: {
 				body: {
-					modelPath: "/assets/models/bmw_m4_f82/bmw_m4_f82.gltf",
+					modelPath: "/assets/models/bmw_m4_f82/scene.gltf",
 					scale: { x: 0.5, y: 0.5, z: 0.5 },
 					position: { x: 0.1, y: -0.33, z: 0 },
 					rotation: { x: 0, y: Math.PI / 2, z: 0 },
@@ -131,6 +174,31 @@ export default class VehicleManager {
 					dampingCompression: 4.5,
 					rollInfluence: 0.1,
 				},
+            cameraSettings: {
+					[CameraMode.THIRD_PERSON]: {
+						distance: 2.5,
+						height: 0.8,
+						fov: 60,
+						lerpSpeed: 0.1,
+						lookAtOffset: { y: 0.5,  x: 0, z: 0 },
+					},
+					[CameraMode.HOOD]: {
+                  fov: 80,
+						lerpSpeed: 0.2,
+						offset: { x: 0, y: 0.50, z: 0.65 },
+						distance: 0,
+						height: 0,
+						lookAtOffset: { y: 0 },
+					},
+					[CameraMode.FIRST_PERSON]: {
+                  fov: 70,
+						lerpSpeed: 0.3,
+                  offset: { x: 0.18, y: 0.52, z: -0.15 },
+						distance: 0,
+						height: 0,
+						lookAtOffset: { y: 0 },
+					},
+				},
 				configs: {
 					maxSpeed: 20,
 					maxForce: 300,
@@ -146,13 +214,13 @@ export default class VehicleManager {
 					currentSpeed: 0,
 				},
 				wheels: {
-					modelPath: "/assets/models/wheel2/rodass.gltf",
+					modelPath: "/assets/models/wheel/scene.gltf",
 					scale: { x: 0.425, y: 0.425, z: 0.425 },
 					adjustments: [
 						{ position: { x: 0.747, y: 0, z: -0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: 0.747, y: 0, z: 0.4 }, rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: 0.747, y: 0, z: 0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
 						{ position: { x: -0.664, y: 0, z: -0.405 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: -0.664, y: 0, z: 0.4 }, rotation: { x: Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: -0.664, y: 0, z: 0.405 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2  } },
 					],
 				},
 			},
@@ -166,8 +234,17 @@ export default class VehicleManager {
 		try {
 			const vehicleConfig = this.vehicleCatalog[vehicleId] || this.vehicleCatalog.mercedes_g63;
 
-			// Carregar modelo do corpo
-			const bodyMesh = await this.loadModel(vehicleConfig.body.modelPath, vehicleConfig.body.scale);
+         // Carregar corpo e rodas em paralelo
+         const [bodyMesh, wheelMeshes] = await Promise.all([
+            this.loadModel(vehicleConfig.body.modelPath, vehicleConfig.body.scale),
+            this.loadWheelModels(
+               vehicleConfig.wheels.modelPath,
+               vehicleConfig.wheels.scale,
+               vehicle,
+               vehicleConfig.wheels.adjustments,
+               vehicleId
+            )
+         ]);
 
 			if (!bodyMesh) {
 				throw new Error("Falha ao carregar modelo do corpo");
@@ -175,17 +252,8 @@ export default class VehicleManager {
 
 			// Configurar o modelo do corpo
 			if (bodyMesh) {
-				this.setupBodyMesh(bodyMesh, vehicleConfig.body);
+				this.setupBodyMesh(bodyMesh, vehicleConfig);
 			}
-
-			// Carregar modelos das rodas
-			const wheelMeshes = await this.loadWheelModels(
-				vehicleConfig.wheels.modelPath,
-				vehicleConfig.wheels.scale,
-				vehicle,
-				vehicleConfig.wheels.adjustments,
-				vehicleId
-			);
 
 			return {
 				body: bodyMesh,
@@ -206,7 +274,7 @@ export default class VehicleManager {
 		}
 	}
 
-	setupBodyMesh(bodyMesh: THREE.Object3D, config: any): void {
+	setupBodyMesh(bodyMesh: THREE.Object3D, config: VehicleConfig): void {
 		bodyMesh.castShadow = true;
 		bodyMesh.receiveShadow = true;
 
@@ -279,16 +347,10 @@ export default class VehicleManager {
 	createFallbackVehicle(vehicle: CANNON.RaycastVehicle, vehicleId: string): LoadedVehicle {
 		// Criar chassis básico
 		const chassisSize = this.vehicleCatalog[vehicleId].physics.size;
-		const chassisGeometry = new THREE.BoxGeometry(chassisSize.x, chassisSize.y, chassisSize.z);
+		const chassisGeometry = new THREE.BoxGeometry(chassisSize.y, chassisSize.z, chassisSize.x);
 		const chassisMaterial = new THREE.MeshStandardMaterial({ color: 0x1c1d1f });
 		const chassisMesh = new THREE.Mesh(chassisGeometry, chassisMaterial);
 		chassisMesh.castShadow = true;
-
-		// Adicionar marcador frontal
-		const frontMarker = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 1.3), new THREE.MeshStandardMaterial({ color: 0x3e7efa }));
-		frontMarker.position.x = 2;
-		frontMarker.position.y = 0.5;
-		chassisMesh.add(frontMarker);
 
 		// Criar rodas básicas
 		const wheelMeshes = this.createFallbackWheels(vehicle, vehicleId);
@@ -317,7 +379,7 @@ export default class VehicleManager {
 			const transform = vehicle.wheelInfos[i].worldTransform;
 
 			// Aplicar a posição e rotação inicial da roda
-			// Casting necessario pois Cannon Types as vezes diferem ligeiramente de Three Types
+			// Casting necessario pois Cannon Types diferem de Three Types
 			wheelMesh.position.copy(transform.position as unknown as THREE.Vector3);
 			wheelMesh.quaternion.copy(transform.quaternion as unknown as THREE.Quaternion);
 
@@ -327,4 +389,9 @@ export default class VehicleManager {
 
 		return wheelMeshes;
 	}
+
+   getVehicleConfig(vehicleId: string): VehicleConfig | null {
+      return this.vehicleCatalog[vehicleId] || null;
+   }
+
 }
