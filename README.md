@@ -22,21 +22,21 @@ Este projeto é um jogo 3D simples desenvolvido com Three.js, onde o jogador con
 │   └── main.css
 ├── js
 │   ├── components
-│   │   ├── CameraController.js
-│   │   ├── Entity.js
-│   │   ├── Environment.js
-│   │   ├── GameComponent.js
-│   │   ├── Material.js
-│   │   └── PLayer.js
+│   │   ├── CameraController.ts
+│   │   ├── Entity.ts
+│   │   ├── Environment.ts
+│   │   ├── GameComponent.ts
+│   │   ├── Material.ts
+│   │   └── PLayer.ts
 │   ├── managers
-│   │   ├── InputManager.js
-│   │   ├── PerformanceManager.js
-│   │   ├── PhysicsManager.js
-│   │   ├── VehicleManager.js
-│   │   └── UIManager.js
+│   │   ├── InputManager.ts
+│   │   ├── PerformanceManager.ts
+│   │   ├── PhysicsManager.ts
+│   │   ├── VehicleManager.ts
+│   │   └── UIManager.ts
 │   ├── loaders
-│   │   └── ModelLoader.js
-│   └── main.js
+│   │   └── ModelLoader.ts
+│   └── main.ts
 ├── index.html
 └── README.md
 ```
@@ -55,8 +55,8 @@ Este projeto é um jogo 3D simples desenvolvido com Three.js, onde o jogador con
    npm install
    ```
 
-3. **Abra o arquivo `index.html` em um navegador**:
-   Você pode abrir o arquivo diretamente ou usar o Vite executando `npx vite` no terminal.
+3. **Inicie o projeto**:
+   Você pode abrir executando `npm run dev` no terminal.
 
 ## Tecnologias Utilizadas
 
