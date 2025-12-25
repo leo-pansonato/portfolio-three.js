@@ -51,6 +51,7 @@ export default class CameraController extends GameComponent {
 		this.targetAngles.pitch = 0;
 		this.currentAngles.yaw = 0;
 		this.currentAngles.pitch = 0;
+		this.camera.up.set(0, 1, 0);
 
 		console.log("Camera Mode:", this.currentMode);
 	}
@@ -61,7 +62,7 @@ export default class CameraController extends GameComponent {
 		const currentTargetPos = this.target.getPosition();
 		const config = this.target.getCameraConfig()[this.currentMode];
 
-      this.camera.fov = config.fov || 75;
+		this.camera.fov = config.fov || 75;
 
 		// lógica de Rotação
 		if (this.currentMode === CameraMode.FIRST_PERSON || this.currentMode === CameraMode.HOOD) {
@@ -126,7 +127,11 @@ export default class CameraController extends GameComponent {
 
 	// Primeira Pessoa e Capô (rigida)
 	private updateRigidCamera(deltaTime: number, config: CameraConfig, targetPos: THREE.Vector3): void {
-		const carRotation = this.target!.getRotation();
+		const carQuaternion = this.target!.getQuaternion();
+
+		const cameraUp = new THREE.Vector3(0, 1, 0);
+		if (carQuaternion) cameraUp.applyQuaternion(carQuaternion);
+		this.camera.up.copy(cameraUp);
 
 		// configurar posição da camera
 		const defaultX = 0.175;
@@ -136,7 +141,7 @@ export default class CameraController extends GameComponent {
 		this._offset.set(config.offset?.x ?? defaultX, config.offset?.y ?? defaultY, config.offset?.z ?? defaultZ);
 
 		// aplica a rotação do carro ao offset para posicionar a câmera
-      if (carRotation) this._offset.applyEuler(carRotation);
+		if (carQuaternion) this._offset.applyQuaternion(carQuaternion);
 		this.camera.position.copy(targetPos).add(this._offset);
 
 		// input do mouse
@@ -163,8 +168,8 @@ export default class CameraController extends GameComponent {
 		// aplicar rotação do mouse no vetor
 		lookVector.applyEuler(new THREE.Euler(-this.targetAngles.pitch, this.targetAngles.yaw, 0, "YXZ"));
 
-		// aplicar rotação do CARRO no vetor
-      if (carRotation) lookVector.applyEuler(carRotation);
+		// aplicar quaternion do CARRO no vetor
+		if (carQuaternion) lookVector.applyQuaternion(carQuaternion);
 
 		// somar posição da câmera para ter o ponto final no mundo 3D
 		this._lookAtPos.copy(this.camera.position).add(lookVector);
