@@ -75,7 +75,7 @@ export default class InputManager extends GameComponent {
 				document.exitPointerLock();
 			}
 		});
-      
+
 		document.addEventListener("pointerlockchange", () => {
 			this.mouse.isLocked = document.pointerLockElement === document.body;
 		});
@@ -108,9 +108,7 @@ export default class InputManager extends GameComponent {
 			return;
 		}
 
-		if (Math.abs(e.movementX) > 1 || Math.abs(e.movementY) > 1) {
-			this.mouse.lastInputTime = Date.now();
-		}
+		this.mouse.lastInputTime = Date.now();
 	}
 
 	isPointerLocked(): boolean {
@@ -156,7 +154,7 @@ export default class InputManager extends GameComponent {
 		const boundKeys = this.keyBindings[actionName];
 		if (!boundKeys) return false;
 
-		// Verifica se ALGUMA das teclas configuradas para essa ação está pressionada
+		// Verifica se ALGUMA das teclas configuradas está pressionada
 		return boundKeys.some((key) => this.isKeyPressed(key));
 	}
 

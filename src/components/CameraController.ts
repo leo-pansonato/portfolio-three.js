@@ -156,7 +156,7 @@ export default class CameraController extends GameComponent {
 		this.targetAngles.yaw = Math.max(-2.0, Math.min(2.0, this.targetAngles.yaw));
 
 		// auto center
-		if (this.inputManager.getTimeSinceLastInput() > 0.5) {
+		if (this.inputManager.getTimeSinceLastInput() > 0.6) {
 			const t = deltaTime * this.AUTO_CENTER_SPEED;
 			this.targetAngles.yaw = THREE.MathUtils.lerp(this.targetAngles.yaw, 0, t);
 			this.targetAngles.pitch = THREE.MathUtils.lerp(this.targetAngles.pitch, 0, t);

@@ -1,214 +1,186 @@
 import * as THREE from "three";
+import { CSM, CSMParameters } from "three/addons/csm/CSM.js";
+import { CSMHelper } from "three/addons/csm/CSMHelper.js";
 import GameComponent from "../components/GameComponent";
 
-interface CascadeConfig {
-	light: THREE.DirectionalLight;
-	size: number; // Tamanho da área de sombra
-	near: number; // Distância near da cascata
-	far: number; // Distância far da cascata
+interface CSMConfig extends CSMParameters {
+	lightColor: THREE.Color;
+	lightIntensity: number;
+	shadowRadius: number;
 }
-
 /**
- * Gerenciador de iluminação com CSM customizado
- * Usa múltiplas DirectionalLights para criar cascatas de sombra
+ * Gerenciador de iluminação com CSM
  */
 export default class LightingManager extends GameComponent {
 	private scene: THREE.Scene;
-	private cascades: CascadeConfig[] = [];
-	private playerPosition: THREE.Vector3 = new THREE.Vector3();
+	private camera: THREE.PerspectiveCamera;
+	private csm: CSM | null = null;
+	private csmHelper: CSMHelper | null = null;
+	private helperEnabled: boolean = false;
 
 	// Configurações do CSM
-	private readonly config = {
-		// Número de cascatas (ajuste conforme necessário)
-		cascadeCount: 2,
-
-		// Distância máxima das sombras
-		maxDistance: 50,
-
-		// Resolução do shadow map
-		shadowMapSizes: [2048, 1024],
-
-		// Direção da luz (normalizada)
+	private readonly config: CSMConfig = {
+		cascades: 3,
+		maxFar: 50,
+		shadowMapSize: 4096,
 		lightDirection: new THREE.Vector3(1, 1, 1).normalize(),
-		// Distância da luz em relação ao player
-		lightDistance: 30,
-		// Cor da luz
-		color: 0xf6ad8f,
-		// Intensidade base (dividida entre cascatas)
-		intensity: 7,
-		// Bias das sombras (pode variar por cascata para evitar artefatos)
-		shadowBias: [-0.0005, -0.0001],
+		lightColor: new THREE.Color(0xf6ad8f),
+		lightIntensity: 5,
+		shadowBias: -0.0007,
+		shadowRadius: 2,
+		mode: "practical",
+		lightMargin: 10,
+		lightFar: 100,
 	};
 
-	constructor(scene: THREE.Scene) {
+	constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
 		super();
 		this.scene = scene;
-		this.setupCascades();
-      this.enableHelper(true);
+		this.camera = camera;
+		this.setupCSM();
+		this.enableHelper(true);
 	}
 
 	/**
-	 * Configura as cascatas de sombra automaticamente
+	 * Configura o CSM do Three.js
 	 */
-	private setupCascades(): void {
-		const { cascadeCount, maxDistance, shadowMapSizes, color, intensity, shadowBias } =
-			this.config;
+	private setupCSM(): void {
+		const {
+			cascades,
+			maxFar,
+			shadowMapSize,
+			lightDirection,
+			lightColor,
+			lightIntensity,
+			shadowBias,
+			shadowRadius,
+			mode,
+			lightNear,
+			lightFar,
+			lightMargin,
+		} = this.config;
 
-		let currentNear = 0;
+		this.csm = new CSM({
+			maxFar,
+			cascades: cascades,
+			mode,
+			parent: this.scene,
+			shadowMapSize,
+			lightDirection: lightDirection?.clone().negate(),
+			lightIntensity,
+			lightNear,
+			lightFar,
+			lightMargin,
+			camera: this.camera,
+		});
 
-		for (let i = 0; i < cascadeCount; i++) {
+		this.csm.lights.forEach((light) => {
+			light.color.copy(lightColor);
+			light.shadow.bias = shadowBias ?? -0.0005;
+			light.shadow.radius = shadowRadius;
+		});
 
-			// Calcular distâncias near/far para cada cascata
-			const lambda = 0.2; // Balanço entre linear e logarítmico
-			const linearFar = (maxDistance * (i + 1)) / cascadeCount;
-			const logFar = Math.pow(maxDistance, (i + 1) / cascadeCount);
-			const far = lambda * linearFar + (1 - lambda) * logFar;
-         const size = far;
+		// Log da configuração
+		// console.log("CSM initialized:", {
+		// 	cascades: cascades,
+		// 	maxFar,
+		// 	shadowMapSize,
+		// 	mode,
+		// });
+	}
 
-			// Criar luz direcional para esta cascata
-			const light = new THREE.DirectionalLight(color, intensity / (i ^ 2 || 1));
+	/**
+	 * Atualiza o CSM
+	 */
+	update(_deltaTime: number): void {
+		if (this.csm) {
+			this.csm.update();
+		}
 
-			// Configurar sombras
-			light.castShadow = true;
-
-			// Tamanho do shadow map (diminui com cascatas mais distantes)
-			const mapSize = shadowMapSizes[i] || shadowMapSizes[shadowMapSizes.length - 1];
-			light.shadow.mapSize.width = mapSize;
-			light.shadow.mapSize.height = mapSize;
-
-			// Configurar câmera ortográfica da sombra
-			light.shadow.camera.left = -size;
-			light.shadow.camera.right = size;
-			light.shadow.camera.top = size;
-			light.shadow.camera.bottom = -size;
-			light.shadow.camera.near = currentNear;
-			light.shadow.camera.far = this.config.lightDistance + size;
-         
-
-			light.shadow.bias = shadowBias[i] || shadowBias[shadowBias.length - 1];
-         
-			// Adicionar blur suave
-			light.shadow.radius = 2 + i;
-
-			// Adicionar à cena
-			this.scene.add(light);
-			this.scene.add(light.target);
-
-			// Guardar configuração da cascata
-			this.cascades.push({
-				light,
-				size,
-				near: 0.1,
-				far,
-			});
-
-			currentNear = far;
+		// Atualizar helper se habilitado
+		if (this.csmHelper && this.helperEnabled) {
+			this.csmHelper.update();
 		}
 	}
 
 	/**
-	 * Atualiza a posição do player para as luzes seguirem
+	 * Retorna o objeto CSM para configuração de materiais
 	 */
-	setPlayerPosition(playerPosition: THREE.Vector3): void {
-		this.playerPosition.copy(playerPosition);
+	getCSM(): CSM | null {
+		return this.csm;
 	}
 
 	/**
-	 * Atualiza as posições das luzes para seguir o player
+	 * Configura um material para usar CSM
+	 * Deve ser chamado para cada material que deve receber sombras CSM
 	 */
-	update(_deltaTime: number): void {
-		const { lightDirection, lightDistance } = this.config;
-
-		this.cascades.forEach((cascade) => {
-			// Posicionar luz na direção correta, afastada do player
-			cascade.light.position.set(
-				this.playerPosition.x + lightDirection.x * lightDistance,
-				this.playerPosition.y + lightDirection.y * lightDistance,
-				this.playerPosition.z + lightDirection.z * lightDistance
-			);
-
-			// Apontar para o player
-			cascade.light.target.position.copy(this.playerPosition);
-		});
+	setupMaterial(material: THREE.Material): void {
+		if (this.csm) {
+			this.csm.setupMaterial(material);
+		}
 	}
 
-	/**
-	 * Retorna todas as luzes das cascatas
-	 */
-	getLights(): THREE.DirectionalLight[] {
-		return this.cascades.map((c) => c.light);
-	}
-
-	/**
-	 * Retorna a luz principal (primeira cascata)
-	 */
-	getDirectionalLight(): THREE.DirectionalLight | null {
-		return this.cascades[0]?.light || null;
-	}
 
 	/**
 	 * Ajusta a intensidade de todas as cascatas
 	 */
 	setIntensity(intensity: number): void {
-		const perCascade = intensity / this.cascades.length;
-		this.cascades.forEach((cascade) => {
-			cascade.light.intensity = perCascade;
-		});
+		if (this.csm) {
+			this.csm.lightIntensity = intensity;
+			this.csm.lights.forEach((light) => {
+				light.intensity = intensity;
+			});
+		}
 	}
 
 	/**
 	 * Ajusta a cor de todas as cascatas
 	 */
 	setColor(color: number | THREE.Color): void {
-		this.cascades.forEach((cascade) => {
-			cascade.light.color.set(color);
-		});
+		if (this.csm) {
+			const threeColor = color instanceof THREE.Color ? color : new THREE.Color(color);
+			this.csm.lights.forEach((light) => {
+				light.color.copy(threeColor);
+			});
+		}
 	}
 
 	/**
 	 * Ajusta a direção da luz
 	 */
 	setLightDirection(direction: THREE.Vector3): void {
-		this.config.lightDirection.copy(direction).normalize();
+		if (this.csm) {
+			// CSM usa direção invertida (de onde a luz vem)
+			this.csm.lightDirection.copy(direction).normalize().negate();
+		}
 	}
 
 	/**
 	 * Habilita helpers visuais para debug
 	 */
 	enableHelper(enabled: boolean): void {
-		const helperName = "cascadeHelpers";
-		const existingGroup = this.scene.getObjectByName(helperName);
+		this.helperEnabled = enabled;
 
-		if (enabled && !existingGroup) {
-			const group = new THREE.Group();
-			group.name = helperName;
-
-			this.cascades.forEach((cascade, i) => {
-				// Helper da luz
-				const colors = [0x00ff00, 0xffff00, 0xff0000];
-				const helper = new THREE.DirectionalLightHelper(cascade.light, cascade.size * 0.2, colors[i] || 0xffffff);
-				group.add(helper);
-
-				// Helper da câmera de sombra
-				const cameraHelper = new THREE.CameraHelper(cascade.light.shadow.camera);
-				group.add(cameraHelper);
-			});
-
-			this.scene.add(group);
+		if (enabled && !this.csmHelper && this.csm) {
+			this.csmHelper = new CSMHelper(this.csm);
+			this.csmHelper.visible = true;
+			this.scene.add(this.csmHelper);
 
 			// Log das cascatas
-			console.log(
-				"CSM Cascades:",
-				this.cascades.map((c, i) => ({
-					cascade: i + 1,
-					size: c.size,
-					near: c.near.toFixed(2),
-					far: c.far.toFixed(2),
-					mapSize: c.light.shadow.mapSize.width,
-				}))
-			);
-		} else if (!enabled && existingGroup) {
-			this.scene.remove(existingGroup);
+			console.log("CSM Helper enabled - Cascades:", this.csm.cascades);
+		} else if (!enabled && this.csmHelper) {
+			this.scene.remove(this.csmHelper);
+			this.csmHelper.dispose();
+			this.csmHelper = null;
+		}
+	}
+
+	/**
+	 * Atualiza os frustums das cascatas (chamar se mudar parâmetros da câmera)
+	 */
+	updateFrustums(): void {
+		if (this.csm) {
+			this.csm.updateFrustums();
 		}
 	}
 
@@ -216,11 +188,15 @@ export default class LightingManager extends GameComponent {
 	 * Remove todas as luzes e limpa recursos
 	 */
 	dispose(): void {
-		this.cascades.forEach((cascade) => {
-			this.scene.remove(cascade.light);
-			this.scene.remove(cascade.light.target);
-			cascade.light.shadow.map?.dispose();
-		});
-		this.cascades = [];
+		if (this.csmHelper) {
+			this.scene.remove(this.csmHelper);
+			this.csmHelper.dispose();
+			this.csmHelper = null;
+		}
+
+		if (this.csm) {
+			this.csm.dispose();
+			this.csm = null;
+		}
 	}
 }

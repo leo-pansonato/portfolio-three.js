@@ -71,8 +71,11 @@ class Game {
 		this.ui = new UIManager();
 		this.inputManager = new InputManager(this);
 		this.environment = new Environment(this.scene, this.physicsManager);
-		this.lightingManager = new LightingManager(this.scene);
+		this.lightingManager = new LightingManager(this.scene, this.camera);
 		this.player = new Player(this.scene, this.inputManager, this.physicsManager);
+
+		// Configurar materiais existentes para usar CSM
+		this.setupCSMMaterials();
 
 		this.cameraController = new CameraController(this.camera, this.player, this.inputManager);
 
@@ -127,9 +130,6 @@ class Game {
 		// atualizar UI
 		this.ui.updatePlayerInfo(deltaTime, this.player);
 
-		// atualizar posição do player para a iluminação seguir
-		this.lightingManager.setPlayerPosition(this.player.getPosition() as THREE.Vector3);
-
 		// renderizar cena (Three.js)
 		this.render();
 	}
@@ -145,6 +145,23 @@ class Game {
 
 	render(): void {
 		this.renderer.render(this.scene, this.camera);
+	}
+
+	/**
+	 * Configura todos os materiais da cena para usar CSM
+	 * Deve ser chamado após criar objetos ou ao carregar novos modelos
+	 */
+	setupCSMMaterials(): void {
+		this.scene.traverse((object) => {
+			if (object instanceof THREE.Mesh) {
+				const materials = Array.isArray(object.material) ? object.material : [object.material];
+				materials.forEach((material) => {
+					if (material) {
+						this.lightingManager.setupMaterial(material);
+					}
+				});
+			}
+		});
 	}
 }
 

@@ -87,14 +87,14 @@ export default class Environment extends GameComponent {
   createObstacles(): void {
     // caixas como obstáculos
     const obstaclePositions = [
-      { x: 5, y: 1, z: 5 },
-      { x: -5, y: 1, z: 8 },
-      { x: 8, y: 1, z: -5 },
+      { x: 5, y: 3, z: 5 },
+      { x: -5, y: 3, z: 8 },
+      { x: 8, y: 3, z: -5 },
     ];
 
     obstaclePositions.forEach((pos) => {
       // Criar caixa visual
-      const boxSize = { x: 1, y: 1, z: 1 };
+      const boxSize = { x: 3, y: 3, z: 3 };
       const boxGeometry = new THREE.BoxGeometry(boxSize.x, boxSize.y, boxSize.z);
       const boxMaterial = new THREE.MeshStandardMaterial({
         roughness: 0.4,
