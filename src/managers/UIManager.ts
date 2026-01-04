@@ -1,18 +1,16 @@
 import GameComponent from "../components/GameComponent";
 import Player from "../components/Player";
-import PhysicsManager from "./PhysicsManager";
+import { devMode } from "./DevModeManager";
 
 /**
  * Gerenciador de interface do usuário
  */
 export default class UIManager extends GameComponent {
-	private devMode: boolean;
 	private devOverlay: HTMLElement | null;
 	private speedCounter: HTMLElement | null;
 	private positionCounter: HTMLElement | null;
 	private rotationCounter: HTMLElement | null;
 	private wheelAngleCounter: HTMLElement | null;
-	private physicsManager: PhysicsManager | null;
 
 	public ui: {
 		overlays: { dev: HTMLElement | null };
@@ -21,13 +19,11 @@ export default class UIManager extends GameComponent {
 
 	constructor() {
 		super();
-		this.devMode = true;
 		this.devOverlay = document.getElementById("dev-overlay");
 		this.speedCounter = document.getElementById("speed");
 		this.positionCounter = document.getElementById("position");
 		this.rotationCounter = document.getElementById("rotation");
 		this.wheelAngleCounter = document.getElementById("wheel-angle");
-		this.physicsManager = null;
 
 		this.ui = {
 			overlays: {
@@ -39,45 +35,27 @@ export default class UIManager extends GameComponent {
 				scroll: document.getElementById("ctrlScroll"),
 			},
 		};
+
+		devMode.subscribe("ui-manager", (enabled) => this.onChangeDevMode(enabled));
 	}
 
-	setupDevMode(physicsManager: PhysicsManager): void {
-		if (!physicsManager) return;
 
-		this.physicsManager = physicsManager;
-		this.changeDevMode(this.devMode);
-	}
-
-	changeDevMode(mode: boolean): void {
-		if (!this.physicsManager) return;
-
-		if (mode) {
-		   // this.physicsManager.addDebugger();
-		} else {
-		   // this.physicsManager.removeDebugger();
-		}
-
+	onChangeDevMode(enabled: boolean): void {
 		if (this.devOverlay) {
-			this.devOverlay.style.display = mode ? "flex" : "none";
+			this.devOverlay.style.display = enabled ? "flex" : "none";
 		}
-
-		this.devMode = mode;
 	}
 
-	toggleDevMode(): void {
-		this.changeDevMode(!this.devMode);
-	}
-
+	/**
+	 * Atualiza informações do player na UI
+	 */
 	updatePlayerInfo(_deltaTime: number, player: Player): void {
-		if (!this.devMode || !this.physicsManager) return;
+		if (!devMode.isEnabled()) return;
 
 		const speed = player.getCurrentSpeed();
 		const position = player.getPosition();
 		const rotation = player.getRotation();
 		const wheelAngle = player.getWheelAngle();
-
-		// Atualizar o debugger física
-		this.physicsManager.updateDebugger();
 
 		// Atualiza os contadores
 		if (this.speedCounter) this.speedCounter.textContent = speed.toFixed(2);

@@ -73,23 +73,19 @@ class Game {
 		this.environment = new Environment(this.scene, this.physicsManager);
 		this.lightingManager = new LightingManager(this.scene, this.camera);
 		this.player = new Player(this.scene, this.inputManager, this.physicsManager);
-
-		// Configurar materiais existentes para usar CSM
-		this.setupCSMMaterials();
-
 		this.cameraController = new CameraController(this.camera, this.player, this.inputManager);
 
-		// inicialize o UIManager com o PhysicsManager
-		this.ui.setupDevMode(this.physicsManager);
+		// Configurar materiais existentes para usar CSM
+		this.lightingManager.setupCSMMaterials();
 
-		// adicionar componentes à lista de componentes para update automático
-		this.components = [this.environment, this.lightingManager, this.player, this.cameraController];
+		// Adicionar componentes à lista de componentes para update automático
+		this.components = [this.environment, this.lightingManager, this.player, this.cameraController, this.performanceManager];
 
 		// redimensionamento de tela
 		window.addEventListener("resize", () => this.handleResize());
 
 		// inicia o loop do jogo
-		requestAnimationFrame(this.gameLoopBound);
+		this.gameLoopBound(performance.now());
 	}
 
 	handleResize(): void {
@@ -116,11 +112,6 @@ class Game {
 			deltaTime = 0.1;
 		}
 
-		// contadores de performance
-		if (this.performanceManager) {
-			this.performanceManager.update();
-		}
-
 		// atualizar fisica
 		this.physicsManager.update(deltaTime);
 
@@ -145,23 +136,6 @@ class Game {
 
 	render(): void {
 		this.renderer.render(this.scene, this.camera);
-	}
-
-	/**
-	 * Configura todos os materiais da cena para usar CSM
-	 * Deve ser chamado após criar objetos ou ao carregar novos modelos
-	 */
-	setupCSMMaterials(): void {
-		this.scene.traverse((object) => {
-			if (object instanceof THREE.Mesh) {
-				const materials = Array.isArray(object.material) ? object.material : [object.material];
-				materials.forEach((material) => {
-					if (material) {
-						this.lightingManager.setupMaterial(material);
-					}
-				});
-			}
-		});
 	}
 }
 

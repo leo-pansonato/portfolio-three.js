@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CSM, CSMParameters } from "three/addons/csm/CSM.js";
 import { CSMHelper } from "three/addons/csm/CSMHelper.js";
 import GameComponent from "../components/GameComponent";
+import { devMode } from "./DevModeManager";
 
 interface CSMConfig extends CSMParameters {
 	lightColor: THREE.Color;
@@ -16,7 +17,6 @@ export default class LightingManager extends GameComponent {
 	private camera: THREE.PerspectiveCamera;
 	private csm: CSM | null = null;
 	private csmHelper: CSMHelper | null = null;
-	private helperEnabled: boolean = false;
 
 	// Configurações do CSM
 	private readonly config: CSMConfig = {
@@ -38,7 +38,8 @@ export default class LightingManager extends GameComponent {
 		this.scene = scene;
 		this.camera = camera;
 		this.setupCSM();
-		this.enableHelper(true);
+
+		devMode.subscribe("lighting-manager", (enabled) => this.enableHelper(enabled));
 	}
 
 	/**
@@ -89,6 +90,23 @@ export default class LightingManager extends GameComponent {
 		// });
 	}
 
+   /**
+	 * Configura todos os materiais da cena para usar CSM
+	 * Deve ser chamado após criar objetos ou ao carregar novos modelos
+	 */
+	setupCSMMaterials(): void {
+		this.scene.traverse((object) => {
+			if (object instanceof THREE.Mesh) {
+				const materials = Array.isArray(object.material) ? object.material : [object.material];
+				materials.forEach((material) => {
+					if (material) {
+						this.setupMaterial(material);
+					}
+				});
+			}
+		});
+	}
+
 	/**
 	 * Atualiza o CSM
 	 */
@@ -97,18 +115,11 @@ export default class LightingManager extends GameComponent {
 			this.csm.update();
 		}
 
-		// Atualizar helper se habilitado
-		if (this.csmHelper && this.helperEnabled) {
+		if (this.csmHelper && devMode.isEnabled()) {
 			this.csmHelper.update();
 		}
 	}
 
-	/**
-	 * Retorna o objeto CSM para configuração de materiais
-	 */
-	getCSM(): CSM | null {
-		return this.csm;
-	}
 
 	/**
 	 * Configura um material para usar CSM
@@ -122,56 +133,19 @@ export default class LightingManager extends GameComponent {
 
 
 	/**
-	 * Ajusta a intensidade de todas as cascatas
+	 * Habilita helper visual
 	 */
-	setIntensity(intensity: number): void {
-		if (this.csm) {
-			this.csm.lightIntensity = intensity;
-			this.csm.lights.forEach((light) => {
-				light.intensity = intensity;
-			});
-		}
-	}
+	private enableHelper(enabled: boolean): void {
+      if (this.csmHelper) {
+         this.scene.remove(this.csmHelper);
+         this.csmHelper.dispose();
+         this.csmHelper = null;
+      }
 
-	/**
-	 * Ajusta a cor de todas as cascatas
-	 */
-	setColor(color: number | THREE.Color): void {
-		if (this.csm) {
-			const threeColor = color instanceof THREE.Color ? color : new THREE.Color(color);
-			this.csm.lights.forEach((light) => {
-				light.color.copy(threeColor);
-			});
-		}
-	}
-
-	/**
-	 * Ajusta a direção da luz
-	 */
-	setLightDirection(direction: THREE.Vector3): void {
-		if (this.csm) {
-			// CSM usa direção invertida (de onde a luz vem)
-			this.csm.lightDirection.copy(direction).normalize().negate();
-		}
-	}
-
-	/**
-	 * Habilita helpers visuais para debug
-	 */
-	enableHelper(enabled: boolean): void {
-		this.helperEnabled = enabled;
-
-		if (enabled && !this.csmHelper && this.csm) {
+		if (enabled && this.csm) {
 			this.csmHelper = new CSMHelper(this.csm);
 			this.csmHelper.visible = true;
 			this.scene.add(this.csmHelper);
-
-			// Log das cascatas
-			console.log("CSM Helper enabled - Cascades:", this.csm.cascades);
-		} else if (!enabled && this.csmHelper) {
-			this.scene.remove(this.csmHelper);
-			this.csmHelper.dispose();
-			this.csmHelper = null;
 		}
 	}
 
@@ -188,11 +162,8 @@ export default class LightingManager extends GameComponent {
 	 * Remove todas as luzes e limpa recursos
 	 */
 	dispose(): void {
-		if (this.csmHelper) {
-			this.scene.remove(this.csmHelper);
-			this.csmHelper.dispose();
-			this.csmHelper = null;
-		}
+		devMode.unsubscribe("lighting-manager");
+      this.enableHelper(false);
 
 		if (this.csm) {
 			this.csm.dispose();

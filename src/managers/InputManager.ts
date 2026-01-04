@@ -1,4 +1,5 @@
 import GameComponent from "../components/GameComponent";
+import { devMode } from "./DevModeManager";
 
 export default class InputManager extends GameComponent {
 	private game: any;
@@ -46,7 +47,7 @@ export default class InputManager extends GameComponent {
 		};
 
 		this.actions = {
-			TOGGLE_DEV_MODE: () => this.game.ui.toggleDevMode(),
+			TOGGLE_DEV_MODE: () => devMode.toggle(),
 			CYCLE_CAMERA_MODE: () => this.game.cameraController.cycleCameraMode(),
 			SELECT_VEHICLE_1: () => this.game.player.changeVehicle("bmw_f82"),
 			SELECT_VEHICLE_2: () => this.game.player.changeVehicle("mercedes_g63"),
