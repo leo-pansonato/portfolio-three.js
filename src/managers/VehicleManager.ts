@@ -1,7 +1,6 @@
-import * as THREE from "three";
 import * as CANNON from "cannon-es";
+import * as THREE from "three";
 import ModelLoader from "../loaders/ModelLoader";
-import PhysicsManager from "./PhysicsManager";
 
 export enum CameraMode {
 	THIRD_PERSON = "THIRD_PERSON",

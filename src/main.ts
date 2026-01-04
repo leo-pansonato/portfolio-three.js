@@ -2,12 +2,13 @@ import * as THREE from "three";
 
 import CameraController from "./components/CameraController";
 import Environment from "./components/Environment";
+import GameComponent from "./components/GameComponent";
 import Player from "./components/Player";
 import InputManager from "./managers/InputManager";
+import LightingManager from "./managers/LightingManager";
 import PerformanceManager from "./managers/PerformanceManager";
-import UIManager from "./managers/UIManager";
 import PhysicsManager from "./managers/PhysicsManager";
-import GameComponent from "./components/GameComponent";
+import UIManager from "./managers/UIManager";
 
 /**
  * Classe principal do jogo
@@ -25,6 +26,7 @@ class Game {
 	public ui!: UIManager;
 	public inputManager!: InputManager;
 	public environment!: Environment;
+	public lightingManager!: LightingManager;
 	public player!: Player;
 	public cameraController!: CameraController;
 
@@ -49,12 +51,12 @@ class Game {
 		this.physicsManager = new PhysicsManager(this.scene);
 
 		// instanciando a camera
-		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
 
 		// instanciando o renderizador e adicionando ao DOM
 		this.renderer = new THREE.WebGLRenderer({ antialias: true });
 		this.renderer.shadowMap.enabled = true;
-		this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+		this.renderer.shadowMap.type = THREE.VSMShadowMap;
 		this.renderer.setClearColor(0xa8a8f8, 1);
 
 		const renderMultiplier = window.devicePixelRatio;
@@ -69,6 +71,7 @@ class Game {
 		this.ui = new UIManager();
 		this.inputManager = new InputManager(this);
 		this.environment = new Environment(this.scene, this.physicsManager);
+		this.lightingManager = new LightingManager(this.scene);
 		this.player = new Player(this.scene, this.inputManager, this.physicsManager);
 
 		this.cameraController = new CameraController(this.camera, this.player, this.inputManager);
@@ -77,7 +80,7 @@ class Game {
 		this.ui.setupDevMode(this.physicsManager);
 
 		// adicionar componentes à lista de componentes para update automático
-		this.components = [this.environment, this.player, this.cameraController];
+		this.components = [this.environment, this.lightingManager, this.player, this.cameraController];
 
 		// redimensionamento de tela
 		window.addEventListener("resize", () => this.handleResize());
@@ -121,9 +124,11 @@ class Game {
 		// atualizar lógica do Jogo (componentes)
 		this.update(deltaTime);
 
-		// atualizar UI e ambiente
+		// atualizar UI
 		this.ui.updatePlayerInfo(deltaTime, this.player);
-		this.environment.update(deltaTime, this.player.getPosition() as THREE.Vector3);
+
+		// atualizar posição do player para a iluminação seguir
+		this.lightingManager.setPlayerPosition(this.player.getPosition() as THREE.Vector3);
 
 		// renderizar cena (Three.js)
 		this.render();

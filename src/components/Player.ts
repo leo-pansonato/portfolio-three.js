@@ -1,9 +1,9 @@
-import * as THREE from "three";
 import * as CANNON from "cannon-es";
-import Entity from "./Entity";
-import VehicleManager, { CameraConfig, CameraMode, VehicleConfig } from "../managers/VehicleManager";
+import * as THREE from "three";
 import InputManager from "../managers/InputManager";
 import PhysicsManager from "../managers/PhysicsManager";
+import VehicleManager, { CameraConfig, CameraMode, VehicleConfig } from "../managers/VehicleManager";
+import Entity from "./Entity";
 
 /**
  * Player jogável usando RaycastVehicle do Cannon.js
@@ -351,8 +351,8 @@ export default class Player extends Entity {
 	 */
 	applyBraking(normalBrake: number, handBrake: number): void {
 		// Frear rodas dianteiras (com freio normal)
-		this.vehicle.setBrake(normalBrake, 0); // Frontal esquerda
-		this.vehicle.setBrake(normalBrake, 1); // Frontal direita
+		// this.vehicle.setBrake(normalBrake, 0); // Frontal esquerda
+		// this.vehicle.setBrake(normalBrake, 1); // Frontal direita
 
 		// Frear rodas traseiras (com handbrake se ativado)
 		const rearBrakeForce = handBrake > 0 ? handBrake : normalBrake;

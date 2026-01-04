@@ -1,8 +1,8 @@
+import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
-import * as CANNON from "cannon-es";
-import GameComponent from "./GameComponent";
 import PhysicsManager from "../managers/PhysicsManager";
+import GameComponent from "./GameComponent";
 
 /**
  * Ambiente de jogo
@@ -10,18 +10,15 @@ import PhysicsManager from "../managers/PhysicsManager";
 export default class Environment extends GameComponent {
   private scene: THREE.Scene;
   private physicsManager: PhysicsManager;
-  private directionalLight: THREE.DirectionalLight | null;
 
   constructor(scene: THREE.Scene, physicsManager: PhysicsManager) {
     super();
     this.scene = scene;
     this.physicsManager = physicsManager;
-    this.directionalLight = null;
 
     this.createPlane();
     // this.createCubeSkybox("../textures/cartoonSkybox/");
     this.createRGBESkybox("../textures/realisticSkybox/", "dawn_4k.hdr");
-    this.setupLighting();
     this.createObstacles();
   }
 
@@ -122,58 +119,4 @@ export default class Environment extends GameComponent {
     });
   }
 
-  setupLighting(): void {
-    // Luz principal que segue o player
-    const directionalLight = new THREE.DirectionalLight(0xf6ad8f);
-    directionalLight.position.set(15, 10, 10);
-    directionalLight.target.position.set(0, 0, 0);
-    directionalLight.intensity = 20;
-
-    directionalLight.castShadow = true;
-
-    // Aumentar o tamanho do shadow map
-    directionalLight.shadow.mapSize.width = 4096;
-    directionalLight.shadow.mapSize.height = 4096;
-
-    // Configurar limites da câmera de sombra para acompanhar o player
-    const d = 1; // tamanho da área de sombra
-    directionalLight.shadow.camera.left = -d;
-    directionalLight.shadow.camera.right = d;
-    directionalLight.shadow.camera.top = d;
-    directionalLight.shadow.camera.bottom = -d;
-    directionalLight.shadow.camera.far = 50;
-    directionalLight.shadow.camera.near = 0.1;
-
-    // Evitar artefatos de sombra
-    directionalLight.shadow.bias = -0.001;
-
-    // const helper = new THREE.DirectionalLightHelper(directionalLight, 5, 0xff0000);
-    // this.scene.add(helper);
-
-    // Adicionar a luz à cena
-    this.scene.add(directionalLight);
-    this.scene.add(directionalLight.target);
-
-    // Salvar referência para atualizar na função update
-    this.directionalLight = directionalLight;
-  }
-
-  // Atualizar a posição da luz
-  update(deltaTime: number, playerPosition: THREE.Vector3): void {
-    if (playerPosition && this.directionalLight) {
-      // Atualizar a posição da luz para seguir o player
-      this.directionalLight.position.set(
-        playerPosition.x + 15,
-        playerPosition.y + 10,
-        playerPosition.z + 10
-      );
-
-      // Atualizar o alvo da luz para apontar para o player
-      this.directionalLight.target.position.set(
-        playerPosition.x,
-        playerPosition.y,
-        playerPosition.z
-      );
-    }
-  }
 }

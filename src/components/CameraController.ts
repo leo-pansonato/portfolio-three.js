@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import GameComponent from "./GameComponent";
 import InputManager from "../managers/InputManager";
 import { CameraConfig, CameraMode } from "../managers/VehicleManager";
+import GameComponent from "./GameComponent";
 import Player from "./Player";
 
 export default class CameraController extends GameComponent {
@@ -180,8 +180,8 @@ export default class CameraController extends GameComponent {
 
 	private lerpAngle(start: number, end: number, t: number): number {
 		let d = end - start;
-		if (d > Math.PI) d -= 2 * Math.PI;
-		if (d < -Math.PI) d += 2 * Math.PI;
+		// if (d > Math.PI) d -= 2 * Math.PI;
+		// if (d < -Math.PI) d += 2 * Math.PI;
 		return start + d * t;
 	}
 }
