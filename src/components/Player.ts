@@ -106,6 +106,8 @@ export default class Player extends Entity {
 		if (!vehicleConfig) throw new Error(`Configuração do veículo ${this.currentVehicleId} não encontrada.`);
 
 		this.vehicleData = vehicleConfig;
+		this.vehicleData.configs.currentSteering = 0;
+		this.vehicleData.configs.currentSpeed = 0;
 	}
 
 	/**

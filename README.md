@@ -97,7 +97,7 @@ Os testes montam o veículo real sem navegador e comparam repouso, aceleração,
 
 Funcional: carro dirigível (teclado e gamepad), dois veículos, três câmeras, obstáculos dinâmicos, CSM, modo dev. Física em Rapier, migrada da cannon-es com comportamento equivalente medido pelos cenários de referência ([ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md)). A branch `refact/rapier3d` é apenas referência histórica.
 
-Limitações principais (detalhes em [ARCHITECTURE.md](ARCHITECTURE.md)): o mundo está em escala ~0,5 (carro de 2,3 unidades de comprimento), o modelo de pneu é o atrito simplificado do *raycast vehicle* e não há interpolação entre passos de física.
+Limitações principais (detalhes em [ARCHITECTURE.md](ARCHITECTURE.md)): o modelo de pneu é o atrito simplificado do *raycast vehicle* e não há interpolação entre passos de física, nem arrasto ou câmbio (a velocidade não tem teto).
 
 ## Licença
 

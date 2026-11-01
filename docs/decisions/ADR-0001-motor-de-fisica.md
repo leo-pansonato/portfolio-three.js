@@ -192,7 +192,7 @@ Conclusões:
 - Com `linearDamping` do chassi igual ao da cannon-es (0,01 em vez de 0,2), a Rapier reproduz a `master` nos cenários: BMW 52,49 km/h após 5 s nas duas, frenagem 2,75 × 2,77 s, raio de curva 4,57 × 4,33. A causa provável apontada no adendo foi confirmada.
 - A “velocidade residual em repouso” do adendo era artefato: `linvel()` do chassi reporta ~g·dt em repouso com a posição parada. O cenário passou a medir por deslocamento.
 - Deriva real encontrada: o BMW rolava para trás a ~0,01 unidade/s (o controlador não tem resistência ao rolamento). Corrigido com `configs.rollingResistance` (freio leve sem acelerador nem freio).
-- Diferenças remanescentes, aceitas: G63 com raio de curva 5,3 × 3,5 e inclinação menor (sem equivalente ao `rollInfluence`), frenagem do G63 5,7 s / 65,9 × 6,2 s / 60,9.
+- Diferença remanescente, aceita: G63 com raio de curva 5,3 × 3,5 e inclinação menor (sem equivalente ao `rollInfluence`). A diferença de frenagem do G63 era artefato do chão de 100 m do harness; com 1 km: 6,17 s / 60,8 m nas duas.
 - Passo de 60 Hz (a cannon-es usava 120 Hz), gravidade −9,82 como na `master`. A 120 Hz as curvas ficam mais próximas da cannon, mas a frenagem quase dobra: o freio do controlador é um impulso por passo. Trocar o passo exige converter freio para força (P1-1).
 - Corrigidos e cobertos por teste: controlador antigo não removido, placeholders e modelos não liberados na GPU, rodas de *fallback* órfãs na cena, carregamento antigo que sobrescrevia o veículo atual.
 - Não trazidos: terreno procedural, `SimplexNoise`, retuning e os modelos `mclaren_f1_2021`/`mercedes_amg_one`.

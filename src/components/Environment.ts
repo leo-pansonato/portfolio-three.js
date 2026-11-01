@@ -23,7 +23,7 @@ export default class Environment extends GameComponent {
 
   createPlane(): void {
     // Plano visual
-    const planeGeometry = new THREE.PlaneGeometry(200, 200);
+    const planeGeometry = new THREE.PlaneGeometry(2000, 2000);
     const planeMaterial = new THREE.MeshStandardMaterial({
       color: 0x0f0f0f,
       roughness: 0.7,
@@ -38,7 +38,7 @@ export default class Environment extends GameComponent {
       type: "static",
       position: { x: 0, y: 0, z: 0 },
     });
-    this.physicsManager.createGroundCollider(groundBody, 0.8);
+    this.physicsManager.createGroundCollider(groundBody, 0.8, 1000);
   }
 
   createCubeSkybox(path: string): void {

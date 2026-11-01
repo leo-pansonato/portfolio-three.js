@@ -73,3 +73,20 @@ describe("ciclo de vida do veículo", () => {
 		expect(scene.children.length).toBe(5);
 	});
 });
+
+describe("estado de runtime do veículo", () => {
+	it("trocar de veículo zera o volante", async () => {
+		const scene = new THREE.Scene();
+		const physics = await PhysicsManager.create(scene);
+		const input = new ScriptedInput();
+		const player = new Player(scene, input as unknown as InputManager, physics);
+		await wait(5);
+
+		input.state.left = true;
+		for (let i = 0; i < 30; i++) player.update(1 / 60);
+		await player.changeVehicle("mercedes_g63");
+		await player.changeVehicle("bmw_f82");
+
+		expect((player as any).vehicleData.configs.currentSteering).toBe(0);
+	});
+});

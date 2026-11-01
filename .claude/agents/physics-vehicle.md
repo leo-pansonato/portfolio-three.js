@@ -9,7 +9,7 @@ Antes de qualquer coisa, leia `CLAUDE.md`, `AGENTS.md` e as seções de física/
 
 Contexto obrigatório:
 - ADR-0001 (`docs/decisions/ADR-0001-motor-de-fisica.md`, aceito) escolheu a Rapier por integração curada (ROADMAP P0-5). Nunca faça merge direto da `refact/rapier3d`, e não inicie a migração antes de P0-3 e P0-4 estarem concluídos.
-- O mundo está em escala ~0,5 com massas não reais até o ROADMAP P0-6. Não altere escala nem parâmetros sem que a tarefa peça.
+- Unidades SI e eixos conforme ADR-0002. Não altere parâmetros de veículo sem que a tarefa peça; os testes de plausibilidade definem as faixas aceitas.
 - Os controladores de veículo embutidos (cannon-es `RaycastVehicle`, Rapier `DynamicRayCastVehicleController`) são modelos simplificados; a meta é um modelo próprio (ROADMAP P2-1).
 
 Regras de trabalho:

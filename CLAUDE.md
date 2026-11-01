@@ -16,7 +16,7 @@ Documentos de referência — consulte o relevante em vez de deduzir:
 ## Situação atual que todo agente deve saber
 
 - A física usa Rapier ([ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md)). A branch `refact/rapier3d` é só referência: **nunca faça merge dela**; traga trechos de forma curada. Não troque de branch na checkout do usuário sem pedido.
-- O mundo está em escala ~0,5 e as massas não são reais (ROADMAP P0-6). Não “corrija” isso localmente: muda o comportamento de tudo.
+- Unidades SI e eixos do chassi (+X frente, +Y cima, +Z direita) seguem o [ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md). Parâmetros de veículo são validados por `test/physics/vehicle-plausibility.test.ts`.
 - `src/components/Player.ts`, `src/main.ts` e `src/managers/VehicleManager.ts` concentram responsabilidades e são pontos de conflito. Edite-os só com escopo explícito.
 
 ## Comandos
