@@ -48,6 +48,8 @@ export default class LightingManager extends GameComponent {
 		this.scene = scene;
 		this.camera = camera;
 		this.setupCSM();
+		this.scene.addEventListener("childadded", this.onChildAdded);
+		this.scene.addEventListener("childremoved", this.onChildRemoved);
 
 		devMode.subscribe("lighting-manager", (enabled) => this.enableHelper(enabled));
 	}
@@ -103,14 +105,25 @@ export default class LightingManager extends GameComponent {
 	 * Deve ser chamado após criar objetos ou ao carregar novos modelos
 	 */
 	setupCSMMaterials(): void {
-		this.scene.traverse((object) => {
+		this.forEachMaterial(this.scene, (material) => this.setupMaterial(material));
+	}
+
+	/** Objetos adicionados à cena depois da inicialização (ex.: veículos carregados) também recebem o CSM. */
+	private onChildAdded = (event: { child: THREE.Object3D }): void => {
+		this.forEachMaterial(event.child, (material) => this.setupMaterial(material));
+	};
+
+	private onChildRemoved = (event: { child: THREE.Object3D }): void => {
+		this.forEachMaterial(event.child, (material) => this.csm?.shaders.delete(material));
+	};
+
+	private forEachMaterial(root: THREE.Object3D, callback: (material: THREE.Material) => void): void {
+		root.traverse((object) => {
 			if (object instanceof THREE.Mesh) {
 				const materials = Array.isArray(object.material) ? object.material : [object.material];
-				materials.forEach((material) => {
-					if (material) {
-						this.setupMaterial(material);
-					}
-				});
+				for (const material of materials) {
+					if (material) callback(material);
+				}
 			}
 		});
 	}
@@ -134,9 +147,9 @@ export default class LightingManager extends GameComponent {
 	 * Deve ser chamado para cada material que deve receber sombras CSM
 	 */
 	setupMaterial(material: THREE.Material): void {
-		if (this.csm) {
-			this.csm.setupMaterial(material);
-		}
+		if (!this.csm || this.csm.shaders.has(material)) return;
+		this.csm.setupMaterial(material);
+		material.needsUpdate = true;
 	}
 
 
@@ -176,6 +189,8 @@ export default class LightingManager extends GameComponent {
 	 */
 	dispose(): void {
 		devMode.unsubscribe("lighting-manager");
+		this.scene.removeEventListener("childadded", this.onChildAdded);
+		this.scene.removeEventListener("childremoved", this.onChildRemoved);
       this.enableHelper(false);
 
 		if (this.csm) {
