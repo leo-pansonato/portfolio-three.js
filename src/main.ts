@@ -10,6 +10,17 @@ import PerformanceManager from "./managers/PerformanceManager";
 import PhysicsManager from "./managers/PhysicsManager";
 import UIManager from "./managers/UIManager";
 
+/** Configuração do pipeline de cor. A exposição pode ser sobrescrita com `?exposure=<n>` na URL. */
+const RENDER_CONFIG = {
+	toneMapping: THREE.AgXToneMapping as THREE.ToneMapping,
+	exposure: 1.3,
+};
+
+function readExposure(): number {
+	const value = Number(new URLSearchParams(window.location.search).get("exposure"));
+	return Number.isFinite(value) && value > 0 ? value : RENDER_CONFIG.exposure;
+}
+
 /**
  * Classe principal do jogo
  */
@@ -60,6 +71,9 @@ class Game {
 		this.renderer.shadowMap.enabled = true;
 		this.renderer.shadowMap.type = THREE.VSMShadowMap;
 		this.renderer.setClearColor(0xa8a8f8, 1);
+		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+		this.renderer.toneMapping = RENDER_CONFIG.toneMapping;
+		this.renderer.toneMappingExposure = readExposure();
 
 		const renderMultiplier = window.devicePixelRatio;
 		this.renderer.setSize(window.innerWidth, window.innerHeight, true);
