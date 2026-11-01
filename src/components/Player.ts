@@ -66,7 +66,10 @@ export default class Player extends Entity {
 	private loadRequestId = 0;
 	private static readonly AXIS_Y = new THREE.Vector3(0, 1, 0);
 	private static readonly AXIS_Z = new THREE.Vector3(0, 0, 1);
-	private static readonly LOCAL_FORWARD = new THREE.Vector3(-1, 0, 0);
+	/** Eixos locais do chassi (ADR-0002): frente +X, cima +Y, direita +Z */
+	private static readonly LOCAL_FORWARD = new THREE.Vector3(1, 0, 0);
+	private static readonly LOCAL_DOWN = new THREE.Vector3(0, -1, 0);
+	private static readonly LOCAL_RIGHT = new THREE.Vector3(0, 0, 1);
 
 	// Callback para atualização do veículo no step da física
 	private physicsPreStepCallback: ((dt: number) => void) | null = null;
@@ -165,11 +168,9 @@ export default class Player extends Entity {
 				wheelAdjustment.position.z
 			);
 
-			// Direção da suspensão (para baixo)
-			const suspensionDirection = new THREE.Vector3(0, -1, 0);
-
-			// Eixo da roda (lateral) - no Rapier, a roda gira em torno deste eixo
-			const axle = new THREE.Vector3(0, 0, 1);
+			// o controlador usa +X como frente (indexForwardAxis = 0) e +Y como cima
+			const suspensionDirection = Player.LOCAL_DOWN;
+			const axle = Player.LOCAL_RIGHT;
 
 			// Adicionar a roda ao controlador do veículo
 			this.vehicleController.addWheel(
@@ -387,7 +388,7 @@ export default class Player extends Entity {
 	 */
 	updateSteering(timeStep: number): void {
 		// Determinar o valor alvo para a direção usando valores analógicos
-		// getSteer() retorna -1 (esquerda) a +1 (direita)
+		// getSteer(): -1 esquerda, +1 direita; no controlador, ângulo positivo (em torno de +Y) vira à esquerda
 		const steerInput = this.inputManager.getSteer() * -1;
 		const targetSteering = steerInput * this.vehicleData.configs.maxSteerVal;
 
@@ -438,11 +439,11 @@ export default class Player extends Entity {
 		this.tempQuaternion.set(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w);
 		const forward = this.tempVector3.copy(Player.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
 
-		// Velocidade na direção do movimento
+		// m/s ao longo da frente; negativo = ré
 		this.vehicleData.configs.currentSpeed = velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
 
 		// Flag para marchas
-		const isAlmostStopped = this.vehicleData.configs.currentSpeed > -2.0;
+		const isAlmostStopped = this.vehicleData.configs.currentSpeed < 2.0;
 
 		// Inicializar forças
 		let engineForce = 0;
@@ -719,10 +720,10 @@ export default class Player extends Entity {
 	}
 
 	/**
-	 * Obter a velocidade atual do veículo
+	 * Velocidade ao longo da frente do chassi, em km/h (negativa em ré)
 	 */
 	getCurrentSpeed(): number {
-		return this.vehicleData.configs.currentSpeed * 3.6 * -1;
+		return this.vehicleData.configs.currentSpeed * 3.6;
 	}
 
 	/**
@@ -735,7 +736,7 @@ export default class Player extends Entity {
 
 	getMovimentDirection(): THREE.Vector3 {
 		const chassisRot = this.chassisRigidBody.rotation();
-		const direction = new THREE.Vector3(-1, 0, 0);
+		const direction = Player.LOCAL_FORWARD.clone();
 		direction.applyQuaternion(new THREE.Quaternion(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w));
 		return direction;
 	}

@@ -63,6 +63,7 @@ export interface VehicleConfig {
 	wheels: {
 		modelPath: string;
 		scale: { x: number; y: number; z: number };
+		/** Por roda: 0/1 dianteiras esquerda (-Z)/direita (+Z), 2/3 traseiras; posição local do chassi (frente +X) */
 		adjustments: Array<{
 			position: { x: number; y: number; z: number };
 			rotation: { x: number; y: number; z: number };
