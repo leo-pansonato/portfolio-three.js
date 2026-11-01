@@ -1,43 +1,28 @@
-import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
 import InputManager from "../managers/InputManager";
 import PhysicsManager from "../managers/PhysicsManager";
 import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
 import VehicleManager from "../managers/VehicleManager";
 import VehicleControl, { createDriverInput } from "../vehicle/VehicleControl";
+import VehiclePhysics from "../vehicle/VehiclePhysics";
 import { createVehicleState, VehicleState } from "../vehicle/VehicleState";
 import Entity from "./Entity";
 
 /**
- * Informações de cada roda para o sistema de veículos
+ * Pose visual de cada roda, interpolada entre os dois últimos passos
  */
 interface WheelInfo {
-	/** Posição local da conexão da suspensão no chassi */
+	/** Conexão da suspensão no chassi (m, eixos locais) */
 	connectionPoint: THREE.Vector3;
-	/** Direção da suspensão (normalmente para baixo) */
-	suspensionDirection: THREE.Vector3;
-	/** Eixo de rotação da roda */
-	axle: THREE.Vector3;
-	/** Raio da roda */
-	radius: number;
-	/** Comprimento de descanso da suspensão */
-	suspensionRestLength: number;
-	/** Posição atual da roda no mundo */
 	worldPosition: THREE.Vector3;
-	/** Rotação atual da roda no mundo */
 	worldQuaternion: THREE.Quaternion;
-	/** Ângulo de direção atual */
+	/** Esterço (rad) */
 	steering: number;
-	/** Rotação atual da roda (spin) */
+	/** Giro (rad) */
 	rotation: number;
-	/** Se a roda está no chão */
 	isInContact: boolean;
-	/** Distância do raycast até o solo */
+	/** Comprimento da suspensão (m) */
 	suspensionLength: number;
-	/** Valores do passo anterior, para interpolação visual */
-	previousSuspensionLength: number;
-	previousSteering: number;
-	previousRotation: number;
 }
 
 /**
@@ -54,10 +39,7 @@ export default class Player extends Entity {
 	private control!: VehicleControl;
 	private readonly driverInput = createDriverInput();
 
-	// Física Rapier
-	public chassisRigidBody!: RAPIER.RigidBody;
-	public chassisCollider!: RAPIER.Collider;
-	public vehicleController!: RAPIER.DynamicRayCastVehicleController;
+	public physics!: VehiclePhysics;
 
 	// Informações das rodas
 	private wheelInfos: WheelInfo[] = [];
@@ -79,10 +61,6 @@ export default class Player extends Entity {
 	private loadRequestId = 0;
 	private static readonly AXIS_Y = new THREE.Vector3(0, 1, 0);
 	private static readonly AXIS_Z = new THREE.Vector3(0, 0, 1);
-	/** Eixos locais do chassi (ADR-0002): frente +X, cima +Y, direita +Z */
-	private static readonly LOCAL_FORWARD = new THREE.Vector3(1, 0, 0);
-	private static readonly LOCAL_DOWN = new THREE.Vector3(0, -1, 0);
-	private static readonly LOCAL_RIGHT = new THREE.Vector3(0, 0, 1);
 
 	// Callback para atualização do veículo no step da física
 	private physicsPreStepCallback: ((dt: number) => void) | null = null;
@@ -124,132 +102,26 @@ export default class Player extends Entity {
 	}
 
 	/**
-	 * Inicializar o veículo físico com Rapier
+	 * Cria a física do veículo e registra o controle no pré-passo
 	 */
 	initPhysics(): void {
-		const physicsData = this.vehicleData.physics;
-		const chassisSize = physicsData.size;
-
-		// Criar o RigidBody do chassi (dinâmico)
-		this.chassisRigidBody = this.physicsManager.createRigidBody({
-			type: "dynamic",
-			position: { x: 0, y: 1, z: 3 },
-			linearDamping: 0.01,
-			angularDamping: 0.01,
-			canSleep: false,
-			ccdEnabled: true, // Continuous collision detection para movimento rápido
-		});
-
-		// Criar o Collider do chassi (separado do RigidBody no Rapier)
-		this.chassisCollider = this.physicsManager.createCollider(
-			{
-				shape: "cuboid",
-				halfExtents: {
-					x: chassisSize.x / 2,
-					y: chassisSize.y / 2,
-					z: chassisSize.z / 2,
-				},
-				friction: 0.5,
-				restitution: 0.1,
-				density: physicsData.mass / (chassisSize.x * chassisSize.y * chassisSize.z),
-			},
-			this.chassisRigidBody
-		);
-
-		// Configurar e criar o controlador de veículo
-		this.setupVehicleController(this.vehicleData);
-	}
-
-	/**
-	 * Configurar o DynamicRayCastVehicleController do Rapier
-	 */
-	setupVehicleController(vehicleData: VehicleDefinition): void {
-		const physicsData = vehicleData.physics;
-		const RAPIER = this.physicsManager.getRapier();
-
-		// Criar o controlador de veículo raycast
-		this.vehicleController = this.physicsManager.world.createVehicleController(this.chassisRigidBody);
-
-		// Configurar as rodas
-		this.wheelInfos = [];
-
-		for (let i = 0; i < vehicleData.wheels.adjustments.length; i++) {
-			const wheelAdjustment = vehicleData.wheels.adjustments[i];
-
-			// Posição de conexão da roda no chassi (coordenadas locais)
-			const connectionPoint = new THREE.Vector3(
-				wheelAdjustment.position.x,
-				wheelAdjustment.position.y,
-				wheelAdjustment.position.z
-			);
-
-			// o controlador usa +X como frente (indexForwardAxis = 0) e +Y como cima
-			const suspensionDirection = Player.LOCAL_DOWN;
-			const axle = Player.LOCAL_RIGHT;
-
-			// Adicionar a roda ao controlador do veículo
-			this.vehicleController.addWheel(
-				// Posição de conexão (local ao chassi)
-				new RAPIER.Vector3(connectionPoint.x, connectionPoint.y, connectionPoint.z),
-				// Direção da suspensão (para baixo, local)
-				new RAPIER.Vector3(suspensionDirection.x, suspensionDirection.y, suspensionDirection.z),
-				// Eixo da roda (lateral, local)
-				new RAPIER.Vector3(axle.x, axle.y, axle.z),
-				// Comprimento de descanso da suspensão
-				physicsData.suspensionRestLength,
-				// Raio da roda
-				physicsData.wheelRadius
-			);
-
-			// Configurar propriedades da suspensão para esta roda (Rapier)
-			this.vehicleController.setWheelSuspensionStiffness(i, physicsData.suspensionStiffness);
-			this.vehicleController.setWheelMaxSuspensionTravel(i, physicsData.maxSuspensionTravel);
-			this.vehicleController.setWheelMaxSuspensionForce(i, physicsData.maxSuspensionForce);
-			this.vehicleController.setWheelSuspensionCompression(i, physicsData.suspensionCompression);
-			this.vehicleController.setWheelSuspensionRelaxation(i, physicsData.suspensionRelaxation);
-			this.vehicleController.setWheelFrictionSlip(i, wheelAdjustment.frictionSlip ?? physicsData.frictionSlip);
-			this.vehicleController.setWheelSideFrictionStiffness(i,  wheelAdjustment.sideFrictionStiffness ?? physicsData.sideFrictionStiffness);
-
-			// Criar informações da roda para tracking
-			this.wheelInfos.push({
-				connectionPoint: connectionPoint.clone(),
-				suspensionDirection: suspensionDirection.clone(),
-				axle: axle.clone(),
-				radius: physicsData.wheelRadius,
-				suspensionRestLength: physicsData.suspensionRestLength,
-				worldPosition: new THREE.Vector3(),
-				worldQuaternion: new THREE.Quaternion(),
-				steering: 0,
-				rotation: 0,
-				isInContact: false,
-				suspensionLength: physicsData.suspensionRestLength,
-				previousSuspensionLength: physicsData.suspensionRestLength,
-				previousSteering: 0,
-				previousRotation: 0,
-			});
-		}
-
-		// Registrar callback para atualizar o vehicle controller no timestep fixo da física
-		this.registerPhysicsCallback();
-	}
-
-	/**
-	 * Registra o callback de física para atualizar o vehicle controller
-	 */
-	private registerPhysicsCallback(): void {
-		// Remover callback anterior se existir
-		if (this.physicsPreStepCallback) {
-			this.physicsManager.removePreStepCallback(this.physicsPreStepCallback);
-		}
+		this.physics = new VehiclePhysics(this.physicsManager, this.vehicleData);
+		this.wheelInfos = this.vehicleData.wheels.adjustments.map((wheel) => ({
+			connectionPoint: new THREE.Vector3(wheel.position.x, wheel.position.y, wheel.position.z),
+			worldPosition: new THREE.Vector3(),
+			worldQuaternion: new THREE.Quaternion(),
+			steering: 0,
+			rotation: 0,
+			isInContact: false,
+			suspensionLength: this.vehicleData.physics.suspensionRestLength,
+		}));
 
 		// controle por passo: input mais recente → volante e forças → controlador
 		this.physicsPreStepCallback = (dt: number) => {
-			this.savePreviousWheelStates();
+			this.physics.savePreviousWheelStates();
 			this.updateControl(dt);
-			this.vehicleController.updateVehicle(dt);
+			this.physics.updateVehicle(dt);
 		};
-
-		// Registrar no physics manager
 		this.physicsManager.addPreStepCallback(this.physicsPreStepCallback);
 	}
 
@@ -282,7 +154,7 @@ export default class Player extends Entity {
 		this.originalMesh = this.mesh;
 
 		// Adicionar o chassi ao gerenciador de física para sincronização
-		this.physicsManager.addEntity(this.chassisRigidBody, this.mesh);
+		this.physicsManager.addEntity(this.physics.chassisBody, this.mesh);
 	}
 
 	/**
@@ -327,19 +199,15 @@ export default class Player extends Entity {
 		input.handbrake = this.inputManager.isActionActive("VEHICLE_HANDBRAKE");
 		input.boost = this.inputManager.isActionActive("VEHICLE_BOOST");
 
-		const commands = this.control.step(input, this.forwardSpeed(), dt);
-		this.vehicleController.setWheelSteering(0, commands.steeringAngle);
-		this.vehicleController.setWheelSteering(1, commands.steeringAngle);
-		this.applyEngineForce(commands.engineForce);
-		// o controlador recebe o freio como impulso máximo por passo (N·s)
-		this.applyBraking(commands.brakeForce * dt, commands.handbrakeForce * dt);
+		const commands = this.control.step(input, this.physics.forwardSpeed(), dt);
+		this.physics.applyCommands(commands, dt);
 	}
 
 	/**
 	 * Atualizar a visualização do veículo (por quadro; o controle roda em updateControl)
 	 */
 	update(_deltaTime: number): void {
-		this.physicsManager.getInterpolatedPose(this.chassisRigidBody, this.renderPosition, this.renderQuaternion);
+		this.physicsManager.getInterpolatedPose(this.physics.chassisBody, this.renderPosition, this.renderQuaternion);
 
 		// Atualizar informações das rodas
 		this.updateWheelInfos(this.physicsManager.getInterpolationAlpha());
@@ -351,33 +219,18 @@ export default class Player extends Entity {
 		this.updateWheelMeshes();
 	}
 
-	private savePreviousWheelStates(): void {
-		for (let i = 0; i < this.wheelInfos.length; i++) {
-			const wheelInfo = this.wheelInfos[i];
-			wheelInfo.previousSuspensionLength = this.vehicleController.wheelSuspensionLength(i) ?? wheelInfo.suspensionRestLength;
-			wheelInfo.previousSteering = this.vehicleController.wheelSteering(i) ?? 0;
-			wheelInfo.previousRotation = this.vehicleController.wheelRotation(i) ?? 0;
-		}
-	}
-
 	/**
 	 * Atualiza as informações das rodas do controlador Rapier, interpoladas por alpha (0–1)
 	 */
 	private updateWheelInfos(alpha: number): void {
 		for (let i = 0; i < this.wheelInfos.length; i++) {
 			const wheelInfo = this.wheelInfos[i];
+			const previous = this.physics.wheels[i];
 
-			// Obter informações do controlador de veículo do Rapier
-			const isInContact = this.vehicleController.wheelIsInContact(i);
-			const suspensionLength = this.vehicleController.wheelSuspensionLength(i);
-			const steering = this.vehicleController.wheelSteering(i);
-			const rotation = this.vehicleController.wheelRotation(i);
-
-			// Atualizar informações
-			wheelInfo.isInContact = isInContact ?? false;
-			wheelInfo.suspensionLength = THREE.MathUtils.lerp(wheelInfo.previousSuspensionLength, suspensionLength ?? wheelInfo.suspensionRestLength, alpha);
-			wheelInfo.steering = THREE.MathUtils.lerp(wheelInfo.previousSteering, steering ?? 0, alpha);
-			wheelInfo.rotation = THREE.MathUtils.lerp(wheelInfo.previousRotation, rotation ?? 0, alpha);
+			wheelInfo.isInContact = this.physics.wheelIsInContact(i);
+			wheelInfo.suspensionLength = THREE.MathUtils.lerp(previous.previousSuspensionLength, this.physics.wheelSuspensionLength(i), alpha);
+			wheelInfo.steering = THREE.MathUtils.lerp(previous.previousSteering, this.physics.wheelSteering(i), alpha);
+			wheelInfo.rotation = THREE.MathUtils.lerp(previous.previousRotation, this.physics.wheelRotation(i), alpha);
 
 			// Calcular posição e rotação da roda no mundo
 			this.calculateWheelWorldTransform(wheelInfo);
@@ -411,52 +264,6 @@ export default class Player extends Entity {
 		wheelInfo.worldQuaternion.copy(this.tempQuaternion);
 		wheelInfo.worldQuaternion.multiply(this.tempSteeringQuat);
 		wheelInfo.worldQuaternion.multiply(this.tempSpinQuat);
-	}
-
-	/**
-	 * Aplicar a força do motor com base no tipo de tração
-	 */
-	applyEngineForce(force: number): void {
-		switch (this.vehicleData.configs.tractionDisplacement) {
-			case "rear":
-				// Tração traseira
-				this.vehicleController.setWheelEngineForce(2, force); // Traseira esquerda
-				this.vehicleController.setWheelEngineForce(3, force); // Traseira direita
-				// Zerar as rodas dianteiras
-				this.vehicleController.setWheelEngineForce(0, 0);
-				this.vehicleController.setWheelEngineForce(1, 0);
-				break;
-			case "front":
-				// Tração dianteira
-				this.vehicleController.setWheelEngineForce(0, force); // Frontal esquerda
-				this.vehicleController.setWheelEngineForce(1, force); // Frontal direita
-				// Zerar as rodas traseiras
-				this.vehicleController.setWheelEngineForce(2, 0);
-				this.vehicleController.setWheelEngineForce(3, 0);
-				break;
-			case "all":
-			default:
-				// Tração integral
-				this.vehicleController.setWheelEngineForce(0, force); // Frontal esquerda
-				this.vehicleController.setWheelEngineForce(1, force); // Frontal direita
-				this.vehicleController.setWheelEngineForce(2, force); // Traseira esquerda
-				this.vehicleController.setWheelEngineForce(3, force); // Traseira direita
-				break;
-		}
-	}
-
-	/**
-	 * Aplicar frenagem ao veículo (impulsos por passo, N·s por roda)
-	 */
-	applyBraking(normalBrake: number, handBrake: number): void {
-		// Freio nas rodas traseiras (com handbrake se ativado)
-		const rearBrakeForce = handBrake > 0 ? handBrake : normalBrake;
-		this.vehicleController.setWheelBrake(2, rearBrakeForce); // Traseira esquerda
-		this.vehicleController.setWheelBrake(3, rearBrakeForce); // Traseira direita
-
-		// Freio nas rodas dianteiras (apenas freio normal)
-		this.vehicleController.setWheelBrake(0, normalBrake);
-		this.vehicleController.setWheelBrake(1, normalBrake);
 	}
 
 	/**
@@ -543,22 +350,11 @@ export default class Player extends Entity {
 	 * Limpa os recursos físicos do veículo atual
 	 */
 	private cleanupCurrentVehicle(): void {
-		// Remover callback de física
 		if (this.physicsPreStepCallback) {
 			this.physicsManager.removePreStepCallback(this.physicsPreStepCallback);
 			this.physicsPreStepCallback = null;
 		}
-
-		// Remover o RigidBody do chassi (isso também remove os colliders associados)
-		if (this.vehicleController) {
-			this.physicsManager.world.removeVehicleController(this.vehicleController);
-		}
-
-		if (this.chassisRigidBody) {
-			this.physicsManager.removeEntity(this.chassisRigidBody);
-		}
-
-		// Limpar referências
+		this.physics.destroy();
 		this.wheelInfos = [];
 	}
 
@@ -603,25 +399,7 @@ export default class Player extends Entity {
 	}
 
 	resetCar(): void {
-		if (this.chassisRigidBody) {
-			// Obter posição atual
-			const currentPos = this.chassisRigidBody.translation();
-
-			// Resetar posição (elevar um pouco)
-			this.chassisRigidBody.setTranslation(
-				{ x: currentPos.x, y: currentPos.y + 1, z: currentPos.z },
-				true
-			);
-
-			// Resetar rotação para upright
-			this.chassisRigidBody.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
-
-			// Resetar velocidades
-			this.chassisRigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
-			this.chassisRigidBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
-
-			this.physicsManager.resetInterpolation(this.chassisRigidBody);
-		}
+		this.physics.reset();
 	}
 
 	override getPosition(): THREE.Vector3 {
@@ -636,29 +414,19 @@ export default class Player extends Entity {
 	 * Velocidade ao longo da frente do chassi, em km/h (negativa em ré)
 	 */
 	getCurrentSpeed(): number {
-		return this.forwardSpeed() * 3.6;
-	}
-
-	/** Velocidade do chassi ao longo de +X local (m/s; negativa em ré) */
-	private forwardSpeed(): number {
-		const velocity = this.chassisRigidBody.linvel();
-		const chassisRot = this.chassisRigidBody.rotation();
-		this.tempQuaternion.set(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w);
-		const forward = this.tempVector3.copy(Player.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
-		return velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
+		return this.physics.forwardSpeed() * 3.6;
 	}
 
 	/**
-	 * Obter o ângulo atual do volante
+	 * Obter o ângulo atual do volante (graus)
 	 */
 	getWheelAngle(): number {
-		const steering = this.vehicleController.wheelSteering(0);
-		return (steering ?? 0) * (180 / Math.PI);
+		return this.physics.wheelSteering(0) * (180 / Math.PI);
 	}
 
 	getMovimentDirection(): THREE.Vector3 {
-		const chassisRot = this.chassisRigidBody.rotation();
-		const direction = Player.LOCAL_FORWARD.clone();
+		const chassisRot = this.physics.chassisBody.rotation();
+		const direction = VehiclePhysics.LOCAL_FORWARD.clone();
 		direction.applyQuaternion(new THREE.Quaternion(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w));
 		return direction;
 	}

@@ -37,7 +37,7 @@ export async function createRapierSim(vehicleId: string, fixedTimeStep?: number)
 			player.update(deltaTime);
 		},
 		snapshot(): VehicleSnapshot {
-			const body = player.chassisRigidBody;
+			const body = player.physics.chassisBody;
 			const p = body.translation();
 			const v = body.linvel();
 			const q = body.rotation();
