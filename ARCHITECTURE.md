@@ -85,7 +85,7 @@ Inicialização assíncrona: `Game.initialize()` aguarda `PhysicsManager.create(
 - `PhysicsDebugRenderer`: `world.debugRender()` em `LineSegments` no modo dev (aloca buffers a cada quadro; só em dev).
 - Atenção: `RigidBody.linvel()` do chassi apoiado no controlador de veículo não é zero em repouso (~g·dt); meça movimento por deslocamento.
 
-Escala do mundo: **não é SI**. Os modelos são carregados com `scale 0.5`, o chassi mede 2,3 × 0,6 × 0,9 unidades (um M4 real mede ~4,7 m), as massas são 200 kg (BMW) e 400 kg (G63). Velocidades exibidas em “km/h” são `m/s × 3,6` sobre essas unidades e não correspondem a velocidades reais.
+Unidades e eixos ([ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md)): **SI**, 1 unidade = 1 m; mundo com +Y para cima. Modelos em escala 1, chassi 4,6 × 1,2 × 1,8 m, massas 1.550 kg (BMW) e 2.500 kg (G63); o HUD mostra km/h reais. A plataforma de 200 m do `Environment` é pequena para essas velocidades (o harness usa um chão de 1 km).
 
 ### 3.2 Veículo — `src/components/Player.ts`, `src/managers/VehicleManager.ts` [Implementado]
 
@@ -103,13 +103,13 @@ Escala do mundo: **não é SI**. Os modelos são carregados com `scale 0.5`, o c
 Problemas estruturais:
 
 - **Estado de runtime dentro do catálogo**: `configs.currentSteering`, `currentSpeed` e `boostForce` são gravados no objeto de configuração compartilhado.
-- **Eixo “frente” inconsistente**: a velocidade é calculada contra `(-1,0,0)` e invertida (`* -1`) para exibição.
-- Índices de roda fixos (0–1 dianteiras, 2–3 traseiras; ímpares espelhadas) sem tipo que os represente.
+- Eixos locais do chassi: frente +X, cima +Y, direita +Z (`Player.LOCAL_FORWARD` etc.); ângulo de esterço positivo vira à esquerda.
+- Índices de roda fixos (0/1 dianteiras esquerda/direita, 2/3 traseiras; ímpares espelhadas) sem tipo que os represente.
 - Recursos GPU: trocar de veículo libera geometrias e materiais (`Player.releaseObjects`); texturas e o cache do `ModelLoader` não são liberados.
 - `loadVehicle` ignora resultados de carregamentos obsoletos (`loadRequestId`).
 - O mesh de *placeholder* continua registrado no `PhysicsManager` depois que o modelo real é carregado.
 
-Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento, atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`). Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
+Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento (rigidez e amortecimento por kg de chassi), atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`), freio como impulso por passo; unidades em `VehiclePhysicsConfig` e no ADR-0002. Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
 
 ### 3.3 Input — `src/managers/InputManager.ts` [Implementado]
 
@@ -146,11 +146,11 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 
 - `test/support/sim.ts`: contrato `SimHandle` (quadro, snapshot) e `ScriptedInput`, que substitui o `InputManager` (API binária e analógica).
 - `test/support/rapierSim.ts`: `PhysicsManager` + `Player` reais sobre um plano, mesma ordem do `Game.gameLoop`; `ModelLoader` é mockado no teste.
-- `test/support/scenarios.ts`: repouso, aceleração, frenagem, curva; métricas puras sobre snapshots.
+- `test/support/scenarios.ts`: repouso, aceleração, frenagem, curva, 0–100 km/h, frenagem de 100 km/h; métricas puras sobre snapshots. O chão do harness tem 1 km.
 - `test/support/baseline.ts` + `test/baselines/rapier.json`: comparação com tolerância (2% relativo, 0,01 absoluto); `UPDATE_BASELINE=1` regrava.
 - `test/baselines/cannon-master.json`: medições da implementação anterior (cannon-es), mantidas como referência histórica; não usadas nos testes.
 - `test/physics/vehicle-lifecycle.test.ts`: trocar de veículo 20 vezes não acumula corpos, colisores, controladores nem objetos na cena e libera geometrias; carregamento obsoleto não substitui o veículo atual.
-- Os cenários medem o comportamento atual para detectar regressões; não validam realismo físico.
+- Os cenários medem o comportamento atual para detectar regressões. `test/physics/vehicle-plausibility.test.ts` impõe limites físicos largos em SI: 0–100 km/h, desaceleração de frenagem, aceleração lateral em curva, repouso estável.
 
 ### 3.9 Concorrência
 
@@ -163,7 +163,7 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 | # | Problema | Consequência | Antes de… |
 |---|---|---|---|
 | R1 | Testes cobrem só o veículo em plano; sem lint | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
-| R2 | Escala ~0,5 e massas arbitrárias | Parâmetros sem significado físico; tuning se perde ao corrigir a escala | trabalhar em dinâmica veicular |
+| R2 | ~~Escala ~0,5 e massas arbitrárias~~ Resolvido no P0-6 (ADR-0002). Restam: sem arrasto nem câmbio (velocidade sem teto), centro de massa no centro do collider, plano de 200 m | Faixas plausíveis, mas não um carro real | trabalhar em dinâmica veicular (P2-1) |
 | R3 | `Player` com 5 responsabilidades; `main.ts` cria tudo | Dois agentes não conseguem trabalhar em física e input/câmera sem editar o mesmo arquivo | paralelizar trabalho |
 | R4 | Input e controle por quadro, sem interpolação | Comportamento muda com o FPS; *judder* em monitores > 60 Hz | ajuste fino de direção |
 | R5 | Controlador de veículo embutido (raycast, caixa-preta em WASM) | Teto de qualidade da direção | P2-1 (dinâmica própria) |
@@ -220,7 +220,7 @@ Organização de diretórios proposta (por domínio, não por “manager/compone
 | Id | Decisão | Status |
 |---|---|---|
 | [ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md) | Motor de física: adotar Rapier por integração curada da `refact/rapier3d` | **Aceita** (2026-11-01) |
-| ADR-0002 | Unidades SI e convenção de eixos | A redigir (ROADMAP P0-6) |
+| [ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md) | Unidades SI e convenção de eixos | **Aceita** (2026-11-01) |
 | ADR-0003 | Dinâmica veicular própria sobre a física (substituir o controlador *raycast* embutido) | A redigir (P2) |
 | ADR-0004 | Tecnologia de UI (DOM puro × React/Preact sobre o canvas) | A redigir (P2) |
 

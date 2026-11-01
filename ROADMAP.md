@@ -95,8 +95,9 @@ flowchart LR
 - **Dependências:** P0-1, P0-4.
 - **Conclusão:** critérios de estabilização do ADR-0001 atendidos; cenários de referência comparados. **Esforço:** M.
 
-### [ ] P0-6 — Escala SI e convenção de eixos (ADR-0002)
+### [x] P0-6 — Escala SI e convenção de eixos (ADR-0002)
 
+- **Resultado:** ADR-0002 aceito (branch `feat/si-scale`). 1 unidade = 1 m; frente do chassi +X, direita +Z; BMW 1.550 kg (modelo 4,70 m), G63 2.500 kg; HUD em km/h reais. Plausibilidade testada: 0–100 km/h BMW 4,4 s / G63 5,1 s; frenagem de 100 km/h 9,0 / 8,6 m/s²; curva 1,07 / 0,92 g. Pendentes fora do escopo: arrasto/câmbio (P2-1), plano de 200 m pequeno para velocidades reais (P2-3).
 - **Problema:** mundo em escala ~0,5, massas arbitrárias, “frente” = `-X` invertida.
 - **Entregas:** ADR-0002; veículos com dimensões e massas reais (1 unidade = 1 m); eixo de avanço único; câmeras e ajustes visuais reescalados; cenários de referência atualizados.
 - **Dependências:** P0-5 (evita fazer duas vezes).
