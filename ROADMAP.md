@@ -107,7 +107,9 @@ flowchart LR
 
 ## P1 — Fundação
 
-### [ ] P1-1 — Loop com passo fixo e interpolação
+### [x] P1-1 — Loop com passo fixo e interpolação
+
+- **Resultado:** volante e forças no pré-passo com o input mais recente (30/60/144 FPS iguais, teste); freio em N convertido por `dt` (frenagem igual a 1/60 e 1/120 s, teste); interpolação de chassi e rodas pelo `alpha` do acumulador, câmera na pose interpolada. Passo mantido em 1/60 s (ARCHITECTURE §3.1). Não foi criado `core/GameLoop`: a ordem continua em `Game.gameLoop` + `PhysicsManager.update`.
 
 - **Entregas:** `core/GameLoop`: input amostrado por passo; ordem explícita (input → N passos de simulação → interpolação → câmera → render); estado anterior/atual para interpolação visual.
 - **Dependências:** P0-6.

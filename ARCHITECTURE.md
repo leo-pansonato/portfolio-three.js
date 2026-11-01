@@ -58,19 +58,19 @@ flowchart TD
 
 1. `deltaTime` = tempo real desde o último quadro, limitado a 0,1 s.
 2. `inputManager.update()` lê teclado e gamepad.
-3. `physicsManager.update(dt)` → acumulador com passo fixo de 1/60 s; antes de cada passo, os *pre-step callbacks* (`vehicleController.updateVehicle`); depois, copia transformações dos corpos registrados para os meshes e atualiza o debug renderer.
+3. `physicsManager.update(dt)` → acumulador com passo fixo de 1/60 s. A cada passo: guarda a pose anterior das entidades, roda os *pre-step callbacks* (no `Player`: lê o input mais recente, integra o volante, define motor/freio e chama `vehicleController.updateVehicle`) e `world.step()`. Depois, `alpha = acumulador / passo` e os meshes registrados recebem a pose interpolada entre os dois últimos passos; atualiza o debug renderer (sem interpolação).
 4. `update(dt)` em `[environment, lightingManager, player, cameraController, performanceManager]`:
-   - `Player.update`: lê o input analógico, integra o volante com `dt` de quadro (limitado a 1/30), define força de motor/freio no controlador (efeito nos **próximos** passos), copia transformações do chassi e das rodas para os meshes.
-   - `CameraController.update`: posiciona a câmera conforme o modo.
+   - `Player.update`: só visual — chassi e rodas (suspensão, esterço, giro) interpolados pelo mesmo `alpha`.
+   - `CameraController.update`: posiciona a câmera conforme o modo, a partir da pose interpolada do mesh do chassi.
    - `LightingManager.update`: `csm.update()`.
 5. `ui.updatePlayerInfo` (só no modo dev).
 6. `renderer.render(scene, camera)`.
 
 Consequências:
 
-- Forças são definidas depois dos passos do quadro — **1 quadro de latência** entre input e física.
-- Sem interpolação, o visual mostra o último passo concluído; a 60 Hz há *judder* em monitores de 120/144 Hz.
-- O volante é integrado por quadro; nos cenários, a aceleração é idêntica a 60 e 144 FPS e ~0,3% menor a 30 FPS.
+- Input entra no primeiro passo do quadro (sem quadro de latência); o mesmo roteiro dá a mesma sequência de passos a 30, 60 e 144 FPS (teste em `vehicle-reference.test.ts`).
+- O visual fica até 1 passo (16,7 ms) atrás da física, em troca de movimento uniforme a qualquer taxa de quadros.
+- A ordem ainda está espalhada entre `Game.gameLoop`, `PhysicsManager.update` e a ordem de `components`; não há módulo `GameLoop` dedicado.
 
 Inicialização assíncrona: `Game.initialize()` aguarda `PhysicsManager.create()` (`RAPIER.init()`, WASM).
 
@@ -79,7 +79,9 @@ Inicialização assíncrona: `Game.initialize()` aguarda `PhysicsManager.create(
 ### 3.1 Física — `src/managers/PhysicsManager.ts` [Implementado]
 
 - `RAPIER.World` (`@dimforge/rapier3d-compat` 0.19.3, WASM embutido no bundle), gravidade −9,82, criado por `PhysicsManager.create()` (assíncrono).
-- Passo fixo de 1/60 s por acumulador (`world.timestep` igual); *pre-step callbacks* para lógica que precisa rodar a cada passo. O freio do controlador é impulso por passo: mudar o passo muda a frenagem.
+- Passo fixo por acumulador (`world.timestep` igual), 1/60 s por padrão, configurável em `PhysicsManager.create(scene, fixedTimeStep)`; *pre-step callbacks* para lógica que precisa rodar a cada passo.
+- Interpolação: pose anterior/atual por entidade (`addEntity`), `getInterpolationAlpha()`, `getInterpolatedPose()`; `resetInterpolation()` após teleporte.
+- Passo mantido em 1/60 s (avaliado 1/120 e 1/240 s): frenagem, aceleração e aceleração lateral mudam < 1%; a curva do G63 troca velocidade por guinada (~3% por halving do passo, sem convergir até 1/240 s) e o repouso baixa 3–4 mm. Custo da física desprezível nos dois casos (~6 vs ~9 µs por quadro em Node). Reavaliar no P2-1.
 - Criação tipada: `createRigidBody(RigidBodyConfig)`, `createCollider(ColliderConfig)`, `createGroundCollider`; `castRay`.
 - Lista `entities` (corpo + mesh) para sincronização visual; `removeEntity` remove o corpo do mundo.
 - `PhysicsDebugRenderer`: `world.debugRender()` em `LineSegments` no modo dev (aloca buffers a cada quadro; só em dev).
@@ -109,7 +111,7 @@ Problemas estruturais:
 - `loadVehicle` ignora resultados de carregamentos obsoletos (`loadRequestId`).
 - O mesh de *placeholder* continua registrado no `PhysicsManager` depois que o modelo real é carregado.
 
-Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento (rigidez e amortecimento por kg de chassi), atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`), freio como impulso por passo; unidades em `VehiclePhysicsConfig` e no ADR-0002. Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
+Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento (rigidez e amortecimento por kg de chassi), atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`), freio configurado em N e convertido no impulso por passo que o controlador espera (`força × dt`); unidades em `VehiclePhysicsConfig` e no ADR-0002. Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
 
 ### 3.3 Input — `src/managers/InputManager.ts` [Implementado]
 
@@ -149,6 +151,7 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 - `test/support/scenarios.ts`: repouso, aceleração, frenagem, curva, 0–100 km/h, frenagem de 100 km/h; métricas puras sobre snapshots. O chão do harness tem 1 km.
 - `test/support/baseline.ts` + `test/baselines/rapier.json`: comparação com tolerância (2% relativo, 0,01 absoluto); `UPDATE_BASELINE=1` regrava.
 - `test/baselines/cannon-master.json`: medições da implementação anterior (cannon-es), mantidas como referência histórica; não usadas nos testes.
+- `vehicle-reference.test.ts` também exige resultados iguais a 30/60/144 FPS e frenagem igual com passo de 1/60 e 1/120 s; `interpolation.test.ts` verifica deslocamento visual uniforme por quadro a 144 Hz.
 - `test/physics/vehicle-lifecycle.test.ts`: trocar de veículo 20 vezes não acumula corpos, colisores, controladores nem objetos na cena e libera geometrias; carregamento obsoleto não substitui o veículo atual.
 - Os cenários medem o comportamento atual para detectar regressões. `test/physics/vehicle-plausibility.test.ts` impõe limites físicos largos em SI: 0–100 km/h, desaceleração de frenagem, aceleração lateral em curva, repouso estável.
 
@@ -165,7 +168,7 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 | R1 | Testes cobrem só o veículo em plano; sem lint | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
 | R2 | ~~Escala ~0,5 e massas arbitrárias~~ Resolvido no P0-6 (ADR-0002). Restam: sem arrasto nem câmbio (velocidade sem teto), centro de massa no centro do collider, plano de 200 m | Faixas plausíveis, mas não um carro real | trabalhar em dinâmica veicular (P2-1) |
 | R3 | `Player` com 5 responsabilidades; `main.ts` cria tudo | Dois agentes não conseguem trabalhar em física e input/câmera sem editar o mesmo arquivo | paralelizar trabalho |
-| R4 | Input e controle por quadro, sem interpolação | Comportamento muda com o FPS; *judder* em monitores > 60 Hz | ajuste fino de direção |
+| R4 | ~~Input e controle por quadro, sem interpolação~~ — resolvido em P1-1 (§2). Resta: ordem do loop espalhada (sem `GameLoop`), visual 1 passo atrás | — | — |
 | R5 | Controlador de veículo embutido (raycast, caixa-preta em WASM) | Teto de qualidade da direção | P2-1 (dinâmica própria) |
 | R6 | Estado no catálogo de configuração | Bugs ao trocar/instanciar veículos | múltiplos veículos |
 | R7 | Sem ciclo de vida de recursos | Vazamento de GPU/WASM ao trocar veículo | streaming de mundo |
