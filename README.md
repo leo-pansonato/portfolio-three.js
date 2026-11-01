@@ -22,7 +22,7 @@ A estratégia técnica, as limitações conhecidas e o caminho de evolução est
 
 | Item | Versão (package.json) | Uso |
 |---|---|---|
-| [Three.js](https://threejs.org/) | ^0.182.0 | Renderização WebGL, GLTFLoader, RGBELoader, CSM (sombras em cascata), Stats |
+| [Three.js](https://threejs.org/) | ^0.182.0 | Renderização WebGL, GLTFLoader, HDRLoader, CSM (sombras em cascata), Stats |
 | [@dimforge/rapier3d-compat](https://rapier.rs/) | ^0.19.3 | Física (WASM), `DynamicRayCastVehicleController` |
 | TypeScript | ^5.9.3 | `strict`, `noUnusedLocals`, `noUnusedParameters` |
 | Vite | ^7.3.0 | Servidor de desenvolvimento e build |

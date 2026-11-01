@@ -10,7 +10,7 @@ Antes de qualquer coisa, leia `CLAUDE.md`, `AGENTS.md` e as seções de renderiz
 Contexto obrigatório:
 - Renderer: `THREE.WebGLRenderer` (Three r182) configurado em `src/main.ts`, que pertence ao coordenador — proponha mudanças nele no relatório em vez de editar.
 - Sombras: CSM (`three/addons/csm`) via `LightingManager`; materiais precisam passar por `setupMaterial`. Hoje os materiais carregados depois da inicialização não passam (ARCHITECTURE §3.5).
-- Não há tone mapping, pós-processamento nem pipeline de cor definidos (ROADMAP P2-7). WebGL × WebGPU está em aberto — não migre sem ADR.
+- Pipeline de cor: AgX, exposição 1,3 (`?exposure=` na URL), sRGB (P2-7). Sem pós-processamento. WebGL × WebGPU está em aberto — não migre sem ADR.
 - Three.js é usado de forma imperativa; não introduza React Three Fiber.
 
 Regras de trabalho:
