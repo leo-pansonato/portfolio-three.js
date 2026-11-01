@@ -14,6 +14,9 @@ import UIManager from "./managers/UIManager";
 const RENDER_CONFIG = {
 	toneMapping: THREE.AgXToneMapping as THREE.ToneMapping,
 	exposure: 1.3,
+	maxPixelRatio: 2,
+	cameraNear: 0.1,
+	cameraFar: 1000,
 };
 
 function readExposure(): number {
@@ -64,7 +67,12 @@ class Game {
 		this.physicsManager = await PhysicsManager.create(this.scene);
 
 		// instanciando a camera
-		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+		this.camera = new THREE.PerspectiveCamera(
+			75,
+			window.innerWidth / window.innerHeight,
+			RENDER_CONFIG.cameraNear,
+			RENDER_CONFIG.cameraFar,
+		);
 
 		// instanciando o renderizador e adicionando ao DOM
 		this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -75,9 +83,8 @@ class Game {
 		this.renderer.toneMapping = RENDER_CONFIG.toneMapping;
 		this.renderer.toneMappingExposure = readExposure();
 
-		const renderMultiplier = window.devicePixelRatio;
+		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, RENDER_CONFIG.maxPixelRatio));
 		this.renderer.setSize(window.innerWidth, window.innerHeight, true);
-		this.renderer.setPixelRatio(renderMultiplier);
 
 		// linkando o renderizador ao container no HTML
 		const container = document.getElementById("main");
@@ -111,9 +118,8 @@ class Game {
 		this.camera.aspect = width / height;
 		this.camera.updateProjectionMatrix();
 
-		const renderMultiplier = window.devicePixelRatio;
+		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, RENDER_CONFIG.maxPixelRatio));
 		this.renderer.setSize(width, height, true);
-		this.renderer.setPixelRatio(renderMultiplier);
 	}
 
 	gameLoop(now: number): void {
