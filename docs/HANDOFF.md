@@ -4,24 +4,27 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Estado (2026-11-01)
 
-- `master` = `origin/master` em `bfb7847`. Física em Rapier (P0-5 concluído, falta só marcar no ROADMAP após o P0-6).
-- `npm run build` e `npm test` (13 testes) verdes.
-- Branches residuais: `stabilize/rapier` local e `origin/stabilize/rapier` (ambas já contidas na `master`); `refact/rapier3d` é só referência. Não apagar sem pedido.
-- Usuário pediu autonomia total ("quero tudo"): seguir o ROADMAP em ordem, commits no formato `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco texto no chat, poucos comentários no código.
-- Merge na `master` e push: o usuário aprovou nas últimas rodadas; para trabalho autônomo, integrar por fast-forward após build + testes verdes.
+- `master` = `origin/master`. P0 completo (P0-1…P0-6), P1-8 (CI) e P2-7 (pipeline de cor) concluídos.
+- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 22 testes (cenários, plausibilidade, ciclo de vida).
+- Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
+- Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
 ## Em andamento
 
-- P0-6 (escala SI e eixos) — delegado ao subagente `physics-vehicle` em worktree; resultado chega como branch.
-- P1-8 (CI) — coordenador, branch `ci/github-actions`.
+- P1-1 (loop com passo fixo, input/forças por passo, interpolação, freio como força) — subagente `physics-vehicle`.
 
 ## Próximos itens (ordem)
 
-1. Integrar P0-6, atualizar ROADMAP (P0-5 e P0-6 `[x]`), ADR-0002.
-2. P1-1 loop com passo fixo: input/forças por passo, interpolação visual, freio do controlador como força (impulso por passo hoje).
-3. P1-2 decompor `Player` (ver AGENTS.md §4), P1-3 `PhysicsWorld`, P1-4 input desacoplado, P1-5 ciclo de vida (texturas, cache do ModelLoader).
-4. P1-6 telemetria/replay, P1-7 lint.
-5. P2: dinâmica veicular própria (P2-1), pipeline de cor (P2-7), renderização (P2-4), câmeras (P2-5).
+1. P1-2 decompor `Player` (AGENTS.md §4), P1-3 `PhysicsWorld`, P1-4 input desacoplado, P1-5 ciclo de vida (texturas, cache do ModelLoader, CSM em materiais carregados).
+2. P1-6 telemetria/replay, P1-7 lint.
+3. P2: dinâmica própria (P2-1: arrasto, câmbio, pneu, CG baixo), renderização (P2-4), câmeras (P2-5), mundo (P2-3).
+
+## Pendências conhecidas
+
+- CG no centro do collider (margem de capotamento ~1 g, perto da aderência lateral).
+- Sem arrasto/câmbio: velocidade sem teto; `configs.maxSpeed` sem uso; boost ×3 chega a ~2 g.
+- CSM `maxFar 50` e intensidade das luzes não revistos para escala real/AgX.
+- Pasta `.claude/worktrees/` pode sobrar no disco (ignorada pelo Git).
 
 ## Fatos técnicos que não estão óbvios no código
 

@@ -78,9 +78,9 @@ flowchart LR
 - **Conclusão:** cenários rodam nas duas implementações (a da `master` e a da `refact/rapier3d`) e as diferenças estão registradas no ADR-0001.
 - **Risco:** extrair a montagem do veículo de `Player` sem alterar comportamento — fazer por função auxiliar de teste, não refatorando o `Player` ainda. **Esforço:** M.
 
-### [~] P0-5 — Integração curada da Rapier
+### [x] P0-5 — Integração curada da Rapier
 
-- **Estado:** commits na branch `stabilize/rapier` (input, motor com parâmetros da `master`, correções); cenários equivalentes e teste de ciclo de vida verdes. Falta: revisão e merge na `master`. Terreno e retuning ficam fora (ver resultado no ADR-0001).
+- **Estado:** integrado na `master` (2026-11-01). Terreno procedural e retuning da `refact/rapier3d` ficaram fora.
 
 
 - **Objetivo:** trazer a parte boa da `refact/rapier3d` sem as regressões.
