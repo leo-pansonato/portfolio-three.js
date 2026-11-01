@@ -2,7 +2,9 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
 import InputManager from "../managers/InputManager";
 import PhysicsManager from "../managers/PhysicsManager";
-import VehicleManager, { CameraConfig, CameraMode, VehicleConfig } from "../managers/VehicleManager";
+import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
+import VehicleManager from "../managers/VehicleManager";
+import { createVehicleState, VehicleState } from "../vehicle/VehicleState";
 import Entity from "./Entity";
 
 /**
@@ -46,7 +48,8 @@ export default class Player extends Entity {
 	private vehicleManager: VehicleManager;
 
 	private currentVehicleId: string;
-	private vehicleData!: VehicleConfig;
+	private vehicleData!: VehicleDefinition;
+	private state!: VehicleState;
 
 	// Física Rapier
 	public chassisRigidBody!: RAPIER.RigidBody;
@@ -105,16 +108,15 @@ export default class Player extends Entity {
 		this.addToScene();
 
 		// Carregar o modelo do veículo
-		this.loadVehicle(this.currentVehicleId);
+		this.loadVehicle(this.vehicleData);
 	}
 
 	initVehicleConfigs(): void {
-		const vehicleConfig = this.vehicleManager.getVehicleConfig(this.currentVehicleId);
+		const vehicleConfig = getVehicleDefinition(this.currentVehicleId);
 		if (!vehicleConfig) throw new Error(`Configuração do veículo ${this.currentVehicleId} não encontrada.`);
 
 		this.vehicleData = vehicleConfig;
-		this.vehicleData.configs.currentSteering = 0;
-		this.vehicleData.configs.currentSpeed = 0;
+		this.state = createVehicleState();
 	}
 
 	/**
@@ -157,7 +159,7 @@ export default class Player extends Entity {
 	/**
 	 * Configurar o DynamicRayCastVehicleController do Rapier
 	 */
-	setupVehicleController(vehicleData: VehicleConfig): void {
+	setupVehicleController(vehicleData: VehicleDefinition): void {
 		const physicsData = vehicleData.physics;
 		const RAPIER = this.physicsManager.getRapier();
 
@@ -282,10 +284,10 @@ export default class Player extends Entity {
 	/**
 	 * Carregar um veículo específico
 	 */
-	async loadVehicle(vehicleId: string): Promise<any> {
+	async loadVehicle(definition: VehicleDefinition): Promise<any> {
 		try {
 			const requestId = ++this.loadRequestId;
-			const vehicleModels = await this.vehicleManager.loadVehicle(vehicleId, this.WHEEL_COUNT);
+			const vehicleModels = await this.vehicleManager.loadVehicle(definition, this.WHEEL_COUNT);
 
 			// outro veículo foi pedido enquanto este carregava
 			if (requestId !== this.loadRequestId) {
@@ -305,11 +307,8 @@ export default class Player extends Entity {
 			if (vehicleModels.wheels) {
 				this.wheelMeshes = vehicleModels.wheels;
 			}
-
-			// Atualizar o ID atual
-			this.currentVehicleId = vehicleId;
 		} catch (error) {
-			console.error(`Erro ao carregar veículo ${vehicleId}:`, error);
+			console.error(`Erro ao carregar veículo ${definition.body.modelPath}:`, error);
 		}
 	}
 
@@ -317,7 +316,7 @@ export default class Player extends Entity {
 	 * Controle do veículo a cada passo de física (dt fixo, s)
 	 */
 	private updateControl(dt: number): void {
-		this.vehicleData.configs.currentSpeed = this.forwardSpeed();
+		this.state.forwardSpeed = this.forwardSpeed();
 		this.updateSteering(dt);
 		this.updateDriving(dt);
 	}
@@ -410,38 +409,38 @@ export default class Player extends Entity {
 		const targetSteering = steerInput * this.vehicleData.configs.maxSteerVal;
 
 		// Ajustar a resposta da direção com base na velocidade
-		const speedFactor = Math.min(Math.abs(this.vehicleData.configs.currentSpeed) / 100, 1);
+		const speedFactor = Math.min(Math.abs(this.state.forwardSpeed) / 100, 1);
 		const effectiveSteerSpeed = this.vehicleData.configs.steerSpeed * (1 - speedFactor * 0.5);
 		const effectiveReturnSpeed = this.vehicleData.configs.steerReturn * (1 + speedFactor * 0.5);
 
 		// Movimento gradual do volante
 		if (targetSteering !== 0) {
 			// Movimento em direção ao valor alvo
-			if (this.vehicleData.configs.currentSteering < targetSteering) {
-				this.vehicleData.configs.currentSteering += effectiveSteerSpeed * timeStep;
-				if (this.vehicleData.configs.currentSteering > targetSteering) {
-					this.vehicleData.configs.currentSteering = targetSteering;
+			if (this.state.steeringAngle < targetSteering) {
+				this.state.steeringAngle += effectiveSteerSpeed * timeStep;
+				if (this.state.steeringAngle > targetSteering) {
+					this.state.steeringAngle = targetSteering;
 				}
-			} else if (this.vehicleData.configs.currentSteering > targetSteering) {
-				this.vehicleData.configs.currentSteering -= effectiveSteerSpeed * timeStep;
-				if (this.vehicleData.configs.currentSteering < targetSteering) {
-					this.vehicleData.configs.currentSteering = targetSteering;
+			} else if (this.state.steeringAngle > targetSteering) {
+				this.state.steeringAngle -= effectiveSteerSpeed * timeStep;
+				if (this.state.steeringAngle < targetSteering) {
+					this.state.steeringAngle = targetSteering;
 				}
 			}
 		} else {
 			// Retorno automático para centro
-			if (Math.abs(this.vehicleData.configs.currentSteering) < effectiveReturnSpeed * timeStep) {
-				this.vehicleData.configs.currentSteering = 0;
-			} else if (this.vehicleData.configs.currentSteering > 0) {
-				this.vehicleData.configs.currentSteering -= effectiveReturnSpeed * timeStep;
-			} else if (this.vehicleData.configs.currentSteering < 0) {
-				this.vehicleData.configs.currentSteering += effectiveReturnSpeed * timeStep;
+			if (Math.abs(this.state.steeringAngle) < effectiveReturnSpeed * timeStep) {
+				this.state.steeringAngle = 0;
+			} else if (this.state.steeringAngle > 0) {
+				this.state.steeringAngle -= effectiveReturnSpeed * timeStep;
+			} else if (this.state.steeringAngle < 0) {
+				this.state.steeringAngle += effectiveReturnSpeed * timeStep;
 			}
 		}
 
 		// Aplicar a direção às rodas dianteiras usando o controlador do Rapier
-		this.vehicleController.setWheelSteering(0, this.vehicleData.configs.currentSteering);
-		this.vehicleController.setWheelSteering(1, this.vehicleData.configs.currentSteering);
+		this.vehicleController.setWheelSteering(0, this.state.steeringAngle);
+		this.vehicleController.setWheelSteering(1, this.state.steeringAngle);
 	}
 
 	/**
@@ -449,7 +448,7 @@ export default class Player extends Entity {
 	 */
 	updateDriving(dt: number): void {
 		// Flag para marchas
-		const isAlmostStopped = this.vehicleData.configs.currentSpeed < 2.0;
+		const isAlmostStopped = this.state.forwardSpeed < 2.0;
 
 		// Inicializar forças
 		let engineForce = 0;
@@ -464,9 +463,9 @@ export default class Player extends Entity {
 
 		// Gerenciar boost
 		if (boosting) {
-			this.vehicleData.configs.boostForce = this.vehicleData.configs.maxBoostForce;
+			this.state.boostMultiplier = this.vehicleData.configs.maxBoostForce;
 		} else {
-			this.vehicleData.configs.boostForce = 1;
+			this.state.boostMultiplier = 1;
 		}
 
 		// Determinar força do motor (proporcional ao input analógico)
@@ -496,7 +495,7 @@ export default class Player extends Entity {
 		}
 
 		// Aplicar boost
-		engineForce *= this.vehicleData.configs.boostForce;
+		engineForce *= this.state.boostMultiplier;
 
 		// Aplicar força do motor conforme configuração de tração
 		this.applyEngineForce(engineForce);
@@ -658,7 +657,7 @@ export default class Player extends Entity {
 	 * Alterar o veículo atual
 	 */
 	changeVehicle(vehicleId: string): Promise<any> | boolean {
-		if (!(this.vehicleManager as any).vehicleCatalog[vehicleId]) {
+		if (!getVehicleDefinition(vehicleId)) {
 			console.error(`Veículo ${vehicleId} não encontrado no catálogo`);
 			return false;
 		}
@@ -675,7 +674,7 @@ export default class Player extends Entity {
 		this.initPhysics();
 		this.initVisuals();
 
-		return this.loadVehicle(vehicleId);
+		return this.loadVehicle(this.vehicleData);
 	}
 
 	/**

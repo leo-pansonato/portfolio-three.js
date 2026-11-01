@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
+import { VEHICLE_DEFINITIONS } from "../../src/data/vehicles";
 import InputManager from "../../src/managers/InputManager";
 import PhysicsManager from "../../src/managers/PhysicsManager";
 import { ScriptedInput } from "../support/sim";
@@ -84,10 +85,18 @@ describe("estado de runtime do veículo", () => {
 
 		input.state.left = true;
 		for (let i = 0; i < 30; i++) physics.update(1 / 60);
-		expect((player as any).vehicleData.configs.currentSteering).not.toBe(0);
+		expect((player as any).state.steeringAngle).not.toBe(0);
 		await player.changeVehicle("mercedes_g63");
 		await player.changeVehicle("bmw_f82");
 
-		expect((player as any).vehicleData.configs.currentSteering).toBe(0);
+		expect((player as any).state.steeringAngle).toBe(0);
+	});
+
+	it("definições do catálogo são imutáveis e não guardam estado", () => {
+		for (const definition of Object.values(VEHICLE_DEFINITIONS)) {
+			expect(Object.isFrozen(definition.configs)).toBe(true);
+			expect(Object.isFrozen(definition.wheels.adjustments[0].position)).toBe(true);
+			expect(definition.configs).not.toHaveProperty("currentSteering");
+		}
 	});
 });
