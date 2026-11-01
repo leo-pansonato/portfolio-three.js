@@ -311,11 +311,10 @@ export default class PhysicsManager {
 	}
 
 	/**
-	 * Cria um collider de plano infinito (ground)
-	 * No Rapier, usamos um cuboid muito grande e fino para simular um plano
+	 * Cria o chão: cuboid fino com a superfície em y=0, de -halfSize a +halfSize (m) em X e Z
 	 */
-	createGroundCollider(rigidBody: RAPIER.RigidBody, friction: number = 0.8): RAPIER.Collider {
-		const colliderDesc = RAPIER.ColliderDesc.cuboid(100, 0.1, 100)
+	createGroundCollider(rigidBody: RAPIER.RigidBody, friction: number = 0.8, halfSize: number = 100): RAPIER.Collider {
+		const colliderDesc = RAPIER.ColliderDesc.cuboid(halfSize, 0.1, halfSize)
 			.setFriction(friction)
 			.setRestitution(0.0)
 			.setTranslation(0, -0.1, 0); // Posicionar a superfície no y=0
