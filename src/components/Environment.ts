@@ -25,7 +25,7 @@ export default class Environment extends GameComponent {
     // Plano visual
     const planeGeometry = new THREE.PlaneGeometry(2000, 2000);
     const planeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x0f0f0f,
+      color: 0x3a3a3a,
       roughness: 0.7,
     });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
