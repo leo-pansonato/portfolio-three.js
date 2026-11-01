@@ -9,9 +9,10 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
-## Em andamento
+## Em andamento (pausado pelo usuário)
 
-- P1-1 concluído na branch `feat/fixed-step-loop` (aguardando integração): controle por passo, freio em N, interpolação visual.
+- P1-1, P2-7 e ajuste do CSM (cascatas SI, materiais carregados) já estão na `master`.
+- P1-2 (decompor `Player`) interrompido: branch local `refact/vehicle-decomposition` no worktree `.claude/worktrees/agent-a20261f0087ff6476`, 3 de 5 commits feitos (dados+VehicleState, VehicleControl, VehiclePhysics). Faltam: `VehicleView` (meshes, interpolação, releaseObjects, loadRequestId), `Player` fino, testes unitários de `VehicleControl`, docs (ARCHITECTURE §1/§3.2/§5, R3/R6, ROADMAP, AGENTS §2). Retomar no worktree: conferir `npm run build`/`npm test` (linha de base não pode mudar), rebase sobre a `master`, concluir.
 
 ## Próximos itens (ordem)
 
