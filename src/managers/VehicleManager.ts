@@ -59,7 +59,7 @@ export interface VehicleConfig {
 		[CameraMode.HOOD]: CameraConfig;
 		[CameraMode.FIRST_PERSON]: CameraConfig;
 	};
-	/** Condução: maxForce N por roda motriz; brakeForce, eBrakeForce e rollingResistance N·s por roda a cada passo de 1/60 s; maxSteerVal rad */
+	/** Condução: maxForce, brakeForce, eBrakeForce e rollingResistance em N por roda; maxSteerVal rad */
 	configs: any;
 	wheels: {
 		modelPath: string;
@@ -149,9 +149,9 @@ export default class VehicleManager {
 					maxForce: 3500,
 					maxBoostForce: 3,
 					boostForce: 3,
-					brakeForce: 95,
-					rollingResistance: 1.25,
-					eBrakeForce: 65,
+					brakeForce: 5700,
+					rollingResistance: 75,
+					eBrakeForce: 3900,
 					maxSteerVal: 0.5,
 					steerSpeed: 2.0,
 					steerReturn: 2.0,
@@ -226,9 +226,9 @@ export default class VehicleManager {
 					maxForce: 5000,
 					maxBoostForce: 3,
 					boostForce: 1,
-					brakeForce: 60,
-					rollingResistance: 1.55,
-					eBrakeForce: 55,
+					brakeForce: 3600,
+					rollingResistance: 93,
+					eBrakeForce: 3300,
 					maxSteerVal: 0.5,
 					steerSpeed: 1.3,
 					steerReturn: 2.0,

@@ -428,7 +428,7 @@ export default class Player extends Entity {
 	/**
 	 * Atualizar aceleração, frenagem e tração do veículo
 	 */
-	updateDriving(_timeStep: number): void {
+	updateDriving(dt: number): void {
 		// Flag para marchas
 		const isAlmostStopped = this.vehicleData.configs.currentSpeed < 2.0;
 
@@ -482,8 +482,8 @@ export default class Player extends Entity {
 		// Aplicar força do motor conforme configuração de tração
 		this.applyEngineForce(engineForce);
 
-		// Aplicar frenagem
-		this.applyBraking(brakeForce, handbrakeForce);
+		// o controlador recebe o freio como impulso máximo por passo (N·s)
+		this.applyBraking(brakeForce * dt, handbrakeForce * dt);
 	}
 
 	/**
@@ -519,7 +519,7 @@ export default class Player extends Entity {
 	}
 
 	/**
-	 * Aplicar frenagem ao veículo
+	 * Aplicar frenagem ao veículo (impulsos por passo, N·s por roda)
 	 */
 	applyBraking(normalBrake: number, handBrake: number): void {
 		// Freio nas rodas traseiras (com handbrake se ativado)

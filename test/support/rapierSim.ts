@@ -11,9 +11,9 @@ import { ScriptedInput, SimHandle, VehicleSnapshot } from "./sim";
  * O chão replica a parte física de Environment.createPlane, porém maior.
  * ModelLoader deve ser mockado pelo teste (o Player cai no fallback de primitivas).
  */
-export async function createRapierSim(vehicleId: string): Promise<SimHandle> {
+export async function createRapierSim(vehicleId: string, fixedTimeStep?: number): Promise<SimHandle> {
 	const scene = new THREE.Scene();
-	const physicsManager = await PhysicsManager.create(scene);
+	const physicsManager = await PhysicsManager.create(scene, fixedTimeStep);
 
 	const groundBody = physicsManager.createRigidBody({ type: "static", position: { x: 0, y: 0, z: 0 } });
 	// maior que o plano do jogo (200 m): a frenagem não pode sair do chão

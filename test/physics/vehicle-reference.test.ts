@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { BaselineFile } from "../support/baseline";
 import { createRapierSim } from "../support/rapierSim";
-import { accelerationScenario, brakingScenario, restScenario, turnScenario } from "../support/scenarios";
+import { accelerationScenario, brakingFromHundredScenario, brakingScenario, restScenario, turnScenario } from "../support/scenarios";
 
 // Sem rede/arquivos em Node: o Player usa o fallback de primitivas (física idêntica)
 vi.mock("../../src/loaders/ModelLoader", () => ({
@@ -96,5 +96,20 @@ describe.each(VEHICLES)("independência de FPS (%s)", (vehicleId) => {
 		expect(Math.abs(braking.timeToStop - ref.braking.timeToStop)).toBeLessThanOrEqual(1 / 30 + 1e-9);
 		close(turn.speed, ref.turn.speed);
 		close(turn.yawRate, ref.turn.yawRate);
+	});
+});
+
+/**
+ * Freio em força (N), convertido em impulso pelo passo ao aplicar: a frenagem
+ * não depende do passo da física. Antes, a 1/120 s a desaceleração subia ~55%.
+ */
+describe.each(VEHICLES)("frenagem independente do passo (%s)", (vehicleId) => {
+	it("frenagem de 100 km/h igual com passo de 1/60 e 1/120 s", async () => {
+		const at60 = brakingFromHundredScenario(await createRapierSim(vehicleId, 1 / 60), 1 / 60);
+		const at120 = brakingFromHundredScenario(await createRapierSim(vehicleId, 1 / 120), 1 / 120);
+
+		// 2%: o resto do controlador (suspensão, atrito lateral) também é discretizado pelo passo
+		expect(Math.abs(at120.meanDeceleration / at60.meanDeceleration - 1)).toBeLessThan(0.02);
+		expect(Math.abs(at120.stoppingDistance / at60.stoppingDistance - 1)).toBeLessThan(0.02);
 	});
 });

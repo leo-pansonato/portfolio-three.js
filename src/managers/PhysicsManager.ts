@@ -58,8 +58,8 @@ export default class PhysicsManager {
 
 	private entities: PhysicsEntity[] = [];
 
-	// o freio do controlador é impulso por passo: mudar o passo exige reescalar brakeForce
-	private readonly fixedTimeStep: number = 1 / 60.0;
+	/** Passo fixo da simulação (s) */
+	private readonly fixedTimeStep: number;
 	private accumulator: number = 0;
 
 	// Callbacks para serem chamados antes de cada step da física
@@ -74,19 +74,21 @@ export default class PhysicsManager {
 	/**
 	 * Construtor privado - use PhysicsManager.create() para instanciar
 	 */
-	private constructor(scene: THREE.Scene) {
+	private constructor(scene: THREE.Scene, fixedTimeStep: number) {
 		this.scene = scene;
+		this.fixedTimeStep = fixedTimeStep;
 	}
 
 	/**
 	 * Factory method assíncrono para criar o PhysicsManager
 	 * Inicializa o WASM do Rapier antes de criar o mundo
+	 * @param fixedTimeStep passo fixo da simulação (s)
 	 */
-	public static async create(scene: THREE.Scene): Promise<PhysicsManager> {
+	public static async create(scene: THREE.Scene, fixedTimeStep: number = 1 / 60): Promise<PhysicsManager> {
 		// Inicializar o WASM do Rapier (OBRIGATÓRIO antes de qualquer operação)
 		await RAPIER.init();
 
-		const manager = new PhysicsManager(scene);
+		const manager = new PhysicsManager(scene, fixedTimeStep);
 		manager.initWorld();
 
 		// Inscrever no dev mode para debug
