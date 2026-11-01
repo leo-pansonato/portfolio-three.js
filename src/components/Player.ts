@@ -4,6 +4,7 @@ import InputManager from "../managers/InputManager";
 import PhysicsManager from "../managers/PhysicsManager";
 import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
 import VehicleManager from "../managers/VehicleManager";
+import VehicleControl, { createDriverInput } from "../vehicle/VehicleControl";
 import { createVehicleState, VehicleState } from "../vehicle/VehicleState";
 import Entity from "./Entity";
 
@@ -50,6 +51,8 @@ export default class Player extends Entity {
 	private currentVehicleId: string;
 	private vehicleData!: VehicleDefinition;
 	private state!: VehicleState;
+	private control!: VehicleControl;
+	private readonly driverInput = createDriverInput();
 
 	// Física Rapier
 	public chassisRigidBody!: RAPIER.RigidBody;
@@ -117,6 +120,7 @@ export default class Player extends Entity {
 
 		this.vehicleData = vehicleConfig;
 		this.state = createVehicleState();
+		this.control = new VehicleControl(this.vehicleData.configs, this.state);
 	}
 
 	/**
@@ -316,9 +320,19 @@ export default class Player extends Entity {
 	 * Controle do veículo a cada passo de física (dt fixo, s)
 	 */
 	private updateControl(dt: number): void {
-		this.state.forwardSpeed = this.forwardSpeed();
-		this.updateSteering(dt);
-		this.updateDriving(dt);
+		const input = this.driverInput;
+		input.throttle = this.inputManager.getThrottle();
+		input.brake = this.inputManager.getBrake();
+		input.steer = this.inputManager.getSteer();
+		input.handbrake = this.inputManager.isActionActive("VEHICLE_HANDBRAKE");
+		input.boost = this.inputManager.isActionActive("VEHICLE_BOOST");
+
+		const commands = this.control.step(input, this.forwardSpeed(), dt);
+		this.vehicleController.setWheelSteering(0, commands.steeringAngle);
+		this.vehicleController.setWheelSteering(1, commands.steeringAngle);
+		this.applyEngineForce(commands.engineForce);
+		// o controlador recebe o freio como impulso máximo por passo (N·s)
+		this.applyBraking(commands.brakeForce * dt, commands.handbrakeForce * dt);
 	}
 
 	/**
@@ -397,111 +411,6 @@ export default class Player extends Entity {
 		wheelInfo.worldQuaternion.copy(this.tempQuaternion);
 		wheelInfo.worldQuaternion.multiply(this.tempSteeringQuat);
 		wheelInfo.worldQuaternion.multiply(this.tempSpinQuat);
-	}
-
-	/**
-	 * Atualizar a direção do veículo (volante)
-	 */
-	updateSteering(timeStep: number): void {
-		// Determinar o valor alvo para a direção usando valores analógicos
-		// getSteer(): -1 esquerda, +1 direita; no controlador, ângulo positivo (em torno de +Y) vira à esquerda
-		const steerInput = this.inputManager.getSteer() * -1;
-		const targetSteering = steerInput * this.vehicleData.configs.maxSteerVal;
-
-		// Ajustar a resposta da direção com base na velocidade
-		const speedFactor = Math.min(Math.abs(this.state.forwardSpeed) / 100, 1);
-		const effectiveSteerSpeed = this.vehicleData.configs.steerSpeed * (1 - speedFactor * 0.5);
-		const effectiveReturnSpeed = this.vehicleData.configs.steerReturn * (1 + speedFactor * 0.5);
-
-		// Movimento gradual do volante
-		if (targetSteering !== 0) {
-			// Movimento em direção ao valor alvo
-			if (this.state.steeringAngle < targetSteering) {
-				this.state.steeringAngle += effectiveSteerSpeed * timeStep;
-				if (this.state.steeringAngle > targetSteering) {
-					this.state.steeringAngle = targetSteering;
-				}
-			} else if (this.state.steeringAngle > targetSteering) {
-				this.state.steeringAngle -= effectiveSteerSpeed * timeStep;
-				if (this.state.steeringAngle < targetSteering) {
-					this.state.steeringAngle = targetSteering;
-				}
-			}
-		} else {
-			// Retorno automático para centro
-			if (Math.abs(this.state.steeringAngle) < effectiveReturnSpeed * timeStep) {
-				this.state.steeringAngle = 0;
-			} else if (this.state.steeringAngle > 0) {
-				this.state.steeringAngle -= effectiveReturnSpeed * timeStep;
-			} else if (this.state.steeringAngle < 0) {
-				this.state.steeringAngle += effectiveReturnSpeed * timeStep;
-			}
-		}
-
-		// Aplicar a direção às rodas dianteiras usando o controlador do Rapier
-		this.vehicleController.setWheelSteering(0, this.state.steeringAngle);
-		this.vehicleController.setWheelSteering(1, this.state.steeringAngle);
-	}
-
-	/**
-	 * Atualizar aceleração, frenagem e tração do veículo
-	 */
-	updateDriving(dt: number): void {
-		// Flag para marchas
-		const isAlmostStopped = this.state.forwardSpeed < 2.0;
-
-		// Inicializar forças
-		let engineForce = 0;
-		let brakeForce = 0;
-		let handbrakeForce = 0;
-
-		// Obter valores analógicos (0 a 1) - funciona com gamepad e teclado
-		const throttleValue = this.inputManager.getThrottle();
-		const brakeValue = this.inputManager.getBrake();
-		const handbraking = this.inputManager.isActionActive("VEHICLE_HANDBRAKE");
-		const boosting = this.inputManager.isActionActive("VEHICLE_BOOST");
-
-		// Gerenciar boost
-		if (boosting) {
-			this.state.boostMultiplier = this.vehicleData.configs.maxBoostForce;
-		} else {
-			this.state.boostMultiplier = 1;
-		}
-
-		// Determinar força do motor (proporcional ao input analógico)
-		if (throttleValue > 0) {
-			engineForce = this.vehicleData.configs.maxForce * throttleValue;
-		}
-
-		// Gerenciar frenagem e marcha-ré
-		if (brakeValue > 0) {
-			if (isAlmostStopped && throttleValue === 0) {
-				// Marcha-ré (proporcional ao input)
-				engineForce = -this.vehicleData.configs.maxForce * brakeValue;
-			} else {
-				// Frenagem normal (proporcional ao input)
-				brakeForce = this.vehicleData.configs.brakeForce * brakeValue;
-			}
-		}
-
-		// Freio de mão
-		if (handbraking) {
-			handbrakeForce = this.vehicleData.configs.eBrakeForce;
-		}
-
-		// o controlador do Rapier não tem resistência ao rolamento
-		if (throttleValue === 0 && brakeValue === 0) {
-			brakeForce = this.vehicleData.configs.rollingResistance;
-		}
-
-		// Aplicar boost
-		engineForce *= this.state.boostMultiplier;
-
-		// Aplicar força do motor conforme configuração de tração
-		this.applyEngineForce(engineForce);
-
-		// o controlador recebe o freio como impulso máximo por passo (N·s)
-		this.applyBraking(brakeForce * dt, handbrakeForce * dt);
 	}
 
 	/**
