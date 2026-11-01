@@ -81,7 +81,7 @@ export interface RestResult {
 	finalHeight: number;
 	/** Deslocamento horizontal entre SETTLE_TIME e 10 s */
 	drift: number;
-	/** Maior |velocidade| no último segundo */
+	/** Maior velocidade (por deslocamento entre quadros) no último segundo */
 	residualSpeed: number;
 	/** Inclinação final do chassi */
 	finalTilt: number;
@@ -92,10 +92,13 @@ export function restScenario(sim: SimHandle, frameDt: number): RestResult {
 	const runner = new ScenarioRunner(sim, frameDt);
 	runner.setInput({});
 	const settled = runner.run(SETTLE_TIME);
-	runner.run(10 - SETTLE_TIME - 1);
+	// por deslocamento: a Rapier reporta linvel ~g·dt com o chassi parado
 	let residualSpeed = 0;
+	let previous = runner.run(10 - SETTLE_TIME - 1);
 	const final = runner.run(1, (s) => {
-		residualSpeed = Math.max(residualSpeed, Math.hypot(s.velocity.x, s.velocity.y, s.velocity.z));
+		const dp = Math.hypot(s.position.x - previous.position.x, s.position.y - previous.position.y, s.position.z - previous.position.z);
+		residualSpeed = Math.max(residualSpeed, dp / frameDt);
+		previous = s;
 	});
 	return {
 		finalHeight: final.position.y,

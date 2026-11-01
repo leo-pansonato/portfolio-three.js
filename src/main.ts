@@ -37,10 +37,12 @@ class Game {
 		this.components = [];
 		this.lastTime = performance.now();
 		this.gameLoopBound = this.gameLoop.bind(this);
-		this.initialize();
 	}
 
-	initialize(): void {
+	/**
+	 * Inicializa o jogo de forma assíncrona (aguarda o WASM do Rapier)
+	 */
+	async initialize(): Promise<void> {
 		// gerenciador de desempenho
 		this.performanceManager = new PerformanceManager();
 
@@ -48,7 +50,7 @@ class Game {
 		this.scene = new THREE.Scene();
 
 		// instanciando o gerenciador de física
-		this.physicsManager = new PhysicsManager(this.scene);
+		this.physicsManager = await PhysicsManager.create(this.scene);
 
 		// instanciando a camera
 		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
@@ -143,4 +145,13 @@ class Game {
 }
 
 // Iniciar o jogo
-new Game();
+async function initGame(): Promise<void> {
+	try {
+		const game = new Game();
+		await game.initialize();
+	} catch (error) {
+		console.error("Erro ao inicializar: ", error);
+	}
+}
+
+initGame();

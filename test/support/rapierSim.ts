@@ -1,4 +1,3 @@
-import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import Player from "../../src/components/Player";
 import InputManager from "../../src/managers/InputManager";
@@ -6,20 +5,18 @@ import PhysicsManager from "../../src/managers/PhysicsManager";
 import { ScriptedInput, SimHandle, VehicleSnapshot } from "./sim";
 
 /**
- * Monta o veículo real (Player + PhysicsManager da master) sobre um plano,
+ * Monta o veículo real (Player + PhysicsManager) sobre um plano,
  * sem DOM, renderizador nem obstáculos.
  *
  * O chão replica a parte física de Environment.createPlane.
  * ModelLoader deve ser mockado pelo teste (o Player cai no fallback de primitivas).
  */
-export async function createCannonSim(vehicleId: string): Promise<SimHandle> {
+export async function createRapierSim(vehicleId: string): Promise<SimHandle> {
 	const scene = new THREE.Scene();
-	const physicsManager = new PhysicsManager(scene);
+	const physicsManager = await PhysicsManager.create(scene);
 
-	const groundBody = new CANNON.Body({ mass: 0, material: physicsManager.getGroundMaterial() });
-	groundBody.addShape(new CANNON.Plane());
-	groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-	physicsManager.world.addBody(groundBody);
+	const groundBody = physicsManager.createRigidBody({ type: "static", position: { x: 0, y: 0, z: 0 } });
+	physicsManager.createGroundCollider(groundBody, 0.8);
 
 	const scripted = new ScriptedInput();
 	const player = new Player(scene, scripted as unknown as InputManager, physicsManager);
@@ -39,11 +36,14 @@ export async function createCannonSim(vehicleId: string): Promise<SimHandle> {
 			player.update(deltaTime);
 		},
 		snapshot(): VehicleSnapshot {
-			const body = player.chassisBody;
+			const body = player.chassisRigidBody;
+			const p = body.translation();
+			const v = body.linvel();
+			const q = body.rotation();
 			return {
-				position: { x: body.position.x, y: body.position.y, z: body.position.z },
-				velocity: { x: body.velocity.x, y: body.velocity.y, z: body.velocity.z },
-				quaternion: { x: body.quaternion.x, y: body.quaternion.y, z: body.quaternion.z, w: body.quaternion.w },
+				position: { x: p.x, y: p.y, z: p.z },
+				velocity: { x: v.x, y: v.y, z: v.z },
+				quaternion: { x: q.x, y: q.y, z: q.z, w: q.w },
 				hudSpeed: player.getCurrentSpeed(),
 			};
 		},

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { BaselineFile } from "../support/baseline";
-import { createCannonSim } from "../support/cannonSim";
+import { createRapierSim } from "../support/rapierSim";
 import { accelerationScenario, brakingScenario, restScenario, turnScenario } from "../support/scenarios";
 
 // Sem rede/arquivos em Node: o Player usa o fallback de primitivas (física idêntica)
@@ -14,11 +14,11 @@ vi.mock("../../src/loaders/ModelLoader", () => ({
 }));
 
 /**
- * Cenários de referência do veículo (ROADMAP P0-4) na implementação da master (cannon-es).
- * Linha de base: test/baselines/cannon-master.json.
+ * Cenários de referência do veículo (ROADMAP P0-4) (Rapier).
+ * Linha de base: test/baselines/rapier.json.
  */
 
-const baseline = new BaselineFile(new URL("../baselines/cannon-master.json", import.meta.url));
+const baseline = new BaselineFile(new URL("../baselines/rapier.json", import.meta.url));
 afterAll(() => baseline.save());
 
 const VEHICLES = ["bmw_f82", "mercedes_g63"];
@@ -26,7 +26,7 @@ const FRAME_DT = 1 / 60;
 
 describe.each(VEHICLES)("veículo %s — cenários de referência", (vehicleId) => {
 	it("repouso: assenta sem derivar", async () => {
-		const result = restScenario(await createCannonSim(vehicleId), FRAME_DT);
+		const result = restScenario(await createRapierSim(vehicleId), FRAME_DT);
 
 		expect(result.nonFinite).toBe(false);
 		expect(result.residualSpeed).toBeLessThan(0.05);
@@ -36,7 +36,7 @@ describe.each(VEHICLES)("veículo %s — cenários de referência", (vehicleId) 
 	});
 
 	it("aceleração em reta por 5 s", async () => {
-		const result = accelerationScenario(await createCannonSim(vehicleId), FRAME_DT);
+		const result = accelerationScenario(await createRapierSim(vehicleId), FRAME_DT);
 
 		expect(result.nonFinite).toBe(false);
 		// velocidade cresce a cada segundo
@@ -47,7 +47,7 @@ describe.each(VEHICLES)("veículo %s — cenários de referência", (vehicleId) 
 	});
 
 	it("frenagem até parar", async () => {
-		const result = brakingScenario(await createCannonSim(vehicleId), FRAME_DT);
+		const result = brakingScenario(await createRapierSim(vehicleId), FRAME_DT);
 
 		expect(result.nonFinite).toBe(false);
 		expect(result.timeToStop).toBeLessThan(10);
@@ -55,7 +55,7 @@ describe.each(VEHICLES)("veículo %s — cenários de referência", (vehicleId) 
 	});
 
 	it("curva com acelerador e volante à esquerda", async () => {
-		const result = turnScenario(await createCannonSim(vehicleId), FRAME_DT);
+		const result = turnScenario(await createRapierSim(vehicleId), FRAME_DT);
 
 		expect(result.nonFinite).toBe(false);
 		expect(result.yawRate).toBeGreaterThan(0);
@@ -71,7 +71,7 @@ describe.each(VEHICLES)("veículo %s — cenários de referência", (vehicleId) 
  */
 describe("dependência de taxa de quadros (bmw_f82)", () => {
 	it.each([30, 60, 144])("aceleração a %i FPS", async (fps) => {
-		const result = accelerationScenario(await createCannonSim("bmw_f82"), 1 / fps);
+		const result = accelerationScenario(await createRapierSim("bmw_f82"), 1 / fps);
 
 		expect(result.nonFinite).toBe(false);
 		expect(baseline.check(`bmw_f82.acceleration@${fps}fps`, result)).toEqual([]);

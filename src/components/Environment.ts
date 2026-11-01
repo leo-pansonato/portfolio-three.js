@@ -1,4 +1,3 @@
-import * as CANNON from "cannon-es";
 import * as THREE from "three";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import PhysicsManager from "../managers/PhysicsManager";
@@ -34,16 +33,12 @@ export default class Environment extends GameComponent {
     plane.receiveShadow = true;
     this.scene.add(plane);
 
-    // Plano físico
-    const groundShape = new CANNON.Plane();
-    const groundBody = new CANNON.Body({
-      mass: 0,
-      material: this.physicsManager.getGroundMaterial(),
+    // Plano físico: corpo estático com um cuboid fino (superfície em y = 0)
+    const groundBody = this.physicsManager.createRigidBody({
+      type: "static",
+      position: { x: 0, y: 0, z: 0 },
     });
-    groundBody.addShape(groundShape);
-    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotação para corresponder ao plano visual
-
-    this.physicsManager.world.addBody(groundBody);
+    this.physicsManager.createGroundCollider(groundBody, 0.8);
   }
 
   createCubeSkybox(path: string): void {
@@ -106,16 +101,22 @@ export default class Environment extends GameComponent {
       boxMesh.receiveShadow = true;
       this.scene.add(boxMesh);
 
-      // Criar corpo físico
-      const boxShape = new CANNON.Box(
-        new CANNON.Vec3(boxSize.x / 2, boxSize.y / 2, boxSize.z / 2)
+      // Criar corpo físico (massa de 5, como na versão cannon-es)
+      const boxBody = this.physicsManager.createRigidBody({
+        type: "dynamic",
+        position: { x: pos.x, y: pos.y, z: pos.z },
+      });
+      this.physicsManager.createCollider(
+        {
+          shape: "cuboid",
+          halfExtents: { x: boxSize.x / 2, y: boxSize.y / 2, z: boxSize.z / 2 },
+          density: 5 / (boxSize.x * boxSize.y * boxSize.z),
+        },
+        boxBody
       );
-      const boxBody = new CANNON.Body({ mass: 5 });
-      boxBody.addShape(boxShape);
-      boxBody.position.set(pos.x, pos.y, pos.z);
 
       // Adicionar ao gerenciador de física
-      this.physicsManager.addBody(boxBody, boxMesh);
+      this.physicsManager.addEntity(boxBody, boxMesh);
     });
   }
 
