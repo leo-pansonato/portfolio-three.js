@@ -226,11 +226,10 @@ export default class Player extends Entity {
 			this.physicsManager.removePreStepCallback(this.physicsPreStepCallback);
 		}
 
-		// Criar novo callback que atualiza o vehicle controller
+		// controle por passo: input mais recente → volante e forças → controlador
 		this.physicsPreStepCallback = (dt: number) => {
-			if (this.vehicleController) {
-				this.vehicleController.updateVehicle(dt);
-			}
+			this.updateControl(dt);
+			this.vehicleController.updateVehicle(dt);
 		};
 
 		// Registrar no physics manager
@@ -304,21 +303,18 @@ export default class Player extends Entity {
 	}
 
 	/**
-	 * Atualizar a física e a visualização do veículo
+	 * Controle do veículo a cada passo de física (dt fixo, s)
 	 */
-	update(deltaTime: number): void {
-		// Limitar o delta time para evitar problemas com FPS baixo
-		const timeStep = Math.min(deltaTime, 1 / 30);
+	private updateControl(dt: number): void {
+		this.vehicleData.configs.currentSpeed = this.forwardSpeed();
+		this.updateSteering(dt);
+		this.updateDriving(dt);
+	}
 
-		// Atualizar a direção (volante)
-		this.updateSteering(timeStep);
-
-		// Atualizar aceleração e frenagem
-		this.updateDriving(timeStep);
-
-		// NOTA: O vehicleController.updateVehicle() é chamado no callback de física
-		// registrado em registerPhysicsCallback(), usando o timestep fixo
-
+	/**
+	 * Atualizar a visualização do veículo (por quadro; o controle roda em updateControl)
+	 */
+	update(_deltaTime: number): void {
 		// Atualizar informações das rodas
 		this.updateWheelInfos();
 
@@ -433,17 +429,6 @@ export default class Player extends Entity {
 	 * Atualizar aceleração, frenagem e tração do veículo
 	 */
 	updateDriving(_timeStep: number): void {
-		// Calcular a velocidade atual usando o Rapier
-		const velocity = this.chassisRigidBody.linvel();
-		const chassisRot = this.chassisRigidBody.rotation();
-
-		// Vetor forward do chassi
-		this.tempQuaternion.set(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w);
-		const forward = this.tempVector3.copy(Player.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
-
-		// m/s ao longo da frente; negativo = ré
-		this.vehicleData.configs.currentSpeed = velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
-
 		// Flag para marchas
 		const isAlmostStopped = this.vehicleData.configs.currentSpeed < 2.0;
 
@@ -725,7 +710,16 @@ export default class Player extends Entity {
 	 * Velocidade ao longo da frente do chassi, em km/h (negativa em ré)
 	 */
 	getCurrentSpeed(): number {
-		return this.vehicleData.configs.currentSpeed * 3.6;
+		return this.forwardSpeed() * 3.6;
+	}
+
+	/** Velocidade do chassi ao longo de +X local (m/s; negativa em ré) */
+	private forwardSpeed(): number {
+		const velocity = this.chassisRigidBody.linvel();
+		const chassisRot = this.chassisRigidBody.rotation();
+		this.tempQuaternion.set(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w);
+		const forward = this.tempVector3.copy(Player.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
+		return velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
 	}
 
 	/**

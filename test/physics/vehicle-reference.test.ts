@@ -65,15 +65,36 @@ describe.each(VEHICLES)("veículo %s — cenários de referência", (vehicleId) 
 });
 
 /**
- * Documenta a dependência de taxa de quadros (ARCHITECTURE.md R4):
- * o volante e as forças são aplicados por quadro, não por passo de física.
- * Este teste registra o comportamento atual; o P1-1 deve torná-lo independente de FPS.
+ * Independência de taxa de quadros (ROADMAP P1-1): volante e forças rodam no
+ * pré-passo da física com o input mais recente, então o mesmo roteiro produz a
+ * mesma sequência de passos a 30, 60 e 144 FPS. Os trechos dos cenários são
+ * múltiplos de 1/60 s; só a detecção de parada é amostrada por quadro.
  */
-describe("dependência de taxa de quadros (bmw_f82)", () => {
-	it.each([30, 60, 144])("aceleração a %i FPS", async (fps) => {
-		const result = accelerationScenario(await createRapierSim("bmw_f82"), 1 / fps);
+describe.each(VEHICLES)("independência de FPS (%s)", (vehicleId) => {
+	// mesma sequência de passos; resta a amostragem por quadro das métricas
+	// (trajetória da curva somada em cordas). Antes do P1-1 a diferença a 30 FPS era 0,3–1%.
+	const REL_TOL = 1e-4;
+	const close = (actual: number, expected: number, absTol = 1e-9) =>
+		expect(Math.abs(actual - expected)).toBeLessThanOrEqual(Math.abs(expected) * REL_TOL + absTol);
 
-		expect(result.nonFinite).toBe(false);
-		expect(baseline.check(`bmw_f82.acceleration@${fps}fps`, result)).toEqual([]);
+	it.each([30, 144])("aceleração, frenagem e curva a %i FPS iguais às de 60 FPS", async (fps) => {
+		const sim = () => createRapierSim(vehicleId);
+		const ref = {
+			acceleration: accelerationScenario(await sim(), 1 / 60),
+			braking: brakingScenario(await sim(), 1 / 60),
+			turn: turnScenario(await sim(), 1 / 60),
+		};
+		const acceleration = accelerationScenario(await sim(), 1 / fps);
+		const braking = brakingScenario(await sim(), 1 / fps);
+		const turn = turnScenario(await sim(), 1 / fps);
+
+		acceleration.hudSpeedAt.forEach((v, i) => close(v, ref.acceleration.hudSpeedAt[i]));
+		close(acceleration.distance, ref.acceleration.distance);
+		close(braking.initialHudSpeed, ref.braking.initialHudSpeed);
+		// a parada só é vista no fim do quadro: até 1 quadro de 30 FPS de diferença, quase parado (1 cm)
+		close(braking.stoppingDistance, ref.braking.stoppingDistance, 0.01);
+		expect(Math.abs(braking.timeToStop - ref.braking.timeToStop)).toBeLessThanOrEqual(1 / 30 + 1e-9);
+		close(turn.speed, ref.turn.speed);
+		close(turn.yawRate, ref.turn.yawRate);
 	});
 });

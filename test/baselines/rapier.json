@@ -1,56 +1,20 @@
 {
 	"bmw_f82.acceleration": {
 		"hudSpeedAt": [
-			22.71223437625815,
-			45.587076741906934,
-			68.23448078095704,
-			90.65676318829048,
-			112.8558528306458
+			23.09536549445335,
+			45.96639117513361,
+			68.61003357574417,
+			91.02857493555932,
+			113.22397158121058
 		],
-		"distance": 79.06238291261252,
-		"lateralDeviation": 0,
-		"nonFinite": false
-	},
-	"bmw_f82.acceleration@144fps": {
-		"hudSpeedAt": [
-			22.712239525956335,
-			45.587080165097376,
-			68.23448763447124,
-			90.65677003866571,
-			112.85585967858502
-		],
-		"distance": 79.06239078508224,
-		"lateralDeviation": 0,
-		"nonFinite": false
-	},
-	"bmw_f82.acceleration@30fps": {
-		"hudSpeedAt": [
-			22.329042177546345,
-			45.2076970798942,
-			67.85887305085384,
-			90.28489649942766,
-			112.48768599724494
-		],
-		"distance": 78.53961679933127,
-		"lateralDeviation": 0,
-		"nonFinite": false
-	},
-	"bmw_f82.acceleration@60fps": {
-		"hudSpeedAt": [
-			22.71223437625815,
-			45.587076741906934,
-			68.23448078095704,
-			90.65676318829048,
-			112.8558528306458
-		],
-		"distance": 79.06238291261252,
+		"distance": 79.5868656396633,
 		"lateralDeviation": 0,
 		"nonFinite": false
 	},
 	"bmw_f82.braking": {
-		"initialHudSpeed": 112.8558528306458,
-		"timeToStop": 3.4500000000001183,
-		"stoppingDistance": 52.470367431640625,
+		"initialHudSpeed": 113.22397158121058,
+		"timeToStop": 3.433333333333451,
+		"stoppingDistance": 51.945884704589844,
 		"nonFinite": false
 	},
 	"bmw_f82.rest": {
@@ -61,28 +25,28 @@
 		"nonFinite": false
 	},
 	"bmw_f82.turn": {
-		"speed": 23.161440952248327,
-		"yawRate": 0.4550114500989495,
-		"radius": 50.90298485282404,
-		"maxTilt": 0.027851236646582844,
+		"speed": 23.2235286982419,
+		"yawRate": 0.4537041946063607,
+		"radius": 51.18649766593169,
+		"maxTilt": 0.027851223260243817,
 		"nonFinite": false
 	},
 	"mercedes_g63.acceleration": {
 		"hudSpeedAt": [
-			19.702073840365205,
-			39.54902797633127,
-			59.1984342914089,
-			78.65158248043535,
-			97.91116552774757
+			20.034477540933846,
+			39.87813532570843,
+			59.52425850405011,
+			78.97416127585917,
+			98.23053321268644
 		],
-		"distance": 68.62592711811885,
+		"distance": 69.08115783100948,
 		"lateralDeviation": 0,
 		"nonFinite": false
 	},
 	"mercedes_g63.braking": {
-		"initialHudSpeed": 97.91116552774757,
-		"timeToStop": 3.200000000000106,
-		"stoppingDistance": 42.450897216796875,
+		"initialHudSpeed": 98.23053321268644,
+		"timeToStop": 3.1833333333334384,
+		"stoppingDistance": 41.99566650390625,
 		"nonFinite": false
 	},
 	"mercedes_g63.rest": {
@@ -93,10 +57,10 @@
 		"nonFinite": false
 	},
 	"mercedes_g63.turn": {
-		"speed": 12.550791146682272,
-		"yawRate": 0.7194311120634976,
-		"radius": 17.445438397407713,
-		"maxTilt": 0.044389984586310424,
+		"speed": 12.568968490293097,
+		"yawRate": 0.7182711730609266,
+		"radius": 17.498918182571902,
+		"maxTilt": 0.04439141673452492,
 		"nonFinite": false
 	}
 }

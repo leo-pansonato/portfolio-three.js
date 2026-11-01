@@ -83,7 +83,8 @@ describe("estado de runtime do veículo", () => {
 		await wait(5);
 
 		input.state.left = true;
-		for (let i = 0; i < 30; i++) player.update(1 / 60);
+		for (let i = 0; i < 30; i++) physics.update(1 / 60);
+		expect((player as any).vehicleData.configs.currentSteering).not.toBe(0);
 		await player.changeVehicle("mercedes_g63");
 		await player.changeVehicle("bmw_f82");
 
