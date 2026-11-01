@@ -70,7 +70,7 @@ O Vite serve em `http://localhost:5173`. Clique na tela para capturar o mouse (p
 | `npm run preview` | Serve o build de produção |
 | `npm test` | Vitest em Node: cenários de referência da física do veículo |
 
-Os testes montam o veículo real sem navegador e comparam repouso, aceleração, frenagem e curva com a linha de base em `test/baselines/`. Ainda não há lint nem CI. Mudanças na física ou nos controles também exigem um teste manual de direção (ver [CLAUDE.md](CLAUDE.md#validação)).
+Os testes montam o veículo real sem navegador e comparam repouso, aceleração, frenagem e curva com a linha de base em `test/baselines/`. O CI do GitHub Actions roda typecheck, testes e build. Ainda não há lint. Mudanças na física ou nos controles também exigem um teste manual de direção (ver [CLAUDE.md](CLAUDE.md#validação)).
 
 ## Estrutura
 

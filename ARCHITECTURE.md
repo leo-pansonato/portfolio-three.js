@@ -161,7 +161,7 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 
 | # | Problema | Consequência | Antes de… |
 |---|---|---|---|
-| R1 | Testes cobrem só o veículo em plano; sem lint nem CI | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
+| R1 | Testes cobrem só o veículo em plano; sem lint | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
 | R2 | Escala ~0,5 e massas arbitrárias | Parâmetros sem significado físico; tuning se perde ao corrigir a escala | trabalhar em dinâmica veicular |
 | R3 | `Player` com 5 responsabilidades; `main.ts` cria tudo | Dois agentes não conseguem trabalhar em física e input/câmera sem editar o mesmo arquivo | paralelizar trabalho |
 | R4 | Input e controle por quadro, sem interpolação | Comportamento muda com o FPS; *judder* em monitores > 60 Hz | ajuste fino de direção |

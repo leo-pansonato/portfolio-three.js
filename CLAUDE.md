@@ -29,7 +29,7 @@ npm run build         # tsc + vite build
 npm test              # Vitest em Node: cenários de referência da física (test/)
 ```
 
-`UPDATE_BASELINE=1 npm test` regrava `test/baselines/*.json`. Só faça isso quando a mudança de comportamento for intencional, e diga no commit quais números mudaram e por quê. Ainda não existem lint nem CI (ROADMAP P1-7, P1-8).
+`UPDATE_BASELINE=1 npm test` regrava `test/baselines/*.json`. Só faça isso quando a mudança de comportamento for intencional, e diga no commit quais números mudaram e por quê. CI (`.github/workflows/ci.yml`) roda typecheck, testes e build em push na `master` e em PRs. Ainda não há lint (ROADMAP P1-7).
 
 ## Princípios obrigatórios
 

@@ -144,7 +144,9 @@ flowchart LR
 - **Motivo:** o código mistura tabs e espaços e estilos de declaração. Adicionar ESLint (typescript-eslint) e formatação só com regras que o código atual consiga cumprir, aplicadas em um commit isolado.
 - **Conclusão:** `npm run lint` verde e incluído na validação.
 
-### [ ] P1-8 — CI
+### [x] P1-8 — CI
+
+- **Resultado:** `.github/workflows/ci.yml` (Node 22: `npm ci`, typecheck, test, build).
 
 - **Entregas:** workflow que roda `npm ci`, `typecheck`, `test`, `build` em cada PR.
 - **Dependências:** P0-3.
