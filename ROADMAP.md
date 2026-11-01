@@ -186,9 +186,10 @@ flowchart LR
 
 - Decidir DOM puro × React/Preact sobre o canvas; HUD de corrida, menus, seleção de veículo.
 
-### [ ] P2-7 — Pipeline de cor e iluminação
+### [x] P2-7 — Pipeline de cor e iluminação
 
 - Tone mapping explícito, exposição, espaço de cor, `HDRLoader` no lugar do `RGBELoader` obsoleto; câmera com razão near/far adequada (ou *logarithmic depth*).
+- **Feito:** AgX com exposição 1,3 (`?exposure=` para ajuste), `SRGBColorSpace` explícito, `HDRLoader` com mapeamento de reflexão, `pixelRatio ≤ 2`, `near 0.1`/`far 1000` sem *logarithmic depth* (ARCHITECTURE §3.5). Intensidade das luzes não foi reajustada.
 
 ### [ ] P2-8 — Áudio
 

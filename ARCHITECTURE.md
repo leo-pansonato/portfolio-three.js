@@ -123,9 +123,10 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 
 ### 3.5 Renderização e iluminação — `src/main.ts`, `src/managers/LightingManager.ts`, `src/components/Environment.ts` [Implementado]
 
-- `WebGLRenderer` com antialias, `shadowMap.type = VSMShadowMap`, `pixelRatio = devicePixelRatio` (sem limite).
-- Câmera perspectiva `near 0.01`, `far 1000` — razão de 1e5, propensa a *z-fighting* à distância.
-- Sem *tone mapping* configurado; o ambiente é HDR (`dawn_4k.hdr` via `RGBELoader`, que o Three marca como obsoleto em favor de `HDRLoader`).
+- `WebGLRenderer` com antialias, `shadowMap.type = VSMShadowMap`, `pixelRatio = min(devicePixelRatio, 2)`.
+- Pipeline de cor (`RENDER_CONFIG` em `main.ts`): `outputColorSpace = SRGBColorSpace`, *tone mapping* AgX, exposição 1,3 (sobrescrevível com `?exposure=<n>` na URL). AgX foi escolhido em vez de ACES Filmic porque, com `dawn_4k.hdr`, o ACES desloca o azul saturado da pintura para violeta; o AgX preserva o matiz e suaviza o céu, ao custo de um pouco de saturação.
+- Câmera perspectiva `near 0.1`, `far 1000` (razão 1e4). Conferido sem recorte no interior dos dois veículos em primeira pessoa na escala atual (~0,5); com a escala SI (P0-6) a folga aumenta. `logarithmicDepthBuffer` não é necessário.
+- Céu e `scene.environment`: `dawn_4k.hdr` via `HDRLoader`, `EquirectangularReflectionMapping`. O renderer já converte `scene.environment` equiretangular em PMREM; um `PMREMGenerator` explícito não mudaria o resultado.
 - `LightingManager`: CSM do Three (3 cascatas, `maxFar 50`, shadow map 4096). `setupCSMMaterials()` é chamado **uma vez**, em `Game.initialize`, antes de os modelos dos veículos terminarem de carregar — os materiais dos veículos não passam por `csm.setupMaterial`. O efeito visual exato está **[Investigar]**.
 - `Environment`: plano 200×200, skybox HDR, 3 caixas dinâmicas.
 - Sem pós-processamento, sem reflexos além do mapa de ambiente, sem LOD, sem instancing, sem compressão de texturas (glTF com PNG; `assets` ~49 MB, `textures` ~52 MB).
@@ -168,7 +169,7 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 | R5 | Controlador de veículo embutido (raycast, caixa-preta em WASM) | Teto de qualidade da direção | P2-1 (dinâmica própria) |
 | R6 | Estado no catálogo de configuração | Bugs ao trocar/instanciar veículos | múltiplos veículos |
 | R7 | Sem ciclo de vida de recursos | Vazamento de GPU/WASM ao trocar veículo | streaming de mundo |
-| R8 | Renderizador sem pipeline de cor/tone mapping definidos | Ajuste de materiais e iluminação sem referência estável | trabalho gráfico |
+| R8 | ~~Renderizador sem pipeline de cor/tone mapping definidos~~ — resolvido em P2-7 (§3.5) | — | — |
 
 ---
 
