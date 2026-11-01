@@ -31,6 +31,10 @@ interface WheelInfo {
 	isInContact: boolean;
 	/** Distância do raycast até o solo */
 	suspensionLength: number;
+	/** Valores do passo anterior, para interpolação visual */
+	previousSuspensionLength: number;
+	previousSteering: number;
+	previousRotation: number;
 }
 
 /**
@@ -63,6 +67,9 @@ export default class Player extends Entity {
 	private tempSteeringQuat = new THREE.Quaternion();
 	private tempSpinQuat = new THREE.Quaternion();
 	private tempOffset = new THREE.Vector3();
+	/** Pose do chassi interpolada entre os dois últimos passos (só visual) */
+	private renderPosition = new THREE.Vector3();
+	private renderQuaternion = new THREE.Quaternion();
 	private loadRequestId = 0;
 	private static readonly AXIS_Y = new THREE.Vector3(0, 1, 0);
 	private static readonly AXIS_Z = new THREE.Vector3(0, 0, 1);
@@ -210,6 +217,9 @@ export default class Player extends Entity {
 				rotation: 0,
 				isInContact: false,
 				suspensionLength: physicsData.suspensionRestLength,
+				previousSuspensionLength: physicsData.suspensionRestLength,
+				previousSteering: 0,
+				previousRotation: 0,
 			});
 		}
 
@@ -228,6 +238,7 @@ export default class Player extends Entity {
 
 		// controle por passo: input mais recente → volante e forças → controlador
 		this.physicsPreStepCallback = (dt: number) => {
+			this.savePreviousWheelStates();
 			this.updateControl(dt);
 			this.vehicleController.updateVehicle(dt);
 		};
@@ -315,8 +326,10 @@ export default class Player extends Entity {
 	 * Atualizar a visualização do veículo (por quadro; o controle roda em updateControl)
 	 */
 	update(_deltaTime: number): void {
+		this.physicsManager.getInterpolatedPose(this.chassisRigidBody, this.renderPosition, this.renderQuaternion);
+
 		// Atualizar informações das rodas
-		this.updateWheelInfos();
+		this.updateWheelInfos(this.physicsManager.getInterpolationAlpha());
 
 		// Atualizar o modelo visual do chassi
 		this.updateChassisMesh();
@@ -325,10 +338,19 @@ export default class Player extends Entity {
 		this.updateWheelMeshes();
 	}
 
+	private savePreviousWheelStates(): void {
+		for (let i = 0; i < this.wheelInfos.length; i++) {
+			const wheelInfo = this.wheelInfos[i];
+			wheelInfo.previousSuspensionLength = this.vehicleController.wheelSuspensionLength(i) ?? wheelInfo.suspensionRestLength;
+			wheelInfo.previousSteering = this.vehicleController.wheelSteering(i) ?? 0;
+			wheelInfo.previousRotation = this.vehicleController.wheelRotation(i) ?? 0;
+		}
+	}
+
 	/**
-	 * Atualiza as informações das rodas do controlador Rapier
+	 * Atualiza as informações das rodas do controlador Rapier, interpoladas por alpha (0–1)
 	 */
-	private updateWheelInfos(): void {
+	private updateWheelInfos(alpha: number): void {
 		for (let i = 0; i < this.wheelInfos.length; i++) {
 			const wheelInfo = this.wheelInfos[i];
 
@@ -340,9 +362,9 @@ export default class Player extends Entity {
 
 			// Atualizar informações
 			wheelInfo.isInContact = isInContact ?? false;
-			wheelInfo.suspensionLength = suspensionLength ?? wheelInfo.suspensionRestLength;
-			wheelInfo.steering = steering ?? 0;
-			wheelInfo.rotation = rotation ?? 0;
+			wheelInfo.suspensionLength = THREE.MathUtils.lerp(wheelInfo.previousSuspensionLength, suspensionLength ?? wheelInfo.suspensionRestLength, alpha);
+			wheelInfo.steering = THREE.MathUtils.lerp(wheelInfo.previousSteering, steering ?? 0, alpha);
+			wheelInfo.rotation = THREE.MathUtils.lerp(wheelInfo.previousRotation, rotation ?? 0, alpha);
 
 			// Calcular posição e rotação da roda no mundo
 			this.calculateWheelWorldTransform(wheelInfo);
@@ -353,11 +375,8 @@ export default class Player extends Entity {
 	 * Calcula a transformação mundial da roda
 	 */
 	private calculateWheelWorldTransform(wheelInfo: WheelInfo): void {
-		// Obter transformação do chassi
-		const chassisPos = this.chassisRigidBody.translation();
-		const chassisRot = this.chassisRigidBody.rotation();
-
-		this.tempQuaternion.set(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w);
+		const chassisPos = this.renderPosition;
+		this.tempQuaternion.copy(this.renderQuaternion);
 
 		// Posição base da roda (ponto de conexão no chassi)
 		this.tempVector3.copy(wheelInfo.connectionPoint);
@@ -537,13 +556,10 @@ export default class Player extends Entity {
 	 */
 	updateChassisMesh(): void {
 		if (this.mesh && this.mesh !== this.originalMesh) {
-			// Obter a transformação do chassi do Rapier
-			const chassisPos = this.chassisRigidBody.translation();
-			const chassisRot = this.chassisRigidBody.rotation();
 			const chassisAdjustment = this.vehicleData?.body || null;
 
-			// Aplicar a transformação e ajustes à mesh do chassi
-			this.fixCarAlignment(this.mesh, chassisPos, chassisRot, chassisAdjustment);
+			// Aplicar a pose interpolada e os ajustes à mesh do chassi
+			this.fixCarAlignment(this.mesh, this.renderPosition, this.renderQuaternion, chassisAdjustment);
 		}
 	}
 
@@ -695,6 +711,8 @@ export default class Player extends Entity {
 			// Resetar velocidades
 			this.chassisRigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
 			this.chassisRigidBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+			this.physicsManager.resetInterpolation(this.chassisRigidBody);
 		}
 	}
 

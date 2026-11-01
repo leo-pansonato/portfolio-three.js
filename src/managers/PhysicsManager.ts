@@ -38,11 +38,13 @@ export interface ColliderConfig {
 }
 
 /**
- * Par de RigidBody e Mesh para sincronização
+ * Par de RigidBody e Mesh para sincronização, com a pose do passo anterior para interpolação
  */
 interface PhysicsEntity {
 	rigidBody: RAPIER.RigidBody;
 	mesh: THREE.Object3D;
+	previousPosition: THREE.Vector3;
+	previousQuaternion: THREE.Quaternion;
 }
 
 /**
@@ -61,6 +63,10 @@ export default class PhysicsManager {
 	/** Passo fixo da simulação (s) */
 	private readonly fixedTimeStep: number;
 	private accumulator: number = 0;
+	/** Fração do passo acumulada e não simulada (0–1): peso da pose atual na interpolação */
+	private interpolationAlpha: number = 0;
+	private _position = new THREE.Vector3();
+	private _quaternion = new THREE.Quaternion();
 
 	// Callbacks para serem chamados antes de cada step da física
 	private preStepCallbacks: Array<(dt: number) => void> = [];
@@ -117,6 +123,8 @@ export default class PhysicsManager {
 
 		// Executar passos fixos da física
 		while (this.accumulator >= this.fixedTimeStep) {
+			this.savePreviousPoses();
+
 			// Executar callbacks pré-step (ex: atualizar vehicle controllers)
 			for (const callback of this.preStepCallbacks) {
 				callback(this.fixedTimeStep);
@@ -125,8 +133,9 @@ export default class PhysicsManager {
 			this.world.step();
 			this.accumulator -= this.fixedTimeStep;
 		}
+		this.interpolationAlpha = this.accumulator / this.fixedTimeStep;
 
-		// Sincronizar visuais com a física
+		// Sincronizar visuais com a física (interpolados entre os dois últimos passos)
 		this.syncMeshes();
 
 		// Atualizar debugger se ativo
@@ -159,24 +168,64 @@ export default class PhysicsManager {
 	}
 
 	/**
+	 * Fração do passo ainda não simulada (0–1), para interpolar estado próprio entre passos
+	 */
+	getInterpolationAlpha(): number {
+		return this.interpolationAlpha;
+	}
+
+	/**
+	 * Pose de uma entidade interpolada entre os dois últimos passos (o visual fica até 1 passo atrás)
+	 * @returns false se o corpo não está registrado com addEntity
+	 */
+	getInterpolatedPose(rigidBody: RAPIER.RigidBody, outPosition: THREE.Vector3, outQuaternion: THREE.Quaternion): boolean {
+		for (const entity of this.entities) {
+			if (entity.rigidBody === rigidBody) {
+				this.interpolate(entity, outPosition, outQuaternion);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Descarta a pose anterior após teleporte, para não interpolar o salto
+	 */
+	resetInterpolation(rigidBody: RAPIER.RigidBody): void {
+		for (const entity of this.entities) {
+			if (entity.rigidBody === rigidBody) this.copyPose(rigidBody, entity.previousPosition, entity.previousQuaternion);
+		}
+	}
+
+	private savePreviousPoses(): void {
+		for (const entity of this.entities) {
+			this.copyPose(entity.rigidBody, entity.previousPosition, entity.previousQuaternion);
+		}
+	}
+
+	private copyPose(rigidBody: RAPIER.RigidBody, outPosition: THREE.Vector3, outQuaternion: THREE.Quaternion): void {
+		const position = rigidBody.translation();
+		const rotation = rigidBody.rotation();
+		outPosition.set(position.x, position.y, position.z);
+		outQuaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+	}
+
+	private interpolate(entity: PhysicsEntity, outPosition: THREE.Vector3, outQuaternion: THREE.Quaternion): void {
+		this.copyPose(entity.rigidBody, this._position, this._quaternion);
+		outPosition.lerpVectors(entity.previousPosition, this._position, this.interpolationAlpha);
+		outQuaternion.slerpQuaternions(entity.previousQuaternion, this._quaternion, this.interpolationAlpha);
+	}
+
+	/**
 	 * Sincroniza as meshes visuais com os corpos físicos
 	 */
 	private syncMeshes(): void {
 		for (const entity of this.entities) {
-			const { rigidBody, mesh } = entity;
-
 			// Pular corpos estáticos (não se movem)
-			if (rigidBody.bodyType() === RAPIER.RigidBodyType.Fixed) {
+			if (entity.rigidBody.bodyType() === RAPIER.RigidBodyType.Fixed) {
 				continue;
 			}
-
-			// Obter posição e rotação do Rapier
-			const position = rigidBody.translation();
-			const rotation = rigidBody.rotation();
-
-			// Aplicar ao mesh
-			mesh.position.set(position.x, position.y, position.z);
-			mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+			this.interpolate(entity, entity.mesh.position, entity.mesh.quaternion);
 		}
 	}
 
@@ -328,7 +377,9 @@ export default class PhysicsManager {
 	 * Adiciona um par RigidBody-Mesh para sincronização automática
 	 */
 	addEntity(rigidBody: RAPIER.RigidBody, mesh: THREE.Object3D): void {
-		this.entities.push({ rigidBody, mesh });
+		const entity = { rigidBody, mesh, previousPosition: new THREE.Vector3(), previousQuaternion: new THREE.Quaternion() };
+		this.copyPose(rigidBody, entity.previousPosition, entity.previousQuaternion);
+		this.entities.push(entity);
 	}
 
 	/**
