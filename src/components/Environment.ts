@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
+import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import PhysicsManager from "../managers/PhysicsManager";
 import GameComponent from "./GameComponent";
 
@@ -17,7 +17,7 @@ export default class Environment extends GameComponent {
 
     this.createPlane();
     // this.createCubeSkybox("../textures/cartoonSkybox/");
-    this.createRGBESkybox("../textures/realisticSkybox/", "dawn_4k.hdr");
+    this.createHDRSkybox("../textures/realisticSkybox/", "dawn_4k.hdr");
     this.createObstacles();
   }
 
@@ -61,14 +61,13 @@ export default class Environment extends GameComponent {
     );
   }
 
-  createRGBESkybox(path: string, file: string): void {
-    const loader = new RGBELoader();
+  /** Céu e iluminação de ambiente a partir de um HDR equiretangular (o renderer gera o PMREM de `scene.environment`). */
+  createHDRSkybox(path: string, file: string): void {
+    const loader = new HDRLoader();
     loader.load(
       path + file,
       (texture) => {
-        texture.mapping = THREE.EquirectangularRefractionMapping;
-        // @ts-ignore: Propriedade existe em texturas carregadas mas types podem reclamar
-        texture.needsUpdate = true;
+        texture.mapping = THREE.EquirectangularReflectionMapping;
         this.scene.background = texture;
         this.scene.environment = texture;
       },
