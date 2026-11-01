@@ -52,8 +52,8 @@ flowchart LR
 ### [~] P0-2 — Build verde e comandos padronizados
 
 - **Problema:** `npm run build` falhava na `master` por 4 erros TS6133; o `node_modules` local estava instalado com as dependências da `refact/rapier3d`.
-- **Feito:** erros corrigidos (mesmas mudanças da branch Rapier, para não gerar conflito) e script `typecheck` adicionado, na branch `chore/fundacao-agentes`.
-- **Falta:** integrar na `master`; rodar `npm ci` na checkout local.
+- **Feito:** erros corrigidos (mesmas mudanças da branch Rapier, para não gerar conflito) e script `typecheck` adicionado (`faa06b2`, na `master`).
+- **Falta:** rodar `npm ci` na checkout local e confirmar `npm run build` verde nela.
 - **Conclusão:** `npm ci && npm run build` sem erros na `master`. **Esforço:** S.
 
 ### [ ] P0-3 — Harness de testes headless
