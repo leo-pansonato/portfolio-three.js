@@ -26,9 +26,10 @@ npm ci                # instalar (refazer ao trocar de branch: dependências dif
 npm run dev           # Vite em http://localhost:5173
 npm run typecheck     # tsc --noEmit
 npm run build         # tsc + vite build
+npm test              # Vitest em Node: cenários de referência da física (test/)
 ```
 
-Ainda não existem `npm test`, lint nem CI (ROADMAP P0-3, P1-7, P1-8). Quando forem criados, atualize esta seção e a de validação.
+`UPDATE_BASELINE=1 npm test` regrava `test/baselines/*.json`. Só faça isso quando a mudança de comportamento for intencional, e diga no commit quais números mudaram e por quê. Ainda não existem lint nem CI (ROADMAP P1-7, P1-8).
 
 ## Princípios obrigatórios
 
@@ -70,8 +71,8 @@ Ainda não existem `npm test`, lint nem CI (ROADMAP P0-3, P1-7, P1-8). Quando fo
 
 Antes de declarar uma tarefa concluída:
 
-1. `npm run build` sem erros (inclui `tsc`).
-2. Testes relevantes, quando existirem; testes novos para comportamento novo de simulação.
+1. `npm run build` sem erros (inclui `tsc`, que também verifica `test/`).
+2. `npm test` verde; testes novos para comportamento novo de simulação. Teste de física monta o mundo pelo harness de `test/support/`, não pela classe `Game`.
 3. Mudança que afeta física, veículo, câmera ou input: rodar o jogo (`npm run dev`), dirigir — acelerar, frear, ré, curvar, freio de mão, trocar veículo (1/2), trocar câmera (C), reset (R), modo dev (F2) — e verificar o console sem erros novos.
 4. Mudança de renderização: comparar visualmente antes/depois (screenshot) nos três modos de câmera.
 5. Relatar o que foi verificado e o que **não** foi. Nunca declare “funciona” sem ter executado.

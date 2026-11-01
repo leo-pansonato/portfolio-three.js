@@ -69,8 +69,9 @@ O Vite serve em `http://localhost:5173`. Clique na tela para capturar o mouse (p
 | `npm run typecheck` | `tsc --noEmit` (verificação estática) |
 | `npm run build` | `tsc` + `vite build` → `dist/` |
 | `npm run preview` | Serve o build de produção |
+| `npm test` | Vitest em Node: cenários de referência da física do veículo |
 
-Ainda **não há testes automatizados, lint nem CI**. Criá-los é o primeiro bloco do [ROADMAP](ROADMAP.md) (P0). Até lá, a validação mínima de qualquer alteração é `npm run build` sem erros e um teste manual de direção (ver [CLAUDE.md](CLAUDE.md#validação)).
+Os testes montam o veículo real sem navegador e comparam repouso, aceleração, frenagem e curva com a linha de base em `test/baselines/`. Ainda não há lint nem CI. Mudanças na física ou nos controles também exigem um teste manual de direção (ver [CLAUDE.md](CLAUDE.md#validação)).
 
 ## Estrutura
 
@@ -87,6 +88,7 @@ Ainda **não há testes automatizados, lint nem CI**. Criá-los é o primeiro bl
 │   │   └── Material.ts      # Não utilizado (ver ARCHITECTURE.md)
 │   ├── managers/            # Serviços: física, input, iluminação, UI, desempenho, dev mode
 │   └── loaders/ModelLoader.ts
+├── test/                    # Vitest: harness headless, cenários e linhas de base
 ├── assets/models/           # glTF dos veículos e rodas
 ├── textures/                # Skyboxes, ícones, screenshot
 └── docs/decisions/          # Registros de decisão arquitetural (ADR)
@@ -97,7 +99,7 @@ Ainda **não há testes automatizados, lint nem CI**. Criá-los é o primeiro bl
 - **`master`** — física com cannon-es. Funcional: carro dirigível, dois veículos, três câmeras, obstáculos dinâmicos, CSM, modo dev.
 - **`refact/rapier3d`** — um único commit sobre a `master` que troca o motor por Rapier e adiciona terreno procedural, input por gamepad e dois modelos de carro ainda não usados. Compila e roda. **Ainda não integrada**: o [ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md) adotou a Rapier, mas por integração curada (ROADMAP P0-5), não por merge direto.
 
-Limitações principais (detalhes em [ARCHITECTURE.md](ARCHITECTURE.md)): o mundo está em escala ~0,5 (carro de 2,3 unidades de comprimento), o modelo de pneu é o atrito simplificado do *raycast vehicle*, não há interpolação entre passos de física, e não há testes.
+Limitações principais (detalhes em [ARCHITECTURE.md](ARCHITECTURE.md)): o mundo está em escala ~0,5 (carro de 2,3 unidades de comprimento), o modelo de pneu é o atrito simplificado do *raycast vehicle* e não há interpolação entre passos de física.
 
 ## Licença
 

@@ -163,6 +163,30 @@ Por que não **C** (híbrido ou terceira via): não existe componente da `master
 - O veículo em repouso sobre o plano não deriva mais que uma tolerância definida em 10 s simulados.
 - Nenhum asset sem referência no código.
 
+## Adendo (2026-11-01): cenários de referência em Node
+
+Executados com o harness do ROADMAP P0-3/P0-4 (`test/support/scenarios.ts`): o `Player` real de cada branch sobre um plano, quadros de 1/60 s, entrada roteirizada, modelos substituídos pelo *fallback* de primitivas. A `master` está em `test/baselines/cannon-master.json`. A Rapier foi medida numa cópia isolada da `refact/rapier3d` com um adaptador equivalente ao `test/support/cannonSim.ts`, em duas configurações: **parâmetros da branch** e **parâmetros da `master` traduzidos** (rigidez, comprimento, curso, `dampingCompression`→`suspensionCompression`, `dampingRelaxation`→`suspensionRelaxation`, `frictionSlip`, `maxSuspensionForce` 100000, `sideFrictionStiffness` 1,0, sem *overrides* por roda; `configs` da `master`).
+
+Unidades do mundo do jogo (escala ~0,5); “HUD” = `getCurrentSpeed()`.
+
+| Cenário | cannon (`master`) | Rapier, parâmetros da branch | Rapier, parâmetros da `master` |
+|---|---|---|---|
+| BMW — HUD após 5 s de aceleração | 52,5 | 68,1 | 34,0 |
+| BMW — tempo / distância de frenagem | 2,75 s / 18,0 | 2,58 s / 21,8 | 1,68 s / 6,6 |
+| BMW — raio em curva (acelerador + esquerda) | 4,6 | **42,1** | 3,0 |
+| G63 — HUD após 5 s | 70,0 | 30,2 | 45,4 |
+| G63 — tempo / distância de frenagem | 6,17 s / 60,9 | 2,48 s / 9,6 | 2,93 s / 17,4 |
+| G63 — raio em curva / inclinação máx. (rad) | 3,5 / 0,10 | 2,8 / 0,18 | 3,6 / 0,04 |
+| Repouso — velocidade residual (8–10 s) | ~0 | 0,06 | 0,06 |
+| BMW — HUD após 5 s a 30 / 60 / 144 FPS | 52,3 / 52,5 / 52,6 | 67,9 / 68,1 / 68,1 | 34,0 / 34,0 / 34,0 |
+
+Conclusões:
+
+1. **Os mesmos parâmetros não produzem o mesmo carro.** Com os valores da `master`, o BMW na Rapier acelera ~35% menos. Uma causa provável é o `linearDamping: 0.2` que a branch pôs no chassi (cannon usa 0,01 por padrão) — **[Investigar]** no P0-5. O tuning terá de ser refeito contra os cenários, não copiado.
+2. **O retuning da branch tornou o BMW quase incapaz de virar sob aceleração** (raio 42 × 4,6): `frictionSlip` traseiro 0,6 e `sideFrictionStiffness` 0,3. Não reaproveitar esse tuning.
+3. **A Rapier não assenta totalmente em repouso**: velocidade residual constante de 0,06 unidade/s, nas duas configurações. A causa (provavelmente oscilação da suspensão; componente da velocidade não separado) está **[Investigar]**. Deve ser resolvido antes de aceitar a migração (critério “veículo em repouso não deriva”).
+4. **O passo fixo com *pre-step callback* da branch elimina a dependência de FPS** da aceleração entre 60 e 144 FPS; na `master` ela é pequena (~0,5%), mas existe.
+
 ## Consequências
 
 - A dinâmica veicular passa a ser um módulo próprio (P2) que conversa com a física por uma interface estreita; o `DynamicRayCastVehicleController` é temporário.

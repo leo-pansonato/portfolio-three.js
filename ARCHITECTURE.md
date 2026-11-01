@@ -16,7 +16,7 @@ Aplicação de navegador, sem servidor. Um único bundle Vite carrega `src/main.
 
 Não há ECS, injeção de dependência, barramento de eventos nem estado serializável. Os subsistemas recebem referências diretas uns dos outros pelo construtor. O único mecanismo de publicação/assinatura é `DevModeManager` (singleton `devMode`).
 
-Tamanho: ~2,4 mil linhas de TypeScript em 15 arquivos. Não há testes.
+Tamanho: ~2,4 mil linhas de TypeScript em 15 arquivos de jogo. Testes: Vitest em Node (`test/`), com cenários de referência do veículo (§3.8).
 
 ```mermaid
 flowchart TD
@@ -140,7 +140,15 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 - `src/components/Material.ts` (`MaterialLibrary`): não importado; referencia texturas inexistentes.
 - `Player.getMovimentDirection()`: não usado.
 
-### 3.8 Concorrência
+### 3.8 Testes — `test/` [Implementado]
+
+- `test/support/sim.ts`: contrato `SimHandle` (quadro, snapshot) e `ScriptedInput`, que substitui o `InputManager` (API binária e analógica).
+- `test/support/cannonSim.ts`: adaptador da `master` — `PhysicsManager` + `Player` reais sobre um plano, mesma ordem do `Game.gameLoop`; `ModelLoader` é mockado no teste.
+- `test/support/scenarios.ts`: repouso, aceleração, frenagem, curva; métricas puras sobre snapshots.
+- `test/support/baseline.ts` + `test/baselines/cannon-master.json`: comparação com tolerância (2% relativo, 0,01 absoluto); `UPDATE_BASELINE=1` regrava.
+- Os cenários medem o comportamento atual para detectar regressões; não validam realismo físico.
+
+### 3.9 Concorrência
 
 Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de modelos é assíncrono (Promise) e não sincronizado com o estado do jogador.
 
@@ -150,7 +158,7 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 
 | # | Problema | Consequência | Antes de… |
 |---|---|---|---|
-| R1 | Sem testes, lint ou CI | Regressões de física só aparecem dirigindo | qualquer refatoração |
+| R1 | Testes cobrem só o veículo em plano; sem lint nem CI | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
 | R2 | Escala ~0,5 e massas arbitrárias | Parâmetros sem significado físico; tuning se perde ao corrigir a escala | trabalhar em dinâmica veicular |
 | R3 | `Player` com 5 responsabilidades; `main.ts` cria tudo | Dois agentes não conseguem trabalhar em física e input/câmera sem editar o mesmo arquivo | paralelizar trabalho |
 | R4 | Input e controle por quadro, sem interpolação | Comportamento muda com o FPS; *judder* em monitores > 60 Hz | ajuste fino de direção |

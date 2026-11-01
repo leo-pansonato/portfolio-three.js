@@ -49,14 +49,17 @@ flowchart LR
 - **Conclusão:** status atualizado no ADR e em ARCHITECTURE.md §6.
 - **Dono:** responsável pelo projeto. Nenhum agente deve iniciar P0-5 antes disso.
 
-### [~] P0-2 — Build verde e comandos padronizados
+### [x] P0-2 — Build verde e comandos padronizados
 
 - **Problema:** `npm run build` falhava na `master` por 4 erros TS6133; o `node_modules` local estava instalado com as dependências da `refact/rapier3d`.
 - **Feito:** erros corrigidos (mesmas mudanças da branch Rapier, para não gerar conflito) e script `typecheck` adicionado (`faa06b2`, na `master`).
-- **Falta:** rodar `npm ci` na checkout local e confirmar `npm run build` verde nela.
+- `npm ci && npm run build` verdes na checkout local (2026-11-01).
 - **Conclusão:** `npm ci && npm run build` sem erros na `master`. **Esforço:** S.
 
-### [ ] P0-3 — Harness de testes headless
+### [x] P0-3 — Harness de testes headless
+
+- **Resultado:** Vitest 5 (`npm test`, `vitest.config.ts`, `test/setup.ts`). O `Player` real roda em Node via `test/support/cannonSim.ts`, com `ModelLoader` mockado. Suíte em ~0,5 s.
+
 
 - **Objetivo:** testar física e lógica em Node, sem navegador.
 - **Entregas:** Vitest como devDependency; script `npm test`; um teste trivial do motor escolhido rodando em Node (cannon-es e `@dimforge/rapier3d-compat` funcionam em Node).
@@ -64,7 +67,10 @@ flowchart LR
 - **Conclusão:** `npm test` roda em < 30 s localmente e falha quando uma asserção falha.
 - **Risco:** a lógica atual está presa a `THREE.Scene`, DOM e `requestAnimationFrame` — os primeiros testes devem montar o mundo físico diretamente, não a classe `Game`. **Esforço:** S.
 
-### [ ] P0-4 — Cenários de referência da simulação
+### [x] P0-4 — Cenários de referência da simulação
+
+- **Resultado:** `test/support/scenarios.ts` (repouso, aceleração, frenagem, curva, dependência de FPS), linha de base `test/baselines/cannon-master.json` com tolerância de 2%. Verificado por mutação: `maxForce` do BMW 300→310 faz 6 testes falharem. Comparação com a Rapier registrada no adendo do ADR-0001.
+
 
 - **Objetivo:** ter uma linha de base mensurável **antes** de trocar motor ou escala.
 - **Entregas:** testes que montam um veículo com a configuração atual e executam N passos fixos, registrando: repouso (deriva e altura do chassi após 10 s), aceleração em reta (velocidade após 1–5 s), frenagem (distância até parar), curva com volante fixo (raio aproximado), estabilidade (sem NaN, sem energia crescente). Resultados salvos como fixtures.
@@ -82,6 +88,7 @@ flowchart LR
   4. (Opcional) terreno procedural atrás de opção, com plano como padrão.
   5. Retuning, em commit próprio.
 - **Fora do escopo:** `assets/models/mclaren_f1_2021`, `assets/models/mercedes_amg_one`.
+- **Testes:** criar `test/support/rapierSim.ts` no mesmo formato de `cannonSim.ts` (o `PhysicsManager.create` é assíncrono; o chão é `createRigidBody` + `createGroundCollider`) e uma linha de base `rapier.json`. A linha de base da cannon não vale para a Rapier (adendo do ADR-0001): o objetivo é aproximar os cenários, investigar o `linearDamping` do chassi e eliminar a velocidade residual em repouso, não reproduzir os números exatos.
 - **Dependências:** P0-1, P0-4.
 - **Conclusão:** critérios de estabilização do ADR-0001 atendidos; cenários de referência comparados. **Esforço:** M.
 
