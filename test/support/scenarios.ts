@@ -3,9 +3,9 @@ import { DriveInput, idleInput, SimHandle, VehicleSnapshot } from "./sim";
 /**
  * Cenários de referência da simulação (ROADMAP P0-4).
  *
- * Medem o comportamento atual para detectar regressões; não afirmam que ele é correto.
- * Unidades: as do mundo do jogo (escala ~0,5, ver ARCHITECTURE.md §3.1), segundos,
- * radianos; velocidades "hud" em km/h conforme Player.getCurrentSpeed.
+ * Medem o comportamento atual para detectar regressões; os de plausibilidade
+ * (0–100, frenagem de 100) alimentam limites físicos em vehicle-plausibility.test.ts.
+ * Unidades SI (ADR-0002): metros, segundos, radianos; "hud" em km/h (Player.getCurrentSpeed).
  */
 
 /** Tempo para o veículo assentar depois de nascer no ar */
@@ -176,11 +176,11 @@ export function brakingScenario(sim: SimHandle, frameDt: number): BrakingResult 
 }
 
 export interface TurnResult {
-	/** Velocidade horizontal média nos últimos 2 s (unidades/s) */
+	/** Velocidade horizontal média nos últimos 2 s (m/s) */
 	speed: number;
 	/** Taxa de guinada média nos últimos 2 s (rad/s, positivo = esquerda) */
 	yawRate: number;
-	/** Raio aproximado da curva (speed / yawRate) */
+	/** Raio aproximado da curva (m, speed / yawRate) */
 	radius: number;
 	/** Maior inclinação do chassi durante a curva */
 	maxTilt: number;
@@ -213,6 +213,65 @@ export function turnScenario(sim: SimHandle, frameDt: number): TurnResult {
 		yawRate,
 		radius: Math.abs(yawRate) > 1e-6 ? speed / Math.abs(yawRate) : Infinity,
 		maxTilt,
+		nonFinite: runner.nonFinite,
+	};
+}
+
+export interface ZeroToHundredResult {
+	/** Tempo de 0 a 100 km/h com acelerador pleno (s; Infinity se não chegar em 15 s) */
+	time: number;
+	/** Distância percorrida até 100 km/h (m) */
+	distance: number;
+	nonFinite: boolean;
+}
+
+export const HUNDRED_KMH = 100;
+
+/** Acelerador pleno a partir do repouso até o HUD marcar 100 km/h */
+export function zeroToHundredScenario(sim: SimHandle, frameDt: number): ZeroToHundredResult {
+	const runner = new ScenarioRunner(sim, frameDt);
+	runner.setInput({});
+	const start = runner.run(SETTLE_TIME);
+	runner.setInput({ throttle: true });
+	const t0 = runner.time;
+	let reached = false;
+	const end = runner.run(15, (s) => (reached = s.hudSpeed >= HUNDRED_KMH));
+	return {
+		time: reached ? runner.time - t0 : Infinity,
+		distance: horizontalDistance(start.position, end.position),
+		nonFinite: runner.nonFinite,
+	};
+}
+
+export interface BrakingFromHundredResult {
+	/** Velocidade do HUD ao começar a frear (km/h, >= 100) */
+	initialHudSpeed: number;
+	/** Tempo até o HUD chegar a 0 (s; Infinity se não parar em 10 s) */
+	timeToStop: number;
+	/** Distância de frenagem (m) */
+	stoppingDistance: number;
+	/** Desaceleração média: velocidade inicial / tempo (m/s²) */
+	meanDeceleration: number;
+	nonFinite: boolean;
+}
+
+/** Acelera até 100 km/h e freia (S) até parar */
+export function brakingFromHundredScenario(sim: SimHandle, frameDt: number): BrakingFromHundredResult {
+	const runner = new ScenarioRunner(sim, frameDt);
+	runner.setInput({});
+	runner.run(SETTLE_TIME);
+	runner.setInput({ throttle: true });
+	const braking = runner.run(15, (s) => s.hudSpeed >= HUNDRED_KMH);
+	runner.setInput({ brake: true });
+	const brakeStart = runner.time;
+	let stopped = false;
+	const end = runner.run(10, (s) => (stopped = s.hudSpeed <= 0));
+	const timeToStop = stopped ? runner.time - brakeStart : Infinity;
+	return {
+		initialHudSpeed: braking.hudSpeed,
+		timeToStop,
+		stoppingDistance: horizontalDistance(braking.position, end.position),
+		meanDeceleration: braking.hudSpeed / 3.6 / timeToStop,
 		nonFinite: runner.nonFinite,
 	};
 }
