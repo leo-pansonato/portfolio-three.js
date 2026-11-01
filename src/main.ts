@@ -112,6 +112,9 @@ class Game {
 			deltaTime = 0.1;
 		}
 
+		// ler dispositivos de entrada antes de qualquer consumidor
+		this.inputManager.update();
+
 		// atualizar fisica
 		this.physicsManager.update(deltaTime);
 

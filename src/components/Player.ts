@@ -215,13 +215,8 @@ export default class Player extends Entity {
 	 * Atualizar a direção do veículo (volante)
 	 */
 	updateSteering(timeStep: number): void {
-		// Determinar o valor alvo para a direção
-		let targetSteering = 0;
-		if (this.inputManager.isActionActive("VEHICLE_LEFT")) {
-			targetSteering = this.vehicleData.configs.maxSteerVal;
-		} else if (this.inputManager.isActionActive("VEHICLE_RIGHT")) {
-			targetSteering = -this.vehicleData.configs.maxSteerVal;
-		}
+		// Valor alvo da direção: getSteer() vai de -1 (esquerda) a +1 (direita)
+		const targetSteering = -this.inputManager.getSteer() * this.vehicleData.configs.maxSteerVal;
 
 		// Ajustar a resposta da direção com base na velocidade
 		const speedFactor = Math.min(Math.abs(this.vehicleData.configs.currentSpeed) / 100, 1);
@@ -276,9 +271,9 @@ export default class Player extends Entity {
 		let brakeForce = 0;
 		let handbrakeForce = 0;
 
-		// Verificar inputs
-		const accelerating = this.inputManager.isActionActive("VEHICLE_THROTTLE");
-		const braking = this.inputManager.isActionActive("VEHICLE_BRAKE");
+		// Verificar inputs (valores analógicos de 0 a 1; teclado = 0 ou 1)
+		const throttle = this.inputManager.getThrottle();
+		const brake = this.inputManager.getBrake();
 		const handbraking = this.inputManager.isActionActive("VEHICLE_HANDBRAKE");
 		const boosting = this.inputManager.isActionActive("VEHICLE_BOOST");
 
@@ -290,18 +285,18 @@ export default class Player extends Entity {
 		}
 
 		// Determinar força do motor
-		if (accelerating) {
-			engineForce = this.vehicleData.configs.maxForce;
+		if (throttle > 0) {
+			engineForce = this.vehicleData.configs.maxForce * throttle;
 		}
 
 		// Gerenciar frenagem e marcha-ré
-		if (braking) {
-			if (isAlmostStopped && !accelerating) {
+		if (brake > 0) {
+			if (isAlmostStopped && throttle === 0) {
 				// Marcha-ré
-				engineForce = -this.vehicleData.configs.maxForce;
+				engineForce = -this.vehicleData.configs.maxForce * brake;
 			} else {
 				// Frenagem normal
-				brakeForce = this.vehicleData.configs.brakeForce;
+				brakeForce = this.vehicleData.configs.brakeForce * brake;
 			}
 		}
 
