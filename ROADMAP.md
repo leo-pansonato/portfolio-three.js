@@ -180,6 +180,7 @@ flowchart LR
 - Correção do CSM nos materiais carregados; reflexos (env map por área ou *probes*); pós-processamento (bloom, AA temporal ou SMAA, *motion blur* opcional); céu/atmosfera; LOD e instancing.
 - **Decisão prévia:** WebGL × WebGPU (ARCHITECTURE §7, item 2).
 - **Dependências:** P2-7.
+- **Feito (parcial):** CSM em escala SI (4 cascatas até 200 m, 2048, *fade*, *normal bias* por texel) e CSM aplicado aos materiais adicionados depois da inicialização (ARCHITECTURE §3.5). Luz direcional revista e mantida. Pendente: albedo do plano (`0x0f0f0f` esconde as sombras) e, se quiser sombras mais marcadas, sol mais forte com exposição/`environmentIntensity` menores.
 
 ### [ ] P2-5 — Câmeras
 
