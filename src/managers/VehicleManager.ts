@@ -20,27 +20,27 @@ export interface CameraConfig {
  * Configuração de física do veículo para Rapier DynamicRayCastVehicleController
  */
 export interface VehiclePhysicsConfig {
-	/** Massa do chassi do veículo */
+	/** Massa do chassi (kg) */
 	mass: number;
-	/** Tamanho do collider do chassi (largura, altura, profundidade) */
+	/** Collider do chassi (m): x comprimento (frente +X), y altura, z largura */
 	size: { x: number; y: number; z: number };
-	/** Raio das rodas */
+	/** Raio das rodas (m) */
 	wheelRadius: number;
-	/** Rigidez da suspensão - quanto maior, mais rígida a suspensão */
+	/** Rigidez da suspensão por kg de chassi (N/m/kg = 1/s²), modelo Bullet */
 	suspensionStiffness: number;
-	/** Comprimento de repouso da suspensão */
+	/** Comprimento de repouso da suspensão (m) */
 	suspensionRestLength: number;
-	/** Distância máxima que a suspensão pode comprimir/expandir do ponto de repouso */
+	/** Curso máximo a partir do repouso (m) */
 	maxSuspensionTravel: number;
-	/** Força máxima que a suspensão pode aplicar */
+	/** Força máxima da suspensão por roda (N) */
 	maxSuspensionForce: number;
-	/** Amortecimento quando a suspensão está sendo comprimida */
+	/** Amortecimento na compressão por kg de chassi (1/s) */
 	suspensionCompression: number;
-	/** Amortecimento quando a suspensão está relaxando (aumente se a suspensão oscilar demais) */
+	/** Amortecimento na extensão por kg de chassi (1/s) */
 	suspensionRelaxation: number;
-	/** Controle de tração do pneu - quanto maior, frenagem mais instantânea (risco de capotar) */
+	/** Limite de atrito do pneu (adimensional, multiplica a carga normal) */
 	frictionSlip: number;
-	/** Multiplicador de fricção lateral - quanto maior, mais forte a fricção lateral */
+	/** Multiplicador do impulso lateral (adimensional) */
 	sideFrictionStiffness: number;
 }
 
@@ -59,6 +59,7 @@ export interface VehicleConfig {
 		[CameraMode.HOOD]: CameraConfig;
 		[CameraMode.FIRST_PERSON]: CameraConfig;
 	};
+	/** Condução: maxForce N por roda motriz; brakeForce, eBrakeForce e rollingResistance N·s por roda a cada passo de 1/60 s; maxSteerVal rad */
 	configs: any;
 	wheels: {
 		modelPath: string;
@@ -95,8 +96,8 @@ export default class VehicleManager {
 			mercedes_g63: {
 				body: {
 					modelPath: "/assets/models/mercedes_g63/scene.gltf",
-					scale: { x: 0.5, y: 0.5, z: 0.5 },
-					position: { x: 0, y: -0.33, z: 0 },
+					scale: { x: 1, y: 1, z: 1 },
+					position: { x: 0, y: -0.66, z: 0 },
 					rotation: { x: 0, y: Math.PI / 2, z: 0 },
 					materials: {
 						body: {
@@ -106,30 +107,30 @@ export default class VehicleManager {
 					},
 				},
 				physics: {
-					mass: 400,
-					size: { x: 2.3, y: 0.6, z: 0.9 },
-					wheelRadius: 0.19,
-					suspensionStiffness: 50,
-					suspensionRestLength: 0.4,
-					maxSuspensionTravel: 0.4,
+					mass: 2500,
+					size: { x: 4.6, y: 1.2, z: 1.8 },
+					wheelRadius: 0.38,
+					suspensionStiffness: 25,
+					suspensionRestLength: 0.8,
+					maxSuspensionTravel: 0.8,
 					maxSuspensionForce: 100000,
-					suspensionCompression: 4.5,
-					suspensionRelaxation: 2.3,
-					frictionSlip: 1.8,
+					suspensionCompression: 3.2,
+					suspensionRelaxation: 1.6,
+					frictionSlip: 1.4,
 					sideFrictionStiffness: 1.0,
 				},
 				cameraSettings: {
 					[CameraMode.THIRD_PERSON]: {
-						distance: 2.5,
-						height: 0.8,
+						distance: 5,
+						height: 1.6,
 						fov: 60,
 						lerpSpeed: 0.1,
-						lookAtOffset: { y: 0.5,  x: 0, z: 0 },
+						lookAtOffset: { y: 1, x: 0, z: 0 },
 					},
 					[CameraMode.HOOD]: {
                   fov: 75,
 						lerpSpeed: 0.2,
-						offset: { x: 0, y: 0.54, z: 0.65 },
+						offset: { x: 0, y: 1.08, z: 1.3 },
 						distance: 0,
 						height: 0,
 						lookAtOffset: { y: 0 },
@@ -137,7 +138,7 @@ export default class VehicleManager {
 					[CameraMode.FIRST_PERSON]: {
                   fov: 90,
 						lerpSpeed: 0.3,
-                  offset: { x: 0.20, y: 0.60, z: -0.08 },
+                  offset: { x: 0.4, y: 1.2, z: -0.16 },
 						distance: 0,
 						height: 0,
 						lookAtOffset: { y: 0 },
@@ -145,12 +146,12 @@ export default class VehicleManager {
 				},
 				configs: {
 					maxSpeed: 20,
-					maxForce: 400,
+					maxForce: 3500,
 					maxBoostForce: 3,
 					boostForce: 3,
-					brakeForce: 5,
-					rollingResistance: 0.2,
-					eBrakeForce: 10,
+					brakeForce: 95,
+					rollingResistance: 1.25,
+					eBrakeForce: 65,
 					maxSteerVal: 0.5,
 					steerSpeed: 2.0,
 					steerReturn: 2.0,
@@ -160,20 +161,20 @@ export default class VehicleManager {
 				},
 				wheels: {
 					modelPath: "/assets/models/wheel/scene.gltf",
-					scale: { x: 0.5, y: 0.5, z: 0.5 },
+					scale: { x: 1, y: 1, z: 1 },
 					adjustments: [
-						{ position: { x: 0.74, y: 0, z: -0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: 0.74, y: 0, z: 0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: -0.645, y: 0, z: -0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: -0.645, y: 0, z: 0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: 1.48, y: 0, z: -0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: 1.48, y: 0, z: 0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: -1.29, y: 0, z: -0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: -1.29, y: 0, z: 0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
 					],
 				},
 			},
 			bmw_f82: {
 				body: {
 					modelPath: "/assets/models/bmw_m4_f82/scene.gltf",
-					scale: { x: 0.5, y: 0.5, z: 0.5 },
-					position: { x: 0.1, y: -0.33, z: 0 },
+					scale: { x: 1, y: 1, z: 1 },
+					position: { x: 0.2, y: -0.66, z: 0 },
 					rotation: { x: 0, y: Math.PI / 2, z: 0 },
 					materials: {
 						glass: {
@@ -183,30 +184,30 @@ export default class VehicleManager {
 					},
 				},
 				physics: {
-					mass: 200,
-					size: { x: 2.3, y: 0.6, z: 0.9 },
-					wheelRadius: 0.165,
-					suspensionStiffness: 60,
-					suspensionRestLength: 0.26,
-					maxSuspensionTravel: 0.2,
+					mass: 1550,
+					size: { x: 4.6, y: 1.2, z: 1.8 },
+					wheelRadius: 0.33,
+					suspensionStiffness: 30,
+					suspensionRestLength: 0.52,
+					maxSuspensionTravel: 0.4,
 					maxSuspensionForce: 100000,
-					suspensionCompression: 4.5,
-					suspensionRelaxation: 2.3,
-					frictionSlip: 2.5,
+					suspensionCompression: 3.2,
+					suspensionRelaxation: 1.6,
+					frictionSlip: 2.0,
 					sideFrictionStiffness: 1.0,
 				},
             cameraSettings: {
 					[CameraMode.THIRD_PERSON]: {
-						distance: 2.5,
-						height: 0.8,
+						distance: 5,
+						height: 1.6,
 						fov: 60,
 						lerpSpeed: 0.1,
-						lookAtOffset: { y: 0.5,  x: 0, z: 0 },
+						lookAtOffset: { y: 1, x: 0, z: 0 },
 					},
 					[CameraMode.HOOD]: {
                   fov: 80,
 						lerpSpeed: 0.2,
-						offset: { x: 0, y: 0.50, z: 0.65 },
+						offset: { x: 0, y: 1, z: 1.3 },
 						distance: 0,
 						height: 0,
 						lookAtOffset: { y: 0 },
@@ -214,7 +215,7 @@ export default class VehicleManager {
 					[CameraMode.FIRST_PERSON]: {
                   fov: 70,
 						lerpSpeed: 0.3,
-                  offset: { x: 0.18, y: 0.52, z: -0.15 },
+                  offset: { x: 0.36, y: 1.04, z: -0.3 },
 						distance: 0,
 						height: 0,
 						lookAtOffset: { y: 0 },
@@ -222,12 +223,12 @@ export default class VehicleManager {
 				},
 				configs: {
 					maxSpeed: 20,
-					maxForce: 300,
+					maxForce: 5000,
 					maxBoostForce: 3,
 					boostForce: 1,
-					brakeForce: 5,
-					rollingResistance: 0.2,
-					eBrakeForce: 7,
+					brakeForce: 60,
+					rollingResistance: 1.55,
+					eBrakeForce: 55,
 					maxSteerVal: 0.5,
 					steerSpeed: 1.3,
 					steerReturn: 2.0,
@@ -237,12 +238,12 @@ export default class VehicleManager {
 				},
 				wheels: {
 					modelPath: "/assets/models/wheel/scene.gltf",
-					scale: { x: 0.425, y: 0.425, z: 0.425 },
+					scale: { x: 0.85, y: 0.85, z: 0.85 },
 					adjustments: [
-						{ position: { x: 0.747, y: 0, z: -0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: 0.747, y: 0, z: 0.4 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: -0.664, y: 0, z: -0.405 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
-						{ position: { x: -0.664, y: 0, z: 0.405 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: 1.494, y: 0, z: -0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: 1.494, y: 0, z: 0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: -1.328, y: 0, z: -0.81 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
+						{ position: { x: -1.328, y: 0, z: 0.81 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
 					],
 				},
 			},
@@ -374,7 +375,7 @@ export default class VehicleManager {
 	}
 
 	createFallbackChassis(vehicleId: string): THREE.Mesh {
-		const chassisSize = this.vehicleCatalog[vehicleId]?.physics?.size || { x: 2.3, y: 0.6, z: 0.9 };
+		const chassisSize = this.vehicleCatalog[vehicleId]?.physics?.size || { x: 4.6, y: 1.2, z: 1.8 };
 		const chassisGeometry = new THREE.BoxGeometry(chassisSize.y, chassisSize.z, chassisSize.x);
 		const chassisMaterial = new THREE.MeshStandardMaterial({ color: 0x1c1d1f });
 		const chassisMesh = new THREE.Mesh(chassisGeometry, chassisMaterial);
@@ -383,8 +384,8 @@ export default class VehicleManager {
 	}
 
 	createFallbackWheels(wheelCount: number, vehicleId: string): THREE.Mesh[] {
-		const radius = this.vehicleCatalog[vehicleId]?.physics?.wheelRadius || 0.19;
-		const wheelGeometry = new THREE.CylinderGeometry(radius, radius, 0.12, 32);
+		const radius = this.vehicleCatalog[vehicleId]?.physics?.wheelRadius || 0.38;
+		const wheelGeometry = new THREE.CylinderGeometry(radius, radius, 0.24, 32);
 		const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x0f0f0f });
 
 		const wheelMeshes: THREE.Mesh[] = [];

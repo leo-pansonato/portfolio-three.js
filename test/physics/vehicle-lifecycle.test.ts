@@ -67,8 +67,8 @@ describe("ciclo de vida do veículo", () => {
 		const wheelRadii = scene.children
 			.filter((child): child is THREE.Mesh => child instanceof THREE.Mesh && child.geometry instanceof THREE.CylinderGeometry)
 			.map((wheel) => (wheel.geometry as THREE.CylinderGeometry).parameters.radiusTop);
-		// raio da roda do G63 (o BMW usa 0.165)
-		expect(wheelRadii).toEqual([0.19, 0.19, 0.19, 0.19]);
+		// raio da roda do G63 em m (o BMW usa 0.33)
+		expect(wheelRadii).toEqual([0.38, 0.38, 0.38, 0.38]);
 		// chassi + 4 rodas do veículo atual
 		expect(scene.children.length).toBe(5);
 	});

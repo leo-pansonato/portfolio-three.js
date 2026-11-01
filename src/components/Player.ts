@@ -249,7 +249,7 @@ export default class Player extends Entity {
 		// Criar mesh básica para as rodas
 		this.wheelMeshes = [];
 		const wheelRadius = this.vehicleData.physics.wheelRadius;
-		const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, 0.15, 32);
+		const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, 0.3, 32);
 		wheelGeometry.rotateX(Math.PI / 2);
 		const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
 
