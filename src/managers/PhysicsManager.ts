@@ -58,7 +58,7 @@ export default class PhysicsManager {
 
 	private entities: PhysicsEntity[] = [];
 
-	private readonly fixedTimeStep: number = 1 / 60.0; // física roda a 60Hz (igual ao Cannon)
+	private readonly fixedTimeStep: number = 1 / 60.0;
 	private accumulator: number = 0;
 
 	// Callbacks para serem chamados antes de cada step da física

@@ -60,6 +60,12 @@ export default class Player extends Entity {
 	// Cache de vetores para performance
 	private tempVector3 = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
+	private tempSteeringQuat = new THREE.Quaternion();
+	private tempSpinQuat = new THREE.Quaternion();
+	private tempOffset = new THREE.Vector3();
+	private static readonly AXIS_Y = new THREE.Vector3(0, 1, 0);
+	private static readonly AXIS_Z = new THREE.Vector3(0, 0, 1);
+	private static readonly LOCAL_FORWARD = new THREE.Vector3(-1, 0, 0);
 
 	// Callback para atualização do veículo no step da física
 	private physicsPreStepCallback: ((dt: number) => void) | null = null;
@@ -150,8 +156,6 @@ export default class Player extends Entity {
 
 		for (let i = 0; i < vehicleData.wheels.adjustments.length; i++) {
 			const wheelAdjustment = vehicleData.wheels.adjustments[i];
-
-         console.log('Configuring wheel', i, 'with adjustment', wheelAdjustment);
 
 			// Posição de conexão da roda no chassi (coordenadas locais)
 			const connectionPoint = new THREE.Vector3(
@@ -366,20 +370,19 @@ export default class Player extends Entity {
 
 		// Transformar para coordenadas mundiais
 		this.tempVector3.applyQuaternion(this.tempQuaternion);
-		this.tempVector3.add(new THREE.Vector3(chassisPos.x, chassisPos.y, chassisPos.z));
+		this.tempVector3.x += chassisPos.x;
+		this.tempVector3.y += chassisPos.y;
+		this.tempVector3.z += chassisPos.z;
 
 		wheelInfo.worldPosition.copy(this.tempVector3);
 
 		// Calcular rotação da roda
-		const steeringQuat = new THREE.Quaternion();
-		steeringQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), wheelInfo.steering);
-
-		const spinQuat = new THREE.Quaternion();
-		spinQuat.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -wheelInfo.rotation);
+		this.tempSteeringQuat.setFromAxisAngle(Player.AXIS_Y, wheelInfo.steering);
+		this.tempSpinQuat.setFromAxisAngle(Player.AXIS_Z, -wheelInfo.rotation);
 
 		wheelInfo.worldQuaternion.copy(this.tempQuaternion);
-		wheelInfo.worldQuaternion.multiply(steeringQuat);
-		wheelInfo.worldQuaternion.multiply(spinQuat);
+		wheelInfo.worldQuaternion.multiply(this.tempSteeringQuat);
+		wheelInfo.worldQuaternion.multiply(this.tempSpinQuat);
 	}
 
 	/**
@@ -435,8 +438,8 @@ export default class Player extends Entity {
 		const chassisRot = this.chassisRigidBody.rotation();
 
 		// Vetor forward do chassi
-		const forward = new THREE.Vector3(-1, 0, 0);
-		forward.applyQuaternion(new THREE.Quaternion(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w));
+		this.tempQuaternion.set(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w);
+		const forward = this.tempVector3.copy(Player.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
 
 		// Velocidade na direção do movimento
 		this.vehicleData.configs.currentSpeed = velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
@@ -588,7 +591,7 @@ export default class Player extends Entity {
 		if (adjustments) {
 			// Ajuste de posição
 			if (adjustments.position) {
-				const localOffset = new THREE.Vector3(adjustments.position.x, adjustments.position.y, adjustments.position.z);
+				const localOffset = this.tempOffset.set(adjustments.position.x, adjustments.position.y, adjustments.position.z);
 				localOffset.applyQuaternion(carMesh.quaternion);
 				carMesh.position.add(localOffset);
 			}
@@ -638,6 +641,10 @@ export default class Player extends Entity {
 		}
 
 		// Remover o RigidBody do chassi (isso também remove os colliders associados)
+		if (this.vehicleController) {
+			this.physicsManager.world.removeVehicleController(this.vehicleController);
+		}
+
 		if (this.chassisRigidBody) {
 			this.physicsManager.removeEntity(this.chassisRigidBody);
 		}
