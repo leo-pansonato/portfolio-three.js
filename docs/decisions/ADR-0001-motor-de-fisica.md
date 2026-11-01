@@ -187,6 +187,15 @@ Conclusões:
 3. **A Rapier não assenta totalmente em repouso**: velocidade residual constante de 0,06 unidade/s, nas duas configurações. A causa (provavelmente oscilação da suspensão; componente da velocidade não separado) está **[Investigar]**. Deve ser resolvido antes de aceitar a migração (critério “veículo em repouso não deriva”).
 4. **O passo fixo com *pre-step callback* da branch elimina a dependência de FPS** da aceleração entre 60 e 144 FPS; na `master` ela é pequena (~0,5%), mas existe.
 
+## Resultado da integração curada (branch `stabilize/rapier`)
+
+- Com `linearDamping` do chassi igual ao da cannon-es (0,01 em vez de 0,2), a Rapier reproduz a `master` nos cenários: BMW 52,49 km/h após 5 s nas duas, frenagem 2,75 × 2,77 s, raio de curva 4,57 × 4,33. A causa provável apontada no adendo foi confirmada.
+- A “velocidade residual em repouso” do adendo era artefato: `linvel()` do chassi reporta ~g·dt em repouso com a posição parada. O cenário passou a medir por deslocamento.
+- Deriva real encontrada: o BMW rolava para trás a ~0,01 unidade/s (o controlador não tem resistência ao rolamento). Corrigido com `configs.rollingResistance` (freio leve sem acelerador nem freio).
+- Diferenças remanescentes, aceitas: G63 com raio de curva 5,3 × 3,5 e inclinação menor (sem equivalente ao `rollInfluence`), frenagem do G63 5,7 s / 65,9 × 6,2 s / 60,9.
+- Vazamento do controlador corrigido e coberto por teste. Passo mantido em 60 Hz: os cenários não dependem de 120 Hz; a escolha volta no P1-1 (interpolação).
+- Não trazidos: terreno procedural, `SimplexNoise`, retuning e os modelos `mclaren_f1_2021`/`mercedes_amg_one`.
+
 ## Consequências
 
 - A dinâmica veicular passa a ser um módulo próprio (P2) que conversa com a física por uma interface estreita; o `DynamicRayCastVehicleController` é temporário.

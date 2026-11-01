@@ -23,8 +23,7 @@ A estratégia técnica, as limitações conhecidas e o caminho de evolução est
 | Item | Versão (package.json) | Uso |
 |---|---|---|
 | [Three.js](https://threejs.org/) | ^0.182.0 | Renderização WebGL, GLTFLoader, RGBELoader, CSM (sombras em cascata), Stats |
-| [cannon-es](https://github.com/pmndrs/cannon-es) | ^0.20.0 | Física na branch `master` (`RaycastVehicle`) |
-| [@dimforge/rapier3d-compat](https://rapier.rs/) | ^0.19.3 | Física na branch `refact/rapier3d` (`DynamicRayCastVehicleController`) |
+| [@dimforge/rapier3d-compat](https://rapier.rs/) | ^0.19.3 | Física (WASM), `DynamicRayCastVehicleController` |
 | TypeScript | ^5.9.3 | `strict`, `noUnusedLocals`, `noUnusedParameters` |
 | Vite | ^7.3.0 | Servidor de desenvolvimento e build |
 
@@ -47,11 +46,11 @@ npm run dev
 
 O Vite serve em `http://localhost:5173`. Clique na tela para capturar o mouse (pointer lock).
 
-> **Ao trocar entre `master` e `refact/rapier3d`, rode `npm ci` de novo.** As branches têm dependências diferentes (cannon-es × Rapier) e um `node_modules` de uma branch não compila a outra.
+> Ao trocar para uma branch anterior à migração para Rapier, rode `npm ci` de novo: as dependências diferem.
 
 ### Controles
 
-| Ação | Teclado | Gamepad (só em `refact/rapier3d`) |
+| Ação | Teclado | Gamepad |
 |---|---|---|
 | Acelerar / frear e ré | W, ↑ / S, ↓ | RT / LT (analógico) |
 | Direção | A, ← / D, → | Analógico esquerdo |
@@ -96,8 +95,7 @@ Os testes montam o veículo real sem navegador e comparam repouso, aceleração,
 
 ## Estado atual
 
-- **`master`** — física com cannon-es. Funcional: carro dirigível, dois veículos, três câmeras, obstáculos dinâmicos, CSM, modo dev.
-- **`refact/rapier3d`** — um único commit sobre a `master` que troca o motor por Rapier e adiciona terreno procedural, input por gamepad e dois modelos de carro ainda não usados. Compila e roda. **Ainda não integrada**: o [ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md) adotou a Rapier, mas por integração curada (ROADMAP P0-5), não por merge direto.
+Funcional: carro dirigível (teclado e gamepad), dois veículos, três câmeras, obstáculos dinâmicos, CSM, modo dev. Física em Rapier, migrada da cannon-es com comportamento equivalente medido pelos cenários de referência ([ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md)). A branch `refact/rapier3d` é apenas referência histórica.
 
 Limitações principais (detalhes em [ARCHITECTURE.md](ARCHITECTURE.md)): o mundo está em escala ~0,5 (carro de 2,3 unidades de comprimento), o modelo de pneu é o atrito simplificado do *raycast vehicle* e não há interpolação entre passos de física.
 

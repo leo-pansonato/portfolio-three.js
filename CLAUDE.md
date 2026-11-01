@@ -15,7 +15,7 @@ Documentos de referência — consulte o relevante em vez de deduzir:
 
 ## Situação atual que todo agente deve saber
 
-- Há duas bases: `master` (cannon-es) e `refact/rapier3d` (Rapier, não integrada). [ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md) foi **aceito**: a Rapier entra por integração curada (ROADMAP P0-5), **nunca por merge direto** da `refact/rapier3d`. P0-5 só começa depois do harness de testes e dos cenários de referência (P0-3, P0-4). Não troque de branch na checkout do usuário.
+- A física usa Rapier ([ADR-0001](docs/decisions/ADR-0001-motor-de-fisica.md)). A branch `refact/rapier3d` é só referência: **nunca faça merge dela**; traga trechos de forma curada. Não troque de branch na checkout do usuário sem pedido.
 - O mundo está em escala ~0,5 e as massas não são reais (ROADMAP P0-6). Não “corrija” isso localmente: muda o comportamento de tudo.
 - `src/components/Player.ts`, `src/main.ts` e `src/managers/VehicleManager.ts` concentram responsabilidades e são pontos de conflito. Edite-os só com escopo explícito.
 
@@ -51,7 +51,7 @@ npm test              # Vitest em Node: cenários de referência da física (tes
 - Comentários e mensagens de log em português; JSDoc `/** */` curto acima de classes e métodos públicos.
 - Campos privados com `private`; inicialização tardia com `!` só quando a ordem do construtor garante.
 - Vetores temporários reutilizados como campos (`private _offset = new THREE.Vector3()`) em código executado por quadro — não aloque dentro de `update`.
-- Commits: Conventional Commits (`feat:`, `fix:`, `refact:`, `chore:`, `style:`, `docs:`, `test:`), descrição em português.
+- Commits: `type(scope): descrição` (`feat`, `fix`, `refact`, `chore`, `style`, `docs`, `test`), em português, **no máximo 3 linhas**, sem `Co-Authored-By` nem outra atribuição.
 
 ## Arquivos
 

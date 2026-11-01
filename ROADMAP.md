@@ -58,7 +58,7 @@ flowchart LR
 
 ### [x] P0-3 — Harness de testes headless
 
-- **Resultado:** Vitest 5 (`npm test`, `vitest.config.ts`, `test/setup.ts`). O `Player` real roda em Node via `test/support/cannonSim.ts`, com `ModelLoader` mockado. Suíte em ~0,5 s.
+- **Resultado:** Vitest 5 (`npm test`, `vitest.config.ts`, `test/setup.ts`). O `Player` real roda em Node via `test/support/cannonSim.ts` (hoje `rapierSim.ts`), com `ModelLoader` mockado. Suíte em ~0,5 s.
 
 
 - **Objetivo:** testar física e lógica em Node, sem navegador.
@@ -78,7 +78,10 @@ flowchart LR
 - **Conclusão:** cenários rodam nas duas implementações (a da `master` e a da `refact/rapier3d`) e as diferenças estão registradas no ADR-0001.
 - **Risco:** extrair a montagem do veículo de `Player` sem alterar comportamento — fazer por função auxiliar de teste, não refatorando o `Player` ainda. **Esforço:** M.
 
-### [ ] P0-5 — Integração curada da Rapier (se P0-1 = B)
+### [~] P0-5 — Integração curada da Rapier
+
+- **Estado:** commits na branch `stabilize/rapier` (input, motor com parâmetros da `master`, correções); cenários equivalentes e teste de ciclo de vida verdes. Falta: revisão e merge na `master`. Terreno e retuning ficam fora (ver resultado no ADR-0001).
+
 
 - **Objetivo:** trazer a parte boa da `refact/rapier3d` sem as regressões.
 - **Entregas (commits separados, branch `stabilize/rapier` a partir da `master`):**
@@ -88,7 +91,7 @@ flowchart LR
   4. (Opcional) terreno procedural atrás de opção, com plano como padrão.
   5. Retuning, em commit próprio.
 - **Fora do escopo:** `assets/models/mclaren_f1_2021`, `assets/models/mercedes_amg_one`.
-- **Testes:** criar `test/support/rapierSim.ts` no mesmo formato de `cannonSim.ts` (o `PhysicsManager.create` é assíncrono; o chão é `createRigidBody` + `createGroundCollider`) e uma linha de base `rapier.json`. A linha de base da cannon não vale para a Rapier (adendo do ADR-0001): o objetivo é aproximar os cenários, investigar o `linearDamping` do chassi e eliminar a velocidade residual em repouso, não reproduzir os números exatos.
+- **Testes:** `test/support/rapierSim.ts`, linha de base `rapier.json`, `vehicle-lifecycle.test.ts`.
 - **Dependências:** P0-1, P0-4.
 - **Conclusão:** critérios de estabilização do ADR-0001 atendidos; cenários de referência comparados. **Esforço:** M.
 
