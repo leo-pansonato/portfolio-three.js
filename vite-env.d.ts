@@ -1,1 +1,1 @@
-declare module 'cannon-es-debugger';
+/// <reference types="vite/client" />

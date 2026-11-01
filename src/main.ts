@@ -37,18 +37,20 @@ class Game {
 		this.components = [];
 		this.lastTime = performance.now();
 		this.gameLoopBound = this.gameLoop.bind(this);
-		this.initialize();
 	}
 
-	initialize(): void {
+	/**
+	 * Inicializa o jogo de forma assíncrona
+	 */
+	async initialize(): Promise<void> {
 		// gerenciador de desempenho
 		this.performanceManager = new PerformanceManager();
 
 		// instanciando a cena
 		this.scene = new THREE.Scene();
 
-		// instanciando o gerenciador de física
-		this.physicsManager = new PhysicsManager(this.scene);
+		// instanciando o gerenciador de física (ASSÍNCRONO - aguarda WASM do Rapier)
+		this.physicsManager = await PhysicsManager.create(this.scene);
 
 		// instanciando a camera
 		this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
@@ -79,7 +81,7 @@ class Game {
 		this.lightingManager.setupCSMMaterials();
 
 		// Adicionar componentes à lista de componentes para update automático
-		this.components = [this.environment, this.lightingManager, this.player, this.cameraController, this.performanceManager];
+		this.components = [this.environment, this.lightingManager, this.player, this.cameraController, this.inputManager, this.performanceManager];
 
 		// redimensionamento de tela
 		window.addEventListener("resize", () => this.handleResize());
@@ -107,7 +109,7 @@ class Game {
 		let deltaTime = (now - this.lastTime) / 1000;
 		this.lastTime = now;
 
-      // limitar deltaTime para evitar saltos grandes
+		// limitar deltaTime para evitar saltos grandes
 		if (deltaTime > 0.1) {
 			deltaTime = 0.1;
 		}
@@ -139,5 +141,14 @@ class Game {
 	}
 }
 
-// Iniciar o jogo
-new Game();
+// Iniciar o jogo de forma assíncrona
+async function initGame(): Promise<void> {
+	try {
+		const game = new Game();
+		await game.initialize();
+	} catch (error) {
+		console.error("Erro ao inicializar: ", error);
+	}
+}
+
+initGame();
