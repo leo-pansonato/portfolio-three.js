@@ -2,6 +2,16 @@ import GameComponent from "../components/GameComponent";
 import { devMode } from "./DevModeManager";
 
 export default class InputManager extends GameComponent {
+	private static readonly GAMEPAD_BUTTONS: ReadonlyArray<readonly [string, number]> = [
+		["VEHICLE_HANDBRAKE", 0], // A / X
+		["VEHICLE_BOOST", 5], // RB / R1
+		["CYCLE_CAMERA_MODE", 3], // Y / Triangle
+		["RESET_CAR", 8], // Back / Share
+		["SELECT_VEHICLE_1", 14], // D-Pad Left
+		["SELECT_VEHICLE_2", 15], // D-Pad Right
+	];
+	private static readonly GAMEPAD_BUTTON_BY_ACTION = new Map(InputManager.GAMEPAD_BUTTONS);
+
 	private game: any;
 	private keys: { [key: string]: boolean } = {};
 
@@ -149,16 +159,7 @@ export default class InputManager extends GameComponent {
 		const axes = gamepad.axes;
 
 		// === BOTÕES (ações instantâneas) ===
-		const buttonMapping: { [action: string]: number } = {
-			VEHICLE_HANDBRAKE: 0,  // A / X
-			VEHICLE_BOOST: 5,      // RB / R1
-			CYCLE_CAMERA_MODE: 3,  // Y / Triangle
-			RESET_CAR: 8,          // Back / Share
-			SELECT_VEHICLE_1: 14,  // D-Pad Left
-			SELECT_VEHICLE_2: 15,  // D-Pad Right
-		};
-
-		for (const [action, btnIndex] of Object.entries(buttonMapping)) {
+		for (const [action, btnIndex] of InputManager.GAMEPAD_BUTTONS) {
 			if (btnIndex >= buttons.length) continue;
 			
 			const isPressed = buttons[btnIndex].pressed;
@@ -253,20 +254,9 @@ export default class InputManager extends GameComponent {
 		const keys = this.keyBindings[action];
 		if (keys && keys.some(k => this.keys[k])) return true;
 
-		// Gamepad
-		const gamepad = this.getGamepad();
-		if (gamepad) {
-			const buttonMapping: { [action: string]: number } = {
-				VEHICLE_HANDBRAKE: 0,
-				VEHICLE_BOOST: 5,
-			};
-			const btnIndex = buttonMapping[action];
-			if (btnIndex !== undefined && gamepad.buttons[btnIndex]?.pressed) {
-				return true;
-			}
-		}
-
-		return false;
+		// Gamepad: estado lido em update() neste quadro
+		const btnIndex = InputManager.GAMEPAD_BUTTON_BY_ACTION.get(action);
+		return btnIndex !== undefined && this.gamepadPrevButtons[btnIndex] === true;
 	}
 
 	/** Verifica se há gamepad conectado */

@@ -63,6 +63,7 @@ export default class Player extends Entity {
 	private tempSteeringQuat = new THREE.Quaternion();
 	private tempSpinQuat = new THREE.Quaternion();
 	private tempOffset = new THREE.Vector3();
+	private loadRequestId = 0;
 	private static readonly AXIS_Y = new THREE.Vector3(0, 1, 0);
 	private static readonly AXIS_Z = new THREE.Vector3(0, 0, 1);
 	private static readonly LOCAL_FORWARD = new THREE.Vector3(-1, 0, 0);
@@ -270,20 +271,16 @@ export default class Player extends Entity {
 	 */
 	async loadVehicle(vehicleId: string): Promise<any> {
 		try {
-			console.log(`Carregando veículo: ${vehicleId}`);
-
-			// Carregar os novos modelos (passar o número de rodas ao invés do objeto vehicle)
+			const requestId = ++this.loadRequestId;
 			const vehicleModels = await this.vehicleManager.loadVehicle(vehicleId, this.WHEEL_COUNT);
 
-			// Remover o modelo atual da cena
-			this.scene.remove(this.mesh);
+			// outro veículo foi pedido enquanto este carregava
+			if (requestId !== this.loadRequestId) {
+				this.releaseObjects([vehicleModels.body, ...vehicleModels.wheels]);
+				return;
+			}
 
-			// Remover as rodas atuais da cena
-			this.wheelMeshes.forEach((wheel) => {
-				if (wheel.parent) {
-					this.scene.remove(wheel);
-				}
-			});
+			this.releaseObjects([this.mesh, ...this.wheelMeshes]);
 
 			// Atualizar a referência ao modelo do chassi
 			if (vehicleModels.body) {
@@ -665,15 +662,7 @@ export default class Player extends Entity {
 		// Limpar recursos físicos do veículo anterior
 		this.cleanupCurrentVehicle();
 
-		// Remover mesh da cena
-		this.removeFromScene();
-
-		// Remover rodas da cena
-		this.wheelMeshes.forEach((wheel) => {
-			if (wheel.parent) {
-				this.scene.remove(wheel);
-			}
-		});
+		this.releaseObjects([this.mesh, ...this.wheelMeshes]);
 		this.wheelMeshes = [];
 
 		// Configurar novo veículo
@@ -683,6 +672,22 @@ export default class Player extends Entity {
 		this.initVisuals();
 
 		return this.loadVehicle(vehicleId);
+	}
+
+	/**
+	 * Remove objetos da cena e libera geometrias e materiais na GPU
+	 */
+	private releaseObjects(objects: THREE.Object3D[]): void {
+		for (const object of objects) {
+			object.removeFromParent();
+			object.traverse((child) => {
+				if (child instanceof THREE.Mesh) {
+					child.geometry.dispose();
+					const materials = Array.isArray(child.material) ? child.material : [child.material];
+					materials.forEach((material) => material.dispose());
+				}
+			});
+		}
 	}
 
 	resetCar(): void {

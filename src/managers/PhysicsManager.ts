@@ -58,6 +58,7 @@ export default class PhysicsManager {
 
 	private entities: PhysicsEntity[] = [];
 
+	// o freio do controlador é impulso por passo: mudar o passo exige reescalar brakeForce
 	private readonly fixedTimeStep: number = 1 / 60.0;
 	private accumulator: number = 0;
 
@@ -99,8 +100,9 @@ export default class PhysicsManager {
 	 */
 	private initWorld(): void {
 		// Criar o mundo com gravidade
-		const gravity = new RAPIER.Vector3(0, -9.81, 0);
+		const gravity = new RAPIER.Vector3(0, -9.82, 0);
 		this.world = new RAPIER.World(gravity);
+		this.world.timestep = this.fixedTimeStep;
 	}
 
 	/**
@@ -415,6 +417,6 @@ export default class PhysicsManager {
 	dispose(): void {
 		this.removeDebugger();
 		this.entities = [];
-		// O mundo do Rapier é gerenciado pelo WASM, não precisa de dispose manual
+		this.world.free();
 	}
 }

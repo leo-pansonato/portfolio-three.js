@@ -270,13 +270,10 @@ export default class VehicleManager {
 			]);
 
 			if (!bodyMesh) {
-				throw new Error("Falha ao carregar modelo do corpo");
+				return { body: this.createFallbackChassis(vehicleId), wheels: wheelMeshes };
 			}
 
-			// Configurar o modelo do corpo
-			if (bodyMesh) {
-				this.setupBodyMesh(bodyMesh, vehicleConfig);
-			}
+			this.setupBodyMesh(bodyMesh, vehicleConfig);
 
 			return {
 				body: bodyMesh,
@@ -369,20 +366,19 @@ export default class VehicleManager {
 	}
 
 	createFallbackVehicle(wheelCount: number, vehicleId: string): LoadedVehicle {
-		// Criar chassis básico
+		return {
+			body: this.createFallbackChassis(vehicleId),
+			wheels: this.createFallbackWheels(wheelCount, vehicleId),
+		};
+	}
+
+	createFallbackChassis(vehicleId: string): THREE.Mesh {
 		const chassisSize = this.vehicleCatalog[vehicleId]?.physics?.size || { x: 2.3, y: 0.6, z: 0.9 };
 		const chassisGeometry = new THREE.BoxGeometry(chassisSize.y, chassisSize.z, chassisSize.x);
 		const chassisMaterial = new THREE.MeshStandardMaterial({ color: 0x1c1d1f });
 		const chassisMesh = new THREE.Mesh(chassisGeometry, chassisMaterial);
 		chassisMesh.castShadow = true;
-
-		// Criar rodas básicas
-		const wheelMeshes = this.createFallbackWheels(wheelCount, vehicleId);
-
-		return {
-			body: chassisMesh,
-			wheels: wheelMeshes,
-		};
+		return chassisMesh;
 	}
 
 	createFallbackWheels(wheelCount: number, vehicleId: string): THREE.Mesh[] {

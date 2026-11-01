@@ -78,8 +78,8 @@ Inicialização assíncrona: `Game.initialize()` aguarda `PhysicsManager.create(
 
 ### 3.1 Física — `src/managers/PhysicsManager.ts` [Implementado]
 
-- `RAPIER.World` (`@dimforge/rapier3d-compat` 0.19.3, WASM embutido no bundle), gravidade −9,81, criado por `PhysicsManager.create()` (assíncrono).
-- Passo fixo de 1/60 s por acumulador; *pre-step callbacks* para lógica que precisa rodar a cada passo.
+- `RAPIER.World` (`@dimforge/rapier3d-compat` 0.19.3, WASM embutido no bundle), gravidade −9,82, criado por `PhysicsManager.create()` (assíncrono).
+- Passo fixo de 1/60 s por acumulador (`world.timestep` igual); *pre-step callbacks* para lógica que precisa rodar a cada passo. O freio do controlador é impulso por passo: mudar o passo muda a frenagem.
 - Criação tipada: `createRigidBody(RigidBodyConfig)`, `createCollider(ColliderConfig)`, `createGroundCollider`; `castRay`.
 - Lista `entities` (corpo + mesh) para sincronização visual; `removeEntity` remove o corpo do mundo.
 - `PhysicsDebugRenderer`: `world.debugRender()` em `LineSegments` no modo dev (aloca buffers a cada quadro; só em dev).
@@ -105,8 +105,8 @@ Problemas estruturais:
 - **Estado de runtime dentro do catálogo**: `configs.currentSteering`, `currentSpeed` e `boostForce` são gravados no objeto de configuração compartilhado.
 - **Eixo “frente” inconsistente**: a velocidade é calculada contra `(-1,0,0)` e invertida (`* -1`) para exibição.
 - Índices de roda fixos (0–1 dianteiras, 2–3 traseiras; ímpares espelhadas) sem tipo que os represente.
-- Corrida: `changeVehicle` durante um `loadVehicle` pendente pode adicionar meshes do veículo anterior.
-- Recursos GPU (geometrias, materiais, texturas) nunca são liberados.
+- Recursos GPU: trocar de veículo libera geometrias e materiais (`Player.releaseObjects`); texturas e o cache do `ModelLoader` não são liberados.
+- `loadVehicle` ignora resultados de carregamentos obsoletos (`loadRequestId`).
 - O mesh de *placeholder* continua registrado no `PhysicsManager` depois que o modelo real é carregado.
 
 Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento, atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`). Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
@@ -148,7 +148,7 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 - `test/support/scenarios.ts`: repouso, aceleração, frenagem, curva; métricas puras sobre snapshots.
 - `test/support/baseline.ts` + `test/baselines/rapier.json`: comparação com tolerância (2% relativo, 0,01 absoluto); `UPDATE_BASELINE=1` regrava.
 - `test/baselines/cannon-master.json`: medições da implementação anterior (cannon-es), mantidas como referência histórica; não usadas nos testes.
-- `test/physics/vehicle-lifecycle.test.ts`: trocar de veículo 20 vezes não acumula corpos, colisores nem controladores.
+- `test/physics/vehicle-lifecycle.test.ts`: trocar de veículo 20 vezes não acumula corpos, colisores, controladores nem objetos na cena e libera geometrias; carregamento obsoleto não substitui o veículo atual.
 - Os cenários medem o comportamento atual para detectar regressões; não validam realismo físico.
 
 ### 3.9 Concorrência

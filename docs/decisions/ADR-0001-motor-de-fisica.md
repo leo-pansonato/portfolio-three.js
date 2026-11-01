@@ -185,7 +185,7 @@ Conclusões:
 1. **Os mesmos parâmetros não produzem o mesmo carro.** Com os valores da `master`, o BMW na Rapier acelera ~35% menos. Uma causa provável é o `linearDamping: 0.2` que a branch pôs no chassi (cannon usa 0,01 por padrão) — **[Investigar]** no P0-5. O tuning terá de ser refeito contra os cenários, não copiado.
 2. **O retuning da branch tornou o BMW quase incapaz de virar sob aceleração** (raio 42 × 4,6): `frictionSlip` traseiro 0,6 e `sideFrictionStiffness` 0,3. Não reaproveitar esse tuning.
 3. **A Rapier não assenta totalmente em repouso**: velocidade residual constante de 0,06 unidade/s, nas duas configurações. A causa (provavelmente oscilação da suspensão; componente da velocidade não separado) está **[Investigar]**. Deve ser resolvido antes de aceitar a migração (critério “veículo em repouso não deriva”).
-4. **O passo fixo com *pre-step callback* da branch elimina a dependência de FPS** da aceleração entre 60 e 144 FPS; na `master` ela é pequena (~0,5%), mas existe.
+4. Com o *pre-step callback*, a aceleração ficou idêntica a 60 e 144 FPS; a 30 FPS ainda difere (volante e forças são definidos por quadro, depois dos passos). A dependência de FPS só sai no P1-1.
 
 ## Resultado da integração curada (branch `stabilize/rapier`)
 
@@ -193,7 +193,8 @@ Conclusões:
 - A “velocidade residual em repouso” do adendo era artefato: `linvel()` do chassi reporta ~g·dt em repouso com a posição parada. O cenário passou a medir por deslocamento.
 - Deriva real encontrada: o BMW rolava para trás a ~0,01 unidade/s (o controlador não tem resistência ao rolamento). Corrigido com `configs.rollingResistance` (freio leve sem acelerador nem freio).
 - Diferenças remanescentes, aceitas: G63 com raio de curva 5,3 × 3,5 e inclinação menor (sem equivalente ao `rollInfluence`), frenagem do G63 5,7 s / 65,9 × 6,2 s / 60,9.
-- Vazamento do controlador corrigido e coberto por teste. Passo mantido em 60 Hz: os cenários não dependem de 120 Hz; a escolha volta no P1-1 (interpolação).
+- Passo de 60 Hz (a cannon-es usava 120 Hz), gravidade −9,82 como na `master`. A 120 Hz as curvas ficam mais próximas da cannon, mas a frenagem quase dobra: o freio do controlador é um impulso por passo. Trocar o passo exige converter freio para força (P1-1).
+- Corrigidos e cobertos por teste: controlador antigo não removido, placeholders e modelos não liberados na GPU, rodas de *fallback* órfãs na cena, carregamento antigo que sobrescrevia o veículo atual.
 - Não trazidos: terreno procedural, `SimplexNoise`, retuning e os modelos `mclaren_f1_2021`/`mercedes_amg_one`.
 
 ## Consequências
