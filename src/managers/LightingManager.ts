@@ -8,6 +8,10 @@ interface CSMConfig extends CSMParameters {
 	lightColor: THREE.Color;
 	lightIntensity: number;
 	shadowRadius: number;
+	/** Deslocamento ao longo da normal, em texels da cascata (cresce com a largura de cada uma). */
+	shadowNormalBiasTexels: number;
+	/** Fim de cada cascata em metros a partir da câmera; o último valor é o `maxFar`. */
+	cascadeSplits: number[];
 }
 /**
  * Gerenciador de iluminação com CSM
@@ -18,19 +22,25 @@ export default class LightingManager extends GameComponent {
 	private csm: CSM | null = null;
 	private csmHelper: CSMHelper | null = null;
 
-	// Configurações do CSM
+	/**
+	 * Escala SI (ADR-0002). Direção e cor seguem o brilho do amanhecer no `dawn_4k.hdr`
+	 * (azimute ~45°); a elevação de 35° é artística.
+	 */
 	private readonly config: CSMConfig = {
-		cascades: 3,
-		maxFar: 50,
-		shadowMapSize: 4096,
+		cascades: 4,
+		cascadeSplits: [10, 26, 64, 200],
+		maxFar: 200,
+		mode: "custom",
+		shadowMapSize: 2048,
 		lightDirection: new THREE.Vector3(1, 1, 1).normalize(),
 		lightColor: new THREE.Color(0xf6ad8f),
 		lightIntensity: 5,
-		shadowBias: -0.0007,
+		shadowBias: -0.00005,
+		shadowNormalBiasTexels: 1.5,
 		shadowRadius: 2,
-		mode: "practical",
-		lightMargin: 10,
-		lightFar: 100,
+		lightMargin: 50,
+		lightNear: 1,
+		lightFar: 600,
 	};
 
 	constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
@@ -59,12 +69,16 @@ export default class LightingManager extends GameComponent {
 			lightNear,
 			lightFar,
 			lightMargin,
+			cascadeSplits,
 		} = this.config;
 
 		this.csm = new CSM({
 			maxFar,
 			cascades: cascades,
 			mode,
+			customSplitsCallback: (_cascades, _near, far, breaks) => {
+				for (const split of cascadeSplits) breaks.push(Math.min(split / far, 1));
+			},
 			parent: this.scene,
 			shadowMapSize,
 			lightDirection: lightDirection?.clone().negate(),
@@ -74,20 +88,14 @@ export default class LightingManager extends GameComponent {
 			lightMargin,
 			camera: this.camera,
 		});
+		this.csm.fade = true;
 
 		this.csm.lights.forEach((light) => {
 			light.color.copy(lightColor);
-			light.shadow.bias = shadowBias ?? -0.0005;
+			light.shadow.bias = shadowBias ?? 0;
 			light.shadow.radius = shadowRadius;
 		});
-
-		// Log da configuração
-		// console.log("CSM initialized:", {
-		// 	cascades: cascades,
-		// 	maxFar,
-		// 	shadowMapSize,
-		// 	mode,
-		// });
+		this.updateFrustums();
 	}
 
    /**
@@ -153,8 +161,13 @@ export default class LightingManager extends GameComponent {
 	 * Atualiza os frustums das cascatas (chamar se mudar parâmetros da câmera)
 	 */
 	updateFrustums(): void {
-		if (this.csm) {
-			this.csm.updateFrustums();
+		if (!this.csm) return;
+		this.csm.updateFrustums();
+
+		const { shadowMapSize = 2048, shadowNormalBiasTexels } = this.config;
+		for (const light of this.csm.lights) {
+			const texel = (light.shadow.camera.right - light.shadow.camera.left) / shadowMapSize;
+			light.shadow.normalBias = texel * shadowNormalBiasTexels;
 		}
 	}
 
