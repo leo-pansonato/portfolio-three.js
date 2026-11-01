@@ -261,7 +261,7 @@ export default class Player extends Entity {
 	/**
 	 * Atualizar aceleração, frenagem e tração do veículo
 	 */
-	updateDriving(timeStep: number): void {
+	updateDriving(_timeStep: number): void {
 		// Calcular a velocidade atual
 		const velocity = this.vehicle.chassisBody.velocity;
 		const chassisForward = new CANNON.Vec3();

@@ -18,7 +18,6 @@ export default class CameraController extends GameComponent {
 	private targetAngles = { yaw: 0, pitch: 0 };
 
 	private readonly MOUSE_SENSITIVITY = 0.002;
-	private readonly AUTO_CENTER_DELAY = 2.0;
 	private readonly AUTO_CENTER_SPEED = 3.0;
 	private readonly SMOOTH_ROTATION_SPEED = 10.0;
 

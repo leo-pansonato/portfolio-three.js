@@ -273,7 +273,7 @@ export default class VehicleManager {
 		}
 	}
 
-	setupBodyMesh(bodyMesh: THREE.Object3D, config: VehicleConfig): void {
+	setupBodyMesh(bodyMesh: THREE.Object3D, _config: VehicleConfig): void {
 		bodyMesh.castShadow = true;
 		bodyMesh.receiveShadow = true;
 
@@ -295,7 +295,7 @@ export default class VehicleManager {
 		modelPath: string,
 		scale: { x: number; y: number; z: number },
 		vehicle: CANNON.RaycastVehicle,
-		adjustments: any[],
+		_adjustments: any[],
 		vehicleId: string
 	): Promise<THREE.Object3D[]> {
 		try {
