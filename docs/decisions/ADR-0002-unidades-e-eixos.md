@@ -25,9 +25,9 @@ Particularidades do `DynamicRayCastVehicleController` (modelo Bullet), registrad
 | `maxSuspensionForce` | N por roda |
 | `frictionSlip`, `sideFrictionStiffness` | adimensionais |
 | `configs.maxForce` | N por roda motriz |
-| `configs.brakeForce`, `eBrakeForce`, `rollingResistance` | impulso por roda **a cada passo** (N·s, passo de 1/60 s) |
+| `configs.brakeForce`, `eBrakeForce`, `rollingResistance` | N por roda (o `Player` converte em impulso × dt) |
 
-O freio como impulso por passo é herança do controlador: mudar o passo exige reescalar esses valores (P1-1).
+Desde o P1-1 o freio está em N; o resultado independe do passo (teste com 1/60 e 1/120 s).
 
 ### Eixos
 
@@ -50,7 +50,7 @@ O freio como impulso por passo é herança do controlador: mudar o passo exige r
 | Rigidez (por kg) → frequência, deflexão estática | 30 → 1,7 Hz, 8 cm | 25 → 1,6 Hz, 10 cm |
 | `frictionSlip` | 2,0 | 1,4 |
 | Força do motor | 5.000 N × 2 rodas (traseira) | 3.500 N × 4 rodas |
-| Freio | 60 N·s/passo por roda | 95 N·s/passo por roda |
+| Freio | 3.600 N por roda | 5.700 N por roda |
 
 Dimensões, posições de roda, offsets de câmera e do corpo visual foram multiplicados por 2. A rigidez caiu à metade para manter a deflexão estática proporcional à geometria; o amortecimento mantém a razão de amortecimento anterior (`c/√k`).
 
