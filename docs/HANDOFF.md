@@ -4,14 +4,14 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Estado (2026-11-02)
 
-- `master` = `origin/master`. P0 completo (P0-1…P0-6), P1-8 (CI) e P2-7 (pipeline de cor) concluídos.
+- `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI) e P2-7 concluídos.
 - Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 70 testes (cenários, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
 ## Em andamento
 
-- P1-7 (lint) feito na branch `chore/lint`: ESLint + Prettier, formatação em commit `style` isolado. Integrar antes de outras branches (toca todos os arquivos); branches abertas precisam de rebase + `npm run format`.
+- P2-1 (dinâmica própria) via subagente `physics-vehicle` em worktree. Antes de integrar: `npm run lint`, `npm run format:check`, `npm test`, `npm run build`.
 
 ## Próximos itens (ordem)
 
@@ -21,7 +21,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Pendências conhecidas
 
-- P1-5 feito na branch `feat/resource-lifecycle`. `Game` (main.ts) não chama `Environment.dispose`/`LightingManager.dispose` nem tem `dispose` próprio; o placeholder do chassi continua registrado no `PhysicsWorld` após o modelo carregar.
+- `Game` (main.ts) não chama `Environment.dispose`/`LightingManager.dispose` nem tem `dispose` próprio; o placeholder do chassi continua registrado no `PhysicsWorld` após o modelo carregar.
 - Medir `renderer.info` com a janela oculta: o rAF para; servir uma cópia temporária do `index.html` que troca `requestAnimationFrame` por `setTimeout` e captura o renderer em `Scene.prototype.onBeforeRender`.
 
 - `computeBoundingSphere(): Computed radius is NaN` (geometria indexada) só ao carregar com modo dev ligado; não ocorre ao ligar F2 depois. Não reproduz em Node (CSMHelper, poses iniciais sem NaN). Criar o helper do CSM depois do primeiro `update` piorou (2 erros); revertido. Investigar no navegador.
