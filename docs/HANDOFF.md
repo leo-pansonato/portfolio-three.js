@@ -11,6 +11,8 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
+- P2-1 etapa 3 (pneu próprio, controlador Rapier removido) quase pronta na branch `worktree-agent-a5cff13bd981ccb14` (worktree `.claude/worktrees/agent-a5cff13bd981ccb14`, 16 commits sobre c0e5231). Agente parado ao atualizar docs: conferir ARCHITECTURE/HANDOFF da branch, rodar lint/format/test/build, testar no navegador e integrar.
+
 - P2-1 etapa 1 integrada (9b42cb7); ADR-0003 aceito; etapa 2 (suspensão própria) feita na branch do subagente, a integrar; próxima: etapa 3 (pneu, sai o controlador Rapier). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
