@@ -1,6 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
-import { devMode } from "./DevModeManager";
+import { devMode } from "../managers/DevModeManager";
 import PhysicsDebugRenderer from "./PhysicsDebugRenderer";
 
 /**

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import InputManager from "../managers/InputManager";
-import PhysicsManager from "../managers/PhysicsManager";
+import PhysicsManager from "../physics/PhysicsManager";
 import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
 import VehicleView from "../render/VehicleView";
 import VehicleControl, { createDriverInput } from "../vehicle/VehicleControl";

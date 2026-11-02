@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
 import { VEHICLE_DEFINITIONS } from "../../src/data/vehicles";
 import InputManager from "../../src/managers/InputManager";
-import PhysicsManager from "../../src/managers/PhysicsManager";
+import PhysicsManager from "../../src/physics/PhysicsManager";
 import { ScriptedInput } from "../support/sim";
 
 const loadDelayMs: Record<string, number> = {};

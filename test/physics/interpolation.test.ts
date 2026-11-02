@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
 import InputManager from "../../src/managers/InputManager";
-import PhysicsManager from "../../src/managers/PhysicsManager";
+import PhysicsManager from "../../src/physics/PhysicsManager";
 import { ScriptedInput } from "../support/sim";
 
 vi.mock("../../src/loaders/ModelLoader", () => ({

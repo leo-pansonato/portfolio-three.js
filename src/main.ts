@@ -7,7 +7,7 @@ import Player from "./components/Player";
 import InputManager from "./managers/InputManager";
 import LightingManager from "./managers/LightingManager";
 import PerformanceManager from "./managers/PerformanceManager";
-import PhysicsManager from "./managers/PhysicsManager";
+import PhysicsManager from "./physics/PhysicsManager";
 import UIManager from "./managers/UIManager";
 
 /** Configuração do pipeline de cor. A exposição pode ser sobrescrita com `?exposure=<n>` na URL. */

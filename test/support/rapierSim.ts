@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import Player from "../../src/components/Player";
 import InputManager from "../../src/managers/InputManager";
-import PhysicsManager from "../../src/managers/PhysicsManager";
+import PhysicsManager from "../../src/physics/PhysicsManager";
 import { ScriptedInput, SimHandle, VehicleSnapshot } from "./sim";
 
 /**

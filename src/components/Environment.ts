@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import PhysicsManager from "../managers/PhysicsManager";
+import PhysicsManager from "../physics/PhysicsManager";
 import GameComponent from "./GameComponent";
 
 /**

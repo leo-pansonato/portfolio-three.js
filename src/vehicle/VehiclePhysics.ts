@@ -1,7 +1,7 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
-import PhysicsManager from "../managers/PhysicsManager";
+import PhysicsManager from "../physics/PhysicsManager";
 import { VehicleCommands } from "./VehicleControl";
 
 /** Valores de uma roda no passo anterior, para a interpolação visual */

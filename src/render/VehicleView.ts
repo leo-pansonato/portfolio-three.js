@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Vec3, VehicleDefinition } from "../data/vehicles/types";
-import PhysicsManager from "../managers/PhysicsManager";
+import PhysicsManager from "../physics/PhysicsManager";
 import VehicleManager from "../managers/VehicleManager";
 import VehiclePhysics from "../vehicle/VehiclePhysics";
 
