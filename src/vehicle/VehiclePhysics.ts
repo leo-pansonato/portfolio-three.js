@@ -59,6 +59,9 @@ export default class VehiclePhysics {
 	private readonly brakeTorques: number[] = [];
 	/** Inércia do motor refletida em cada roda motriz (kg·m²) */
 	private drivelineInertia = 0;
+	/** Inércias do chassi em rolagem (eixo X) e arfagem (eixo Z), as da caixa uniforme do collider (kg·m²) */
+	private readonly rollInertia: number;
+	private readonly pitchInertia: number;
 	/** Comprimentos da suspensão do último passo valem para o estado atual (falso após escrever o estado do chassi) */
 	private suspensionLengthsValid = false;
 	private readonly stepInput: WheelStepInput = {
@@ -68,7 +71,8 @@ export default class VehiclePhysics {
 		driveTorque: 0,
 		brakeTorque: 0,
 		inertia: 0,
-		contactMass: 0,
+		longitudinalContactMass: 0,
+		lateralContactMass: 0,
 	};
 	private tempVector3 = new THREE.Vector3();
 	private tempVelocity = new THREE.Vector3();
@@ -104,6 +108,9 @@ export default class VehiclePhysics {
 			definition.wheels.adjustments.length,
 		);
 		this.tire = new Tire(definition.tire);
+		const half = { x: chassisSize.x / 2, y: chassisSize.y / 2, z: chassisSize.z / 2 };
+		this.rollInertia = (physicsData.mass / 3) * (half.y * half.y + half.z * half.z);
+		this.pitchInertia = (physicsData.mass / 3) * (half.x * half.x + half.y * half.y);
 		this.wheelDynamics = new WheelDynamics(this.tire, physicsData.wheelRadius);
 
 		this.chassisBody = physicsWorld.createRigidBody({
@@ -274,12 +281,20 @@ export default class VehiclePhysics {
 	/**
 	 * Pneus: velocidade do contato nos eixos da roda (frente esterçada e direita, projetadas no plano de contato),
 	 * carga da suspensão deste passo, torques de motor e freio → WheelDynamics (forças aplicadas depois).
-	 * A massa do contato é a fração da massa do chassi pela carga da roda. Roda sem contato só gira.
+	 * A massa do contato é a fração, pela carga da roda, da massa efetiva do chassi para um impulso horizontal no
+	 * chão: 1 / (1/m + h²/I), com h a altura do centro de massa sobre o contato e I a inércia de rolagem (lateral)
+	 * ou de arfagem (longitudinal). Sem isso o pneu, que em baixa velocidade zera o escorregamento no passo,
+	 * passaria do ponto (o impulso no chão também gira o chassi). Roda sem contato só gira.
 	 */
 	private updateTires(dt: number): void {
 		const chassis = this.chassisBody;
 		const rotation = chassis.getRotation(this.tempQuaternion);
 		const mass = this.definition.physics.mass;
+		const centerOfMass = this.tempVector3
+			.copy(this.definition.physics.centerOfMass)
+			.applyQuaternion(rotation)
+			.add(chassis.getPosition(this.tempPosition));
+		const up = this.tempDirection.set(0, 1, 0).applyQuaternion(rotation);
 		const wheelInertia = this.definition.physics.wheelInertia;
 		const input = this.stepInput;
 
@@ -293,7 +308,8 @@ export default class VehiclePhysics {
 			input.brakeTorque = this.brakeTorques[i];
 			input.inertia = wheelInertia + (this.driven[i] ? this.drivelineInertia : 0);
 			input.normalLoad = load;
-			input.contactMass = totalLoad > 0 ? (mass * load) / totalLoad : 0;
+			input.longitudinalContactMass = 0;
+			input.lateralContactMass = 0;
 			input.longitudinalSpeed = 0;
 			input.lateralSpeed = 0;
 
@@ -303,6 +319,13 @@ export default class VehiclePhysics {
 			}
 
 			const hit = this.hits[i];
+			const height =
+				(centerOfMass.x - hit.point.x) * up.x +
+				(centerOfMass.y - hit.point.y) * up.y +
+				(centerOfMass.z - hit.point.z) * up.z;
+			const share = load / totalLoad;
+			input.longitudinalContactMass = share / (1 / mass + (height * height) / this.pitchInertia);
+			input.lateralContactMass = share / (1 / mass + (height * height) / this.rollInertia);
 			const normal = this.tempNormal.set(hit.normal.x, hit.normal.y, hit.normal.z);
 			const steer = this.steering[i];
 			const forward = this.wheelForward[i].set(Math.cos(steer), 0, -Math.sin(steer)).applyQuaternion(rotation);

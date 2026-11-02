@@ -34,8 +34,10 @@ export interface WheelStepInput {
 	brakeTorque: number;
 	/** Inércia da roda mais a da transmissão refletida nela (kg·m²) */
 	inertia: number;
-	/** Massa do chassi que o contato acelera (kg; 0 = infinita, chão de referência) */
-	contactMass: number;
+	/** Massa efetiva do chassi no contato ao longo da frente da roda (kg; 0 = infinita, chão de referência) */
+	longitudinalContactMass: number;
+	/** Massa efetiva do chassi no contato ao longo da direita da roda (kg; 0 = infinita) */
+	lateralContactMass: number;
 }
 
 /** Iterações máximas da busca da raiz e tolerância relativa à força máxima */
@@ -68,7 +70,8 @@ export default class WheelDynamics {
 		const r = this.radius;
 		const inertia = input.inertia;
 		const load = Math.max(0, input.normalLoad);
-		const inverseMass = input.contactMass > 0 ? 1 / input.contactMass : 0;
+		const inverseMass = input.longitudinalContactMass > 0 ? 1 / input.longitudinalContactMass : 0;
+		const inverseLateralMass = input.lateralContactMass > 0 ? 1 / input.lateralContactMass : 0;
 		const vx = input.longitudinalSpeed;
 		const vy = input.lateralSpeed;
 		const lowSpeed = tire.config.lowSpeedThreshold;
@@ -84,8 +87,8 @@ export default class WheelDynamics {
 		let fx = 0;
 		let lateralAngle = angle;
 		if (load > 0) {
-			fy = this.solveLateral(ratio, vy, denominator, (dt * inverseMass) / denominator, load);
-			lateralAngle = Math.atan((vy + fy * dt * inverseMass) / denominator);
+			fy = this.solveLateral(ratio, vy, denominator, (dt * inverseLateralMass) / denominator, load);
+			lateralAngle = Math.atan((vy + fy * dt * inverseLateralMass) / denominator);
 		}
 
 		const spinCompliance = (dt * ((r * r) / inertia + inverseMass)) / denominator;

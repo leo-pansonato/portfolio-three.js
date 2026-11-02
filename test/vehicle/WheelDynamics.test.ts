@@ -24,14 +24,15 @@ function input(values: Partial<WheelStepInput>): WheelStepInput {
 		driveTorque: 0,
 		brakeTorque: 0,
 		inertia: INERTIA,
-		contactMass: 0,
+		longitudinalContactMass: 0,
+		lateralContactMass: 0,
 		...values,
 	};
 }
 
 /** Roda num quarto de carro de massa `MASS` em linha reta: o contato acelera com a força do pneu */
 function quarterCar(wheel: WheelState, values: Partial<WheelStepInput>, seconds: number, dt = DT) {
-	const step = input({ contactMass: MASS, ...values });
+	const step = input({ longitudinalContactMass: MASS, lateralContactMass: MASS, ...values });
 	const history: { v: number; omega: number; fx: number; vy: number; fy: number }[] = [];
 	for (let i = 0; i < Math.round(seconds / dt); i++) {
 		dynamics.step(wheel, step, dt);
@@ -129,7 +130,7 @@ describe("WheelDynamics — roda e pneu", () => {
 
 	it("parado com freio: continua parado, sem força nem giro", () => {
 		const wheel = createWheelState();
-		dynamics.step(wheel, input({ brakeTorque: 30, contactMass: MASS }), DT);
+		dynamics.step(wheel, input({ brakeTorque: 30, longitudinalContactMass: MASS, lateralContactMass: MASS }), DT);
 		expect(wheel.angularVelocity).toBe(0);
 		expect(Math.abs(wheel.longitudinalForce)).toBe(0);
 		expect(wheel.slipRatio).toBe(0);
