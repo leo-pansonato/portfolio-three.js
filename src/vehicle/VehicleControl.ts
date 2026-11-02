@@ -15,7 +15,10 @@ export interface VehicleCommands {
 	rearBrakeTorque: number;
 	/** Torque do freio de mão por roda traseira (N·m) */
 	handbrakeTorque: number;
-	/** Inércia do motor refletida em cada roda motriz na marcha engatada (kg·m²) */
+	/**
+	 * Inércia do motor refletida em cada roda motriz (kg·m²): só com acelerador e fora de troca de marcha;
+	 * sem acelerador a embreagem fica aberta (provisório até a embreagem/conversor da etapa 4)
+	 */
 	drivelineInertia: number;
 }
 
@@ -142,6 +145,7 @@ export default class VehicleControl {
 		this.commands.frontBrakeTorque = frontBrakeTorque;
 		this.commands.rearBrakeTorque = rearBrakeTorque;
 		this.commands.handbrakeTorque = handbrakeTorque;
-		this.commands.drivelineInertia = this.powertrain.reflectedInertia() / this.drivenWheelCount;
+		const clutchEngaged = request.throttle > 0 && this.state.shiftTimeRemaining === 0;
+		this.commands.drivelineInertia = clutchEngaged ? this.powertrain.reflectedInertia() / this.drivenWheelCount : 0;
 	}
 }

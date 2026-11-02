@@ -134,6 +134,18 @@ describe("VehicleControl — motor e freio", () => {
 		expect(handbrake.frontBrakeTorque).toBe(0);
 		expect(handbrake.rearBrakeTorque).toBe(0);
 	});
+
+	it("inércia do motor refletida nas rodas motrizes só com acelerador e fora de troca", () => {
+		const state = createVehicleState(POWERTRAIN.idleRpm);
+		const control = new VehicleControl(DEFINITION, state);
+		const reflected = control.powertrain.reflectedInertia() / 2;
+
+		expect(control.step(inputOf({ throttle: 1 }), 5, DT).drivelineInertia).toBeCloseTo(reflected, 9);
+		expect(control.step(inputOf({ brake: 1 }), 5, DT).drivelineInertia).toBe(0);
+		expect(control.step(createInputFrame(), 5, DT).drivelineInertia).toBe(0);
+		state.shiftTimeRemaining = 0.05;
+		expect(control.step(inputOf({ throttle: 1 }), 5, DT).drivelineInertia).toBe(0);
+	});
 });
 
 describe("VehicleControl — estado por instância", () => {
