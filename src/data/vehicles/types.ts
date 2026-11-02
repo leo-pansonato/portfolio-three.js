@@ -69,6 +69,31 @@ export interface VehicleSuspensionConfig {
 	antiRollStiffness: { front: number; rear: number };
 }
 
+/**
+ * Curva de Pacejka simplificada: F = D·sin(C·atan(B·x − E·(B·x − atan(B·x)))), com D = μ·Fz.
+ * x é o escorregamento longitudinal (adimensional) ou o ângulo de deriva (rad), conforme a curva.
+ */
+export interface PacejkaCurve {
+	/** B: rigidez (1/unidade de x) */
+	stiffness: number;
+	/** C: forma (adimensional, 1–2); a força com escorregamento grande tende a D·sin(C·π/2) */
+	shape: number;
+	/** μ: atrito de pico (adimensional), D = μ·Fz */
+	peakFriction: number;
+	/** E: curvatura (adimensional, ≤ 1) */
+	curvature: number;
+}
+
+/** Pneu (ADR-0003, etapa 3): curvas longitudinal e lateral, atrito combinado por escorregamento normalizado */
+export interface VehicleTireConfig {
+	/** x = escorregamento longitudinal (ω·r − vx) / |vx| */
+	longitudinal: PacejkaCurve;
+	/** x = ângulo de deriva (rad) */
+	lateral: PacejkaCurve;
+	/** Velocidade mínima no denominador do escorregamento (m/s): evita a singularidade parado */
+	lowSpeedThreshold: number;
+}
+
 export type TractionDisplacement = "rear" | "front" | "all";
 
 /** Ponto da curva de torque a plena carga */
@@ -155,6 +180,7 @@ export interface VehicleDefinition {
 	};
 	physics: VehiclePhysicsConfig;
 	suspension: VehicleSuspensionConfig;
+	tire: VehicleTireConfig;
 	powertrain: VehiclePowertrainConfig;
 	aerodynamics: VehicleAerodynamicsConfig;
 	cameraSettings: Record<CameraMode, CameraConfig>;

@@ -31,6 +31,11 @@ export const mercedesG63: VehicleDefinition = {
 		bumpStopStiffness: 1e7,
 		antiRollStiffness: { front: 30000, rear: 15000 },
 	},
+	tire: {
+		longitudinal: { stiffness: 20, shape: 1.3, peakFriction: 0.95, curvature: 0 },
+		lateral: { stiffness: 15, shape: 1.3, peakFriction: 0.9, curvature: 0 },
+		lowSpeedThreshold: 1,
+	},
 	powertrain: {
 		torqueCurve: [
 			{ rpm: 650, torque: 450 },

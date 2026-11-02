@@ -31,6 +31,11 @@ export const bmwF82: VehicleDefinition = {
 		bumpStopStiffness: 1e7,
 		antiRollStiffness: { front: 25000, rear: 12000 },
 	},
+	tire: {
+		longitudinal: { stiffness: 24, shape: 1.3, peakFriction: 1.15, curvature: 0 },
+		lateral: { stiffness: 19, shape: 1.3, peakFriction: 1.05, curvature: 0 },
+		lowSpeedThreshold: 1,
+	},
 	powertrain: {
 		torqueCurve: [
 			{ rpm: 750, torque: 320 },
