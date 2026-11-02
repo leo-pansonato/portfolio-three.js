@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
-import { PhysicsBody, PhysicsWorld, RaycastVehicle } from "../physics/PhysicsWorld";
+import { PhysicsBody, PhysicsWorld, QuatLike, RaycastVehicle, Vec3Like } from "../physics/PhysicsWorld";
 import { VehicleCommands } from "./VehicleControl";
 import { createVehicleTelemetry, createWheelTelemetry, STANDARD_GRAVITY, VehicleTelemetry } from "./VehicleTelemetry";
 
@@ -12,6 +12,14 @@ export interface WheelStepState {
 	previousSteering: number;
 	/** Giro acumulado (rad) */
 	previousRotation: number;
+}
+
+/** Estado dinâmico do chassi no mundo (m, m/s, rad/s) */
+export interface ChassisState {
+	position: Vec3Like;
+	rotation: QuatLike;
+	linearVelocity: Vec3Like;
+	angularVelocity: Vec3Like;
 }
 
 /**
@@ -226,6 +234,29 @@ export default class VehiclePhysics {
 		this.chassisBody.setRotation({ x: 0, y: 0, z: 0, w: 1 });
 		this.chassisBody.setLinearVelocity({ x: 0, y: 0, z: 0 });
 		this.chassisBody.setAngularVelocity({ x: 0, y: 0, z: 0 });
+		this.physicsWorld.resetInterpolation(this.chassisBody);
+		this.hasPreviousVelocity = false;
+	}
+
+	captureChassisState<T extends ChassisState>(out: T): T {
+		this.chassisBody.getPosition(out.position);
+		this.chassisBody.getRotation(out.rotation);
+		this.chassisBody.getLinearVelocity(out.linearVelocity);
+		this.chassisBody.getAngularVelocity(out.angularVelocity);
+		return out;
+	}
+
+	/** Escreve o estado no chassi; o motor pode normalizar a rotação, então aplicar o mesmo estado dá o mesmo resultado */
+	applyChassisState(state: Readonly<ChassisState>): void {
+		this.chassisBody.setPosition(state.position);
+		this.chassisBody.setRotation(state.rotation);
+		this.chassisBody.setLinearVelocity(state.linearVelocity);
+		this.chassisBody.setAngularVelocity(state.angularVelocity);
+	}
+
+	/** Teleporta o chassi para o estado dado, sem interpolar a partir da pose anterior */
+	restoreChassisState(state: Readonly<ChassisState>): void {
+		this.applyChassisState(state);
 		this.physicsWorld.resetInterpolation(this.chassisBody);
 		this.hasPreviousVelocity = false;
 	}

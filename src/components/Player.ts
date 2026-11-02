@@ -2,6 +2,9 @@ import * as THREE from "three";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
 import { InputFrame } from "../input/InputFrame";
+import { Replay, ReplayInitialState } from "../replay/Replay";
+import ReplayPlayback from "../replay/ReplayPlayback";
+import ReplayRecorder from "../replay/ReplayRecorder";
 import VehicleView from "../render/VehicleView";
 import VehicleControl from "../vehicle/VehicleControl";
 import VehiclePhysics from "../vehicle/VehiclePhysics";
@@ -25,6 +28,9 @@ export default class Player extends Entity {
 	private readonly view: VehicleView;
 
 	public declare mesh: THREE.Object3D;
+
+	private recorder: ReplayRecorder | null = null;
+	private playback: ReplayPlayback | null = null;
 
 	// Callback para atualização do veículo no step da física
 	private physicsPreStepCallback: ((dt: number) => void) | null = null;
@@ -57,7 +63,9 @@ export default class Player extends Entity {
 		this.physicsPreStepCallback = (dt: number) => {
 			this.physics.updateTelemetry(dt);
 			this.physics.savePreviousWheelStates();
-			this.updateControl(dt);
+			const input = this.nextStepInput();
+			this.recorder?.record(input);
+			this.updateControl(input, dt);
 			this.physics.updateVehicle(dt);
 		};
 		this.physicsManager.addPreStepCallback(this.physicsPreStepCallback);
@@ -74,9 +82,17 @@ export default class Player extends Entity {
 	/**
 	 * Controle do veículo a cada passo de física (dt fixo, s)
 	 */
-	private updateControl(dt: number): void {
-		const commands = this.control.step(this.input, this.physics.forwardSpeed(), dt);
+	private updateControl(input: Readonly<InputFrame>, dt: number): void {
+		const commands = this.control.step(input, this.physics.forwardSpeed(), dt);
 		this.physics.applyCommands(commands, dt);
+	}
+
+	private nextStepInput(): Readonly<InputFrame> {
+		if (this.playback) {
+			if (this.playback.advance()) return this.playback.frame;
+			this.playback = null;
+		}
+		return this.input;
 	}
 
 	/**
@@ -90,6 +106,7 @@ export default class Player extends Entity {
 	 * Remove o controle do pré-passo e os objetos do veículo atual do mundo físico
 	 */
 	private cleanupCurrentVehicle(): void {
+		this.cancelReplay();
 		if (this.physicsPreStepCallback) {
 			this.physicsManager.removePreStepCallback(this.physicsPreStepCallback);
 			this.physicsPreStepCallback = null;
@@ -114,7 +131,68 @@ export default class Player extends Entity {
 	}
 
 	resetCar(): void {
+		this.cancelReplay();
 		this.physics.reset();
+	}
+
+	/**
+	 * Começa a gravar o InputFrame de cada passo a partir do estado atual.
+	 * Reset ou troca de veículo descartam a gravação.
+	 */
+	startRecording(capacity?: number): void {
+		const initial: ReplayInitialState = {
+			vehicleId: this.currentVehicleId,
+			position: { x: 0, y: 0, z: 0 },
+			rotation: { x: 0, y: 0, z: 0, w: 1 },
+			linearVelocity: { x: 0, y: 0, z: 0 },
+			angularVelocity: { x: 0, y: 0, z: 0 },
+			steeringAngle: this.state.steeringAngle,
+		};
+		this.physics.captureChassisState(initial);
+		this.physics.applyChassisState(initial);
+		this.recorder = new ReplayRecorder(capacity);
+		this.recorder.start(initial, this.physicsManager.fixedTimeStep);
+	}
+
+	stopRecording(): Replay | null {
+		const replay = this.recorder?.stop() ?? null;
+		this.recorder = null;
+		return replay;
+	}
+
+	/**
+	 * Restaura o estado inicial do replay (trocando de veículo se preciso) e
+	 * passa a usar os inputs gravados, um por passo, até o fim
+	 */
+	playReplay(replay: Replay): void {
+		if (replay.fixedTimeStep !== this.physicsManager.fixedTimeStep) {
+			throw new Error(`Replay gravado com passo ${replay.fixedTimeStep} s; o mundo usa ${this.physicsManager.fixedTimeStep} s`);
+		}
+		if (replay.initial.vehicleId !== this.currentVehicleId) {
+			if (this.changeVehicle(replay.initial.vehicleId) === false) return;
+		}
+		this.cancelReplay();
+		this.physics.restoreChassisState(replay.initial);
+		this.state.steeringAngle = replay.initial.steeringAngle;
+		this.playback = new ReplayPlayback(replay);
+	}
+
+	private cancelReplay(): void {
+		this.recorder = null;
+		this.playback = null;
+	}
+
+	get isRecording(): boolean {
+		return this.recorder !== null;
+	}
+
+	get isReplaying(): boolean {
+		return this.playback !== null;
+	}
+
+	/** Passos gravados até agora */
+	get recordedSteps(): number {
+		return this.recorder?.stepCount ?? 0;
 	}
 
 	override getPosition(): THREE.Vector3 {
