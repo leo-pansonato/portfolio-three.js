@@ -16,6 +16,7 @@ export const mercedesG63: VehicleDefinition = {
 	physics: {
 		mass: 2500,
 		size: { x: 4.6, y: 1.2, z: 1.8 },
+		centerOfMass: { x: 0, y: -0.28, z: 0 },
 		wheelRadius: 0.38,
 		wheelInertia: 2.3,
 		suspensionRestLength: 0.8,

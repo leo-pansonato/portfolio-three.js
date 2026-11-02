@@ -33,6 +33,8 @@ export interface VehiclePhysicsConfig {
 	mass: number;
 	/** Collider do chassi (m): x comprimento (frente +X), y altura, z largura */
 	size: Vec3;
+	/** Centro de massa em relação ao centro do collider do chassi (m, eixos locais) */
+	centerOfMass: Vec3;
 	/** Raio das rodas (m) */
 	wheelRadius: number;
 	/** Inércia de cada roda com pneu, disco e cubo, em torno do eixo (kg·m²) */

@@ -125,6 +125,7 @@ export default class VehiclePhysics {
 				friction: 0.5,
 				restitution: 0.1,
 				density: physicsData.mass / (chassisSize.x * chassisSize.y * chassisSize.z),
+				centerOfMass: physicsData.centerOfMass,
 			},
 			this.chassisBody,
 		);

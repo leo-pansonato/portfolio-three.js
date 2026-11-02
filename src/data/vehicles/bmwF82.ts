@@ -16,6 +16,7 @@ export const bmwF82: VehicleDefinition = {
 	physics: {
 		mass: 1550,
 		size: { x: 4.6, y: 1.2, z: 1.8 },
+		centerOfMass: { x: 0, y: -0.27, z: 0 },
 		wheelRadius: 0.33,
 		wheelInertia: 1.3,
 		suspensionRestLength: 0.52,
