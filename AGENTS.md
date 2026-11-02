@@ -25,7 +25,7 @@ Os papéis existem porque há trabalho real em cada área. Não crie novos sem u
 | Papel | Onde | Escopo de arquivos (hoje → alvo) | Não pode |
 |---|---|---|---|
 | **Coordenador** | sessão principal | todos; dono exclusivo de `main.ts`, `package.json`, `tsconfig.json`, docs raiz e ADRs | delegar decisões de arquitetura |
-| **physics-vehicle** | `.claude/agents/physics-vehicle.md` | `PhysicsManager.ts`, `src/vehicle/*` (`VehicleControl`, `VehiclePhysics`, `VehicleState`), `src/data/vehicles/*`, `Environment.ts` (colisores), `test/physics/`, `test/vehicle/`, `test/support/` → `src/physics/` | tocar renderização, câmera, UI |
+| **physics-vehicle** | `.claude/agents/physics-vehicle.md` | `src/physics/*` (`PhysicsWorld`, `RapierPhysicsWorld`), `src/vehicle/*` (`VehicleControl`, `VehiclePhysics`, `VehicleState`), `src/data/vehicles/*`, `Environment.ts` (colisores), `test/physics/`, `test/vehicle/`, `test/support/` | tocar renderização, câmera, UI |
 | **rendering** | `.claude/agents/rendering.md` | `LightingManager.ts`, parte visual de `Environment.ts`, materiais, `ModelLoader.ts`, `VehicleManager.ts` (carregamento), `src/render/*` (inclui `VehicleView`) → `src/world/` (visual) | alterar física ou ordem do loop |
 | **architecture-reviewer** | `.claude/agents/architecture-reviewer.md` | somente leitura | editar arquivos |
 | **Agente de propósito geral** | `general-purpose` com escopo definido | input/câmera/UI (`InputManager.ts`, `CameraController.ts`, `UIManager.ts`), testes, tooling | sair do escopo dado |

@@ -109,7 +109,7 @@ flowchart LR
 
 ### [x] P1-1 — Loop com passo fixo e interpolação
 
-- **Resultado:** volante e forças no pré-passo com o input mais recente (30/60/144 FPS iguais, teste); freio em N convertido por `dt` (frenagem igual a 1/60 e 1/120 s, teste); interpolação de chassi e rodas pelo `alpha` do acumulador, câmera na pose interpolada. Passo mantido em 1/60 s (ARCHITECTURE §3.1). Não foi criado `core/GameLoop`: a ordem continua em `Game.gameLoop` + `PhysicsManager.update`.
+- **Resultado:** volante e forças no pré-passo com o input mais recente (30/60/144 FPS iguais, teste); freio em N convertido por `dt` (frenagem igual a 1/60 e 1/120 s, teste); interpolação de chassi e rodas pelo `alpha` do acumulador, câmera na pose interpolada. Passo mantido em 1/60 s (ARCHITECTURE §3.1). Não foi criado `core/GameLoop`: a ordem continua em `Game.gameLoop` + `PhysicsManager.update` (hoje `RapierPhysicsWorld.update`).
 
 - **Entregas:** `core/GameLoop`: input amostrado por passo; ordem explícita (input → N passos de simulação → interpolação → câmera → render); estado anterior/atual para interpolação visual.
 - **Dependências:** P0-6.
@@ -117,14 +117,16 @@ flowchart LR
 
 ### [x] P1-2 — Decompor `Player`
 
-- **Resultado:** catálogo congelado em `src/data/vehicles` (`VehicleDefinition`) e `VehicleState` por instância; `vehicle/VehicleControl` (input → comandos, sem THREE, testes unitários), `vehicle/VehiclePhysics` (chassi + controlador Rapier, THREE só para matemática), `render/VehicleView` (meshes, interpolação, carregamento e liberação na GPU). `Player` (~150 linhas) só orquestra; linha de base `rapier.json` inalterada. Restam: `Player` lê o `InputManager` (P1-4) e `VehiclePhysics` importa o Rapier (P1-3).
+- **Resultado:** catálogo congelado em `src/data/vehicles` (`VehicleDefinition`) e `VehicleState` por instância; `vehicle/VehicleControl` (input → comandos, sem THREE, testes unitários), `vehicle/VehiclePhysics` (chassi + controlador Rapier, THREE só para matemática), `render/VehicleView` (meshes, interpolação, carregamento e liberação na GPU). `Player` (~150 linhas) só orquestra; linha de base `rapier.json` inalterada. Restam: `Player` lê o `InputManager` (P1-4) e `VehiclePhysics` importa o Rapier (P1-3, concluído).
 
 - **Entregas:** `VehicleDefinition` (dados imutáveis) separada de `VehicleState`; `VehicleControl` (input → comandos, volante), `VehiclePhysics` (adaptador do veículo), `VehicleView` (meshes e sincronização), carregamento de assets fora do `Player`. Catálogo movido para `src/data/vehicles`.
 - **Dependências:** P1-1.
 - **Conclusão:** nenhum módulo de simulação importa `three` para renderização (só matemática, se necessário); cenários de referência inalterados; `Player.ts` deixa de ser ponto de conflito.
 - **Esforço:** L.
 
-### [ ] P1-3 — Interface `PhysicsWorld`
+### [x] P1-3 — Interface `PhysicsWorld`
+
+- **Resultado:** `src/physics/PhysicsWorld.ts` (contrato) e `RapierPhysicsWorld` com `RapierBody`/`RapierVehicle`/`PhysicsDebugRenderer`; `PhysicsManager` absorvido. `grep @dimforge` só acha `src/physics/`. Linha de base idêntica (tolerância zero). Fora da interface por falta de uso: `castShape`, filtros de colisão, força/impulso em ponto, snapshot.
 
 - **Entregas:** interface estreita (ARCHITECTURE §5) e adaptador Rapier; só o adaptador importa o motor.
 - **Conclusão:** `grep` por `@dimforge` encontra apenas `src/physics/`.

@@ -16,7 +16,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Próximos itens (ordem)
 
-1. Integrar P1-2; P1-3 `PhysicsWorld`, P1-4 input desacoplado, P1-5 ciclo de vida (texturas, cache do ModelLoader, CSM em materiais carregados).
+1. Integrar P1-3 (branch `refact/physics-world`); P1-4 input desacoplado, P1-5 ciclo de vida (texturas, cache do ModelLoader, CSM em materiais carregados).
 2. P1-6 telemetria/replay, P1-7 lint.
 3. P2: dinâmica própria (P2-1: arrasto, câmbio, pneu, CG baixo), renderização (P2-4), câmeras (P2-5), mundo (P2-3).
 
@@ -33,7 +33,8 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 - `RigidBody.linvel()` do chassi apoiado no controlador Rapier ≈ g·dt em repouso; medir movimento por deslocamento.
 - O controlador Rapier recebe freio como impulso por passo; `configs.brakeForce`/`eBrakeForce`/`rollingResistance` estão em N e o `Player` multiplica por `dt`.
-- Controle do veículo roda no pré-passo (`Player.updateControl` → `VehicleControl.step` → `VehiclePhysics.applyCommands`); `Player.update` só chama `VehicleView.update`. Meshes ficam até 1 passo atrás (interpolação); `PhysicsManager.resetInterpolation` após teleporte.
+- Controle do veículo roda no pré-passo (`Player.updateControl` → `VehicleControl.step` → `VehiclePhysics.applyCommands`); `Player.update` só chama `VehicleView.update`. Meshes ficam até 1 passo atrás (interpolação); `PhysicsWorld.resetInterpolation` após teleporte.
+- Física: só `src/physics/` importa a Rapier; código novo usa `PhysicsWorld` (`physics/PhysicsWorld.ts`) e só `main.ts`/testes criam `RapierPhysicsWorld`. Leituras de `PhysicsBody` escrevem em `out`.
 - Passo de 1/120 s avaliado e não adotado: curva do G63 −3% de velocidade/+3,5% de guinada, resto < 1% (ARCHITECTURE §3.1).
 - `linearDamping` do chassi afeta muito a aceleração (0,2 → −35%).
 - Rigidez/amortecimento da suspensão do controlador são por unidade de massa do chassi (modelo Bullet).

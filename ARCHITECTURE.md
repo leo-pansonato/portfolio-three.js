@@ -22,7 +22,7 @@ Tamanho: ~3,2 mil linhas de TypeScript em 24 arquivos de jogo. Testes: Vitest em
 flowchart TD
     main["main.ts — Game"]
     subgraph managers
-        PM["PhysicsManager<br/>(Rapier World)"]
+        PM["PhysicsWorld<br/>(RapierPhysicsWorld)"]
         IM["InputManager"]
         LM["LightingManager<br/>(CSM)"]
         UI["UIManager<br/>(DOM)"]
@@ -81,21 +81,24 @@ Consequências:
 
 - Input entra no primeiro passo do quadro (sem quadro de latência); o mesmo roteiro dá a mesma sequência de passos a 30, 60 e 144 FPS (teste em `vehicle-reference.test.ts`).
 - O visual fica até 1 passo (16,7 ms) atrás da física, em troca de movimento uniforme a qualquer taxa de quadros.
-- A ordem ainda está espalhada entre `Game.gameLoop`, `PhysicsManager.update` e a ordem de `components`; não há módulo `GameLoop` dedicado.
+- A ordem ainda está espalhada entre `Game.gameLoop`, `RapierPhysicsWorld.update` e a ordem de `components`; não há módulo `GameLoop` dedicado.
 
-Inicialização assíncrona: `Game.initialize()` aguarda `PhysicsManager.create()` (`RAPIER.init()`, WASM).
+Inicialização assíncrona: `Game.initialize()` aguarda `RapierPhysicsWorld.create()` (`RAPIER.init()`, WASM).
 
 ## 3. Subsistemas
 
-### 3.1 Física — `src/managers/PhysicsManager.ts` [Implementado]
+### 3.1 Física — `src/physics/` [Implementado]
 
-- `RAPIER.World` (`@dimforge/rapier3d-compat` 0.19.3, WASM embutido no bundle), gravidade −9,82, criado por `PhysicsManager.create()` (assíncrono).
-- Passo fixo por acumulador (`world.timestep` igual), 1/60 s por padrão, configurável em `PhysicsManager.create(scene, fixedTimeStep)`; *pre-step callbacks* para lógica que precisa rodar a cada passo.
+- Contrato `PhysicsWorld` (`physics/PhysicsWorld.ts`): `PhysicsBody` (pose, velocidades, leituras em `out`), `RaycastVehicle` (rodas, esterço, motor, freio, leituras por roda), criação/remoção de corpos, colisores e controladores, pré-passo, `update` em passo fixo, interpolação, `castRay` (distância ou null), `countObjects`. SI e eixos do ADR-0002 documentados nos tipos.
+- Adaptador `RapierPhysicsWorld` (+ `RapierBody`, `RapierVehicle`, `PhysicsDebugRenderer`): único lugar que importa `@dimforge/rapier3d-compat`. `main.ts` e os testes criam o adaptador; `VehiclePhysics`, `Environment`, `VehicleView`, `Player` e o harness só conhecem a interface.
+
+- `RAPIER.World` (`@dimforge/rapier3d-compat` 0.19.3, WASM embutido no bundle), gravidade −9,82, criado por `RapierPhysicsWorld.create()` (assíncrono).
+- Passo fixo por acumulador (`world.timestep` igual), 1/60 s por padrão, configurável em `RapierPhysicsWorld.create(scene, fixedTimeStep)`; *pre-step callbacks* para lógica que precisa rodar a cada passo.
 - Interpolação: pose anterior/atual por entidade (`addEntity`), `getInterpolationAlpha()`, `getInterpolatedPose()`; `resetInterpolation()` após teleporte.
 - Passo mantido em 1/60 s (avaliado 1/120 e 1/240 s): frenagem, aceleração e aceleração lateral mudam < 1%; a curva do G63 troca velocidade por guinada (~3% por halving do passo, sem convergir até 1/240 s) e o repouso baixa 3–4 mm. Custo da física desprezível nos dois casos (~6 vs ~9 µs por quadro em Node). Reavaliar no P2-1.
 - Criação tipada: `createRigidBody(RigidBodyConfig)`, `createCollider(ColliderConfig)`, `createGroundCollider`; `castRay`.
-- Lista `entities` (corpo + mesh) para sincronização visual; `removeEntity` remove o corpo do mundo.
-- `PhysicsDebugRenderer`: `world.debugRender()` em `LineSegments` no modo dev (aloca buffers a cada quadro; só em dev).
+- Lista `entities` (corpo + alvo `PoseTarget`) para sincronização visual; `removeRigidBody` remove o corpo (e colisores) do mundo e do registro.
+- `PhysicsDebugRenderer`: `world.debugRender()` em `LineSegments` no modo dev (aloca buffers a cada quadro; só em dev). Ligado pelo próprio adaptador via `devMode`; não faz parte da interface.
 - Atenção: `RigidBody.linvel()` do chassi apoiado no controlador de veículo não é zero em repouso (~g·dt); meça movimento por deslocamento.
 
 Unidades e eixos ([ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md)): **SI**, 1 unidade = 1 m; mundo com +Y para cima. Modelos em escala 1, chassi 4,6 × 1,2 × 1,8 m, massas 1.550 kg (BMW) e 2.500 kg (G63); o HUD mostra km/h reais. A plataforma de 200 m do `Environment` é pequena para essas velocidades (o harness usa um chão de 1 km).
@@ -115,8 +118,8 @@ Limitações:
 - Eixos locais do chassi: frente +X, cima +Y, direita +Z (`VehiclePhysics.LOCAL_FORWARD` etc.); ângulo de esterço positivo vira à esquerda.
 - Índices de roda fixos (0/1 dianteiras esquerda/direita, 2/3 traseiras; ímpares espelhadas) sem tipo que os represente.
 - Recursos GPU: trocar de veículo libera geometrias e materiais; texturas e o cache do `ModelLoader` não são liberados (P1-5).
-- O mesh de *placeholder* continua registrado no `PhysicsManager` depois que o modelo real é carregado.
-- `Player` ainda lê o `InputManager` diretamente (P1-4) e `VehiclePhysics` importa o Rapier (P1-3).
+- O mesh de *placeholder* continua registrado no `PhysicsWorld` depois que o modelo real é carregado.
+- `Player` ainda lê o `InputManager` diretamente (P1-4).
 
 Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento (rigidez e amortecimento por kg de chassi), atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`), freio configurado em N e convertido no impulso por passo que o controlador espera (`força × dt`); unidades em `VehiclePhysicsConfig` e no ADR-0002. Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
 
@@ -156,7 +159,7 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 ### 3.8 Testes — `test/` [Implementado]
 
 - `test/support/sim.ts`: contrato `SimHandle` (quadro, snapshot) e `ScriptedInput`, que substitui o `InputManager` (API binária e analógica).
-- `test/support/rapierSim.ts`: `PhysicsManager` + `Player` reais sobre um plano, mesma ordem do `Game.gameLoop`; `ModelLoader` é mockado no teste.
+- `test/support/rapierSim.ts`: `RapierPhysicsWorld` (usado como `PhysicsWorld`) + `Player` reais sobre um plano, mesma ordem do `Game.gameLoop`; `ModelLoader` é mockado no teste.
 - `test/support/scenarios.ts`: repouso, aceleração, frenagem, curva, 0–100 km/h, frenagem de 100 km/h; métricas puras sobre snapshots. O chão do harness tem 1 km.
 - `test/support/baseline.ts` + `test/baselines/rapier.json`: comparação com tolerância (2% relativo, 0,01 absoluto); `UPDATE_BASELINE=1` regrava.
 - `test/baselines/cannon-master.json`: medições da implementação anterior (cannon-es), mantidas como referência histórica; não usadas nos testes.
@@ -223,7 +226,7 @@ Contratos-chave (a definir no P1, ver ROADMAP):
 - `SimulationSnapshot` legível pela apresentação: transformações atual e anterior para interpolação, telemetria por roda.
 - Unidades SI (metro, quilograma, segundo, radiano, newton) e convenção de eixos única, documentadas no código.
 
-Estado da migração: **[Implementado]** `data/vehicles` (`VehicleDefinition`), `vehicle/VehicleState`, `vehicle/VehicleControl` (recebe `DriverInput`, precursor do `InputFrame`), `vehicle/VehiclePhysics` (ainda sobre o controlador Rapier, sem `PhysicsWorld`) e `render/VehicleView`. O resto continua **[Planejado]**.
+Estado da migração: **[Implementado]** `data/vehicles` (`VehicleDefinition`), `vehicle/VehicleState`, `vehicle/VehicleControl` (recebe `DriverInput`, precursor do `InputFrame`), `vehicle/VehiclePhysics` (sobre `PhysicsWorld`; o controlador ainda é o *raycast* da Rapier), `physics/PhysicsWorld` + `RapierPhysicsWorld` e `render/VehicleView`. Ainda não há `castShape` com filtro, força/impulso em ponto nem snapshot. O resto continua **[Planejado]**.
 
 Organização de diretórios proposta (por domínio, não por “manager/component”): `src/core`, `src/physics`, `src/vehicle`, `src/world`, `src/render`, `src/camera`, `src/input`, `src/ui`, `src/data`, `src/debug`. A migração deve ser incremental — mover um subsistema por vez, sem reescrever o que já funciona.
 
