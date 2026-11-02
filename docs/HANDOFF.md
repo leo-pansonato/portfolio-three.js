@@ -5,17 +5,17 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 ## Estado (2026-11-02)
 
 - `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI) e P2-7 e P2-9 concluídos.
-- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 166 testes (cenários, trem de força, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
+- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 193 testes (cenários, trem de força acoplado, diferenciais, freio-motor, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
 ## Em andamento
 
-- P2-1 etapas 1 e 2 integradas; etapa 3 (pneu e roda próprios, controlador Rapier removido) integrada (6093be9); próxima: etapa 4 (diferencial, embreagem/conversor, freio-motor). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
+- P2-1 concluído: etapa 4 (trem de força acoplado: motor com rotação própria, embreagem/conversor, diferenciais com bloqueio, freio-motor) na branch do worktree, a integrar. P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
 
-1. P2-1 etapa 4 (diferencial central 40/60 com bloqueio no G63, embreagem/conversor, freio-motor), depois P2-2 (controle de tração e ESC: o BMW roda com acelerador pleno em curva).
+1. P2-2 (controle de tração e ESC): o BMW roda com acelerador pleno em curva e patina a traseira na arrancada; o G63 patina as quatro.
 2. P2-5 câmeras (perseguição com inércia), P2-3 mundo (heightfield, superfícies), P2-4 renderização (pós, reflexos), P2-8 áudio.
 3. Pendências menores: `Game.dispose()` chamando `environment/lightingManager/physicsManager/renderer.dispose`; placeholder do chassi ainda registrado no `PhysicsWorld`; `clearCache()` nunca chamado.
 
@@ -25,10 +25,10 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - Medir `renderer.info` com a janela oculta: o rAF para; servir uma cópia temporária do `index.html` que troca `requestAnimationFrame` por `setTimeout` e captura o renderer em `Scene.prototype.onBeforeRender`.
 
 
-- G63 0–100 em 5,87 s (real 4,5): dianteiras patinam com diferenciais abertos e levam o motor ao corte; resolver com o diferencial da etapa 4, não com tuning.
+- G63 0–100 em 4,35 s e BMW 4,40 s, sem controle de tração; μx do G63 voltou a 0,95 na etapa 4 (o 1,0 compensava os diferenciais abertos).
 - Sem controle de tração: BMW roda com acelerador pleno em curva fechada e patina na 2ª (P2-2).
 - Pneu sem estado de deformação: parado em rampa deve deslizar ~g·sinθ·dt por passo, mesmo freado (não medido, sem cenário de rampa).
-- Sem freio-motor; `linearDamping` 0,01 do chassi agora redundante com o arrasto (removê-lo muda a linha de base).
+- `linearDamping` 0,01 do chassi redundante com o arrasto (removê-lo muda a linha de base). Ponto morto existe no estado, mas o jogador não o seleciona.
 - Sem massa não suspensa nem sensibilidade do pneu à carga; reação da suspensão e do pneu não vai ao corpo atingido.
 - CSM `maxFar 50` e intensidade das luzes não revistos para escala real/AgX.
 - Pasta `.claude/worktrees/` pode sobrar no disco (ignorada pelo Git).
@@ -45,8 +45,10 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - Suspensão própria (`vehicle/Suspension`) em N/m e N·s/m; pneu e roda próprios (`vehicle/Tire`, `vehicle/WheelDynamics`); não há mais controlador Rapier.
 - As forças das quatro rodas são calculadas no mesmo estado do chassi e aplicadas depois (aplicar uma a uma criava assimetria e o carro desviava em reta).
 - A massa do contato no pneu inclui a rolagem/arfagem do chassi (1/(1/m + h²/I)); com só a massa pela carga, o pneu lateral passava do ponto parado.
-- Embreagem provisória: a inércia do motor só entra nas rodas com acelerador e fora de troca (senão consumia o freio traseiro em 1ª).
-- Ao escrever o estado do chassi, as rodas são sincronizadas com a velocidade do chassi no ponto de fixação (replay bit a bit).
+- Rotação do motor é estado do `Driveline` (física); `VehicleState.engineRpm` é cópia lida pelo controle no início do passo (`VehicleControl.step(..., engineRpm)`).
+- Trem de força: rodas motrizes linearizadas (dω/dT da `WheelDynamics`), diferenciais em forma fechada, motor + embreagem por falsa posição, até 4 iterações de Newton; sem subpassos. Na troca, embreagem e conversor reacoplam ao longo de `shiftTime` e o acelerador é proporcional ao erro de rotação (liga-desliga oscilava).
+- Conversor do G63 desacopla parado sem acelerador (sem *creep*); a embreagem do BMW fecha pela rotação do motor na arrancada.
+- Ao escrever o estado do chassi, as rodas são sincronizadas com a velocidade do chassi no ponto de fixação e o motor com a rotação da marcha do estado (`gear` de `ReplayInitialState`); o ponto de partida das iterações do trem de força é zerado (replay bit a bit).
 - Rolagem em teste: medir pelo +Z local contra o plano horizontal (`2(qw·qx − qy·qz)`); a fórmula antiga variava com o rumo.
 - A Rapier integra em 4 subpassos: `linvel()` ao fim do passo difere da velocidade média em g·dt·3/8; por isso a suspensão mede a velocidade de compressão pela variação de comprimento (e pela velocidade do corpo só no passo seguinte a uma escrita de estado).
 - Consultas de raio veem os colisores do fim do último passo (o broad phase só atualiza no `step`).

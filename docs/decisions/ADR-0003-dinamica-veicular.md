@@ -1,6 +1,6 @@
 # ADR-0003 — Dinâmica veicular própria, em etapas
 
-- **Status:** Aceita (2026-11-02)
+- **Status:** Aceita (2026-11-02); implementada (etapas 1 a 4, 2026-11-02)
 - **Data:** 2026-11-02
 - **Escopo:** como substituir o `DynamicRayCastVehicleController` da Rapier por um modelo de veículo próprio sobre o corpo rígido (ROADMAP P2-1).
 
@@ -182,11 +182,65 @@ Limitações:
 - A roda livre fica um passo atrás do chassi, porque cada roda é resolvida sem ver a aceleração vinda das outras. Na telemetria isso aparece como escorregamento de −a·dt/v no início do passo; a força média está certa.
 - Custo: ~60% a mais por passo (a busca de raiz roda até 3 vezes por roda). Ainda muito abaixo do orçamento (P3-1).
 
+## Etapa 4 — implementada
+
+Trem de força acoplado às rodas (`vehicle/Driveline`, `vehicle/Engine`, `vehicle/TorqueConverter`); o que a etapa 3 deixou como provisório (torque igual por roda motriz, inércia do motor refletida J·G²·η/n, embreagem fechada só com acelerador) saiu.
+
+- **Motor** (`Engine`, sem estado): torque líquido = a·Tplena·multiplicador − (1 − a)·Tarrasto, com a o acelerador efetivo. Arrasto (freio-motor) linear entre a lenta e o corte (`powertrain.friction`). Controle de lenta: acelerador todo na lenta, nenhum 20 rpm acima. Corte de giro: o acelerador efetivo cai a zero nos últimos 200 rpm (no corte só arrasta).
+- **Rotação do motor é estado próprio** (`Driveline.engineSpeed`, rad/s), com a inércia `engineInertia`; o `VehicleState.engineRpm` passou a ser cópia lida no início do passo. A embreagem é atrito de Coulomb: trava se o torque que iguala motor e entrada do câmbio no fim do passo couber na capacidade, senão transmite a capacidade.
+- **Conversor** (G63, em paralelo com a embreagem de travamento): bomba (ω/K)² com K pela rotação de estol, caindo a zero entre o ponto de acoplamento e SR = 1; turbina com multiplicação TR caindo de TRestol a 1 no ponto de acoplamento; turbina mais rápida arrasta o motor sem multiplicação. Parado sem acelerador o conversor desacopla (sem *creep*: o repouso continua parado).
+- **Diferenciais** (`powertrain.differentials`): árvore com saídas A/B, repartição de torque (0,5 nos de eixo, 0,4 no central do G63) e embreagem de bloqueio: |τ| ≤ pré-carga + bloqueio × |torque de entrada| (bloqueio diferente tracionando e em desaceleração), mais acoplamento viscoso c·Δω. Cinemática: ω da entrada = f·ωA + (1 − f)·ωB.
+- **Solução no passo de 1/60 s, sem subpassos.** `WheelDynamics` foi separada em `prepare`/`solve`/`commit` e devolve dω/dT (resposta da velocidade no fim do passo ao torque, pela derivada da curva do pneu no escorregamento final; refatoração sem mudança de resultado, testada contra diferença finita). Com as rodas motrizes linearizadas, cada diferencial tem solução fechada (travado se o τ que iguala as saídas couber na capacidade; senão capacidade + viscoso), e motor + embreagem/conversor viram uma equação monótona numa variável (velocidade da entrada do câmbio no fim do passo), resolvida por falsa posição com o torque do motor avaliado na rotação final (implícito: o controle de lenta e o corte são rígidos). Os torques vão às rodas, resolvidas de novo sem linearizar; até 4 iterações de Newton, até a velocidade prevista bater com a resolvida (1e-4 rad/s). Com a embreagem travada a rotação final do motor é a da cinemática das rodas resolvidas. O ponto de partida das iterações (torque de cada nó no passo anterior) é zerado ao escrever o estado do chassi; o motor vai para a rotação da marcha do estado escrito (`ReplayInitialState.gear`), então o replay continua bit a bit.
+- **Central do câmbio** (`Powertrain`): embreagem fecha entre `engagementStartRpm` e `engagementRpm` pela rotação da entrada do câmbio e, sem conversor e com acelerador, também pela do motor (arrancada com escorregamento). Na troca, embreagem e conversor voltam a acoplar ao longo de `shiftTime` e o acelerador leva o motor à rotação nova: proporcional, fecha com o motor 500 rpm acima, abre com ele abaixo (aceleração na redução). Uma primeira versão liga-desliga oscilava a cada passo na troca do G63. Ponto morto (marcha 0) existe no estado (sai com acelerador ou ré); nada do jogo o seleciona, só testes.
+- `VehicleCommands` trocou `driveTorque`/`drivelineInertia` por `throttle`, `torqueMultiplier`, `gearRatio` (negativa em ré, 0 em ponto morto), `clutchTorque` e `converterCoupling` (`DrivelineCommands`). `VehicleControl.step` recebe a rotação do motor (`VehiclePhysics.engineRpm()`); `drivenWheelSpeed()` passou a ser a velocidade da saída do câmbio pela cinemática dos diferenciais. Telemetria: `clutchSlipRpm`, `clutchLocked` e `driveTorque` por roda.
+
+### Dados adotados
+
+Estimativas de ordem de grandeza (nenhum valor é ficha técnica):
+
+| | BMW (DCT) | G63 (9G, conversor) |
+|---|---|---|
+| Arrasto do motor na lenta / no corte | 25 / 80 N·m | 30 / 100 N·m |
+| Embreagem: capacidade / começa / fecha (rpm) | 1.000 N·m / 750 / 3.000 | travamento 1.300 N·m / 1.800 / 2.500 (entrada do câmbio) |
+| Conversor: estol / TR no estol / ponto de acoplamento | — | 2.500 rpm / 1,9 / 0,85 |
+| Diferencial traseiro | autoblocante: pré-carga 40 N·m, bloqueio 0,2 tracionando / 0,1 em desaceleração (diferença de torque até 40% / 20% da entrada) | aberto |
+| Diferencial dianteiro | — | aberto |
+| Diferencial central | — | 40/60, pré-carga 100 N·m, bloqueio 0,3 / 0,15 |
+
+**Parâmetro existente alterado:** μx do G63 voltou de 1,0 para 0,95 (commit próprio). A etapa 3 o subira para compensar os diferenciais abertos; com o central bloqueando, o 0–100 caía para 4,27 s, abaixo da faixa (4,3–6 s, real 4,5). Bloqueio menor no central deixava o tempo na faixa, mas as dianteiras patinavam mais que na etapa 3 (bloqueio 0,15: 4,42 s e escorregamento médio 0,94).
+
+### Resultado medido (harness em Node, 60 Hz)
+
+| Cenário | Antes (etapa 3) | Depois |
+|---|---|---|
+| BMW / G63 0–100 km/h | 4,37 / 5,87 s | 4,40 / 4,35 s |
+| BMW / G63 velocidade máxima | 272,2 / 216,7 km/h | 272,2 / 216,7 km/h |
+| BMW / G63 frenagem de 100 km/h | 8,59 / 8,31 m/s² | 8,48 / 8,52 m/s² |
+| BMW / G63 skidpad | 0,976 / 0,810 g | 0,985 / 0,825 g |
+| G63 escorregamento médio das dianteiras no 0–100 | 0,674 | 0,471 (central livre 40/60: 1,62) |
+| BMW curva com acelerador 0,35 (40 km/h, volante 0,3): média de \|ωTE − ωTD\| | — | 0,13 rad/s (aberto: 2,23) |
+| Sem pedais a 80 km/h, desaceleração em marcha / em ponto morto | 0,57 / 0,52 m/s² (sem freio-motor) | BMW 1,38 / 0,57, G63 1,22 / 0,52 m/s² |
+| BMW / G63 rotação parado | 750 / 650 rpm (piso da lenta) | 769 / 669 rpm, variação < 0,01 rpm por passo |
+| Linha de base: G63 / BMW em 5 s de reta | 87,2 / 108,7 km/h | 109,2 / 109,9 km/h |
+| Linha de base: curva com acelerador pleno, G63 | 0,91 rad/s, r 8,3 m | 0,50 rad/s, r 24,5 m (central bloqueado sai de frente) |
+| Linha de base: curva, BMW | 1,55 rad/s | 2,12 rad/s (roda; o autoblocante leva torque à roda de fora) |
+| Custo da física por passo (Node, curva, mediana de 5 × 3.000 passos) | 19,4 / 19,3 µs | 23,3 / 24,2 µs (+20% / +26%) |
+
+Testes: `test/vehicle/Driveline.test.ts` (aberto reparte igual e a roda no ar dispara; autoblocante escorregando transfere 2·(pré-carga + bloqueio·|T|) para a roda lenta; com capacidade de sobra as saídas terminam o passo juntas; viscoso; central 40/60; embreagem travada dá rotação = relação × saída; escorregando transmite a capacidade; ponto morto cai para a lenta e sobe até o corte, monotônico; conversor no estol), `test/vehicle/Powertrain.test.ts` (motor, conversor, central do câmbio), `test/vehicle/WheelDynamics.test.ts` (prepare/solve igual a step; dω/dT), `test/physics/vehicle-driveline.test.ts` (freio-motor contra ponto morto; desaceleração até parar reduzindo uma marcha por vez com rotação entre a lenta e o corte; lenta parada sem oscilar; autoblocante contra aberto; central contra a etapa 3 e contra livre), velocidade máxima com rotação parada nos últimos 10 s, arrasto medido em ponto morto.
+
+Limitações:
+
+- Sem controle de tração: o G63 patina as quatro rodas na arrancada (escorregamento até ~3) e o BMW patina a traseira (médio 1,0 no 0–100, antes 0,45, porque o autoblocante não deixa uma roda só aliviar). É do P2-2.
+- O pneu sem sensibilidade à carga deixa as traseiras do G63 (10 kN cada na arrancada) com μ cheio; por isso o 0–100 sem controle de tração ainda é mais rápido que o real.
+- O conversor é rígido em rotação alta (bomba ∝ ω²); a troca só fica suave porque o acoplamento volta ao longo de `shiftTime`.
+- Rotação na lenta fica até 20 rpm acima de `idleRpm` (equilíbrio do controle de lenta).
+- Sem embreagem do G63 parado em marcha (o conversor desacopla sem acelerador) e sem seleção de ponto morto pelo jogador.
+
 ## Consequências
 
 - Velocidade máxima e aceleração passam a depender de potência, relações e arrasto, como num carro real; a velocidade máxima leva ~5 km para ser atingida (o plano do jogo tem 200 m; P2-3).
-- O G63 fica mais lento que o real na largada (5,9 × 4,5 s): com o pneu próprio, o que falta é o diferencial (dianteiras patinam com diferenciais abertos) e o conversor; resolver na etapa 4, não com tuning.
-- Sem freio-motor nem resistência ao rolamento com acelerador: só o arrasto, o `linearDamping` 0,01 do chassi e a `rollingResistance` sem pedal. O `linearDamping` vira redundante com o arrasto; removê-lo é mudança de comportamento para outra tarefa.
+- Depois da etapa 4 o G63 faz 0–100 em 4,35 s (real 4,5) e o BMW em 4,40 s (real 4,1), os dois sem controle de tração.
+- Freio-motor desde a etapa 4. Sem resistência ao rolamento com acelerador: só o arrasto, o `linearDamping` 0,01 do chassi e a `rollingResistance` sem pedal. O `linearDamping` é redundante com o arrasto; removê-lo é mudança de comportamento para outra tarefa.
 - `tractionFriction` saiu na etapa 3 com o controlador da Rapier; o pneu limita tração e atrito lateral juntos.
 - Contrato `PhysicsWorld` ganha `PhysicsBody.applyImpulse`; `VehicleDefinition` ganha `powertrain`, `aerodynamics` e `physics.tractionFriction`; `VehicleState`/`VehicleTelemetry`/`ReplayInitialState` ganham marcha (e rpm/troca, conforme o caso).
-- Etapas 2 e 3 feitas (seções acima). Contrato: `PhysicsWorld` perdeu `RaycastVehicle`/`createVehicleController` e ganhou `ColliderConfig.centerOfMass`; `VehicleDefinition` ganhou `tire`, `physics.wheelInertia`, `physics.centerOfMass` e freio por eixo em N·m; `VehicleCommands` passou a torques. Próximo passo: etapa 4 (diferencial, embreagem/conversor, freio-motor).
+- Etapas 2 e 3 feitas (seções acima). Contrato: `PhysicsWorld` perdeu `RaycastVehicle`/`createVehicleController` e ganhou `ColliderConfig.centerOfMass`; `VehicleDefinition` ganhou `tire`, `physics.wheelInertia`, `physics.centerOfMass` e freio por eixo em N·m; `VehicleCommands` passou a torques. Etapa 4: `VehicleCommands` passou a comandos do trem de força (`DrivelineCommands`), `VehicleDefinition.powertrain` ganhou `friction`, `clutch`, `torqueConverter` e `differentials`, e a rotação do motor passou a ser estado da física. Próximo item: controle de tração e ESC (P2-2).
