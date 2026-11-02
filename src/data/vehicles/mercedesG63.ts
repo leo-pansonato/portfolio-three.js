@@ -88,9 +88,9 @@ export const mercedesG63: VehicleDefinition = {
 		},
 	},
 	configs: {
-		brakeForce: 5700,
-		rollingResistance: 75,
-		eBrakeForce: 3900,
+		brakeTorque: 2166,
+		rollingResistanceTorque: 28.5,
+		handbrakeTorque: 1482,
 		maxSteerVal: 0.5,
 		steerSpeed: 2.0,
 		steerReturn: 2.0,

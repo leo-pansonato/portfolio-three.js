@@ -8,9 +8,9 @@ import { createVehicleState, REVERSE_GEAR } from "../../src/vehicle/VehicleState
 const DT = 1 / 60; // s
 
 const CONFIG: VehicleDrivingConfig = Object.freeze({
-	brakeForce: 3000, // N
-	rollingResistance: 80, // N
-	eBrakeForce: 2500, // N
+	brakeTorque: 1000, // N·m
+	rollingResistanceTorque: 25, // N·m
+	handbrakeTorque: 800, // N·m
 	maxSteerVal: 0.5, // rad
 	steerSpeed: 1, // rad/s
 	steerReturn: 2, // rad/s
@@ -73,16 +73,16 @@ describe("VehicleControl — motor e freio", () => {
 		const speed = 10; // m/s, 1ª marcha
 		const rpm = (speed / WHEEL_RADIUS) * control.powertrain.overallRatio(1) * (60 / (2 * Math.PI));
 		const ratio = control.powertrain.overallRatio(1);
-		const fullForce =
-			((control.powertrain.torqueAt(rpm) * ratio * POWERTRAIN.efficiency) / WHEEL_RADIUS / 2) *
+		const fullTorque =
+			((control.powertrain.torqueAt(rpm) * ratio * POWERTRAIN.efficiency) / 2) *
 			control.powertrain.inertiaFactor(ratio);
 
-		expect(control.step(inputOf({ throttle: 0.5 }), speed, DT).engineForce).toBeCloseTo(fullForce / 2, 6);
-		expect(control.step(inputOf({ throttle: 1, boost: true }), speed, DT).engineForce).toBeCloseTo(
-			fullForce * POWERTRAIN.boostTorqueMultiplier,
+		expect(control.step(inputOf({ throttle: 0.5 }), speed, DT).driveTorque).toBeCloseTo(fullTorque / 2, 6);
+		expect(control.step(inputOf({ throttle: 1, boost: true }), speed, DT).driveTorque).toBeCloseTo(
+			fullTorque * POWERTRAIN.boostTorqueMultiplier,
 			6,
 		);
-		expect(control.step(inputOf({ throttle: 1 }), speed, DT).engineForce).toBeCloseTo(fullForce, 6);
+		expect(control.step(inputOf({ throttle: 1 }), speed, DT).driveTorque).toBeCloseTo(fullTorque, 6);
 	});
 
 	it("freio quase parado e sem acelerador engata a ré", () => {
@@ -91,15 +91,15 @@ describe("VehicleControl — motor e freio", () => {
 
 		const stopped = control.step(inputOf({ brake: 1 }), 1.9, DT);
 		expect(state.gear).toBe(REVERSE_GEAR);
-		expect(stopped.engineForce).toBeLessThan(0);
-		expect(stopped.brakeForce).toBe(0);
+		expect(stopped.driveTorque).toBeLessThan(0);
+		expect(stopped.brakeTorque).toBe(0);
 
 		// já em ré (velocidade negativa) continua acelerando para trás, proporcional ao pedal
-		const full = control.step(inputOf({ brake: 1 }), -5, DT).engineForce;
-		expect(control.step(inputOf({ brake: 0.5 }), -5, DT).engineForce).toBeCloseTo(full * 0.5, 6);
+		const full = control.step(inputOf({ brake: 1 }), -5, DT).driveTorque;
+		expect(control.step(inputOf({ brake: 0.5 }), -5, DT).driveTorque).toBeCloseTo(full * 0.5, 6);
 
 		// acelerador volta para a 1ª
-		expect(control.step(inputOf({ throttle: 1 }), -1, DT).engineForce).toBeGreaterThan(0);
+		expect(control.step(inputOf({ throttle: 1 }), -1, DT).driveTorque).toBeGreaterThan(0);
 		expect(state.gear).toBe(1);
 	});
 
@@ -107,30 +107,30 @@ describe("VehicleControl — motor e freio", () => {
 		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const moving = control.step(inputOf({ brake: 1 }), 2, DT);
-		expect(moving.engineForce).toBe(0);
-		expect(moving.brakeForce).toBe(CONFIG.brakeForce);
+		expect(moving.driveTorque).toBe(0);
+		expect(moving.brakeTorque).toBe(CONFIG.brakeTorque);
 
 		// acelerador junto com freio também não engata a ré
 		const both = control.step(inputOf({ throttle: 1, brake: 1 }), 0, DT);
-		expect(both.engineForce).toBeGreaterThan(0);
-		expect(both.brakeForce).toBe(CONFIG.brakeForce);
+		expect(both.driveTorque).toBeGreaterThan(0);
+		expect(both.brakeTorque).toBe(CONFIG.brakeTorque);
 	});
 
 	it("sem acelerador nem freio aplica a resistência ao rolamento", () => {
 		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const idle = control.step(createInputFrame(), 15, DT);
-		expect(idle.engineForce).toBe(0);
-		expect(idle.brakeForce).toBe(CONFIG.rollingResistance);
-		expect(idle.handbrakeForce).toBe(0);
+		expect(idle.driveTorque).toBe(0);
+		expect(idle.brakeTorque).toBe(CONFIG.rollingResistanceTorque);
+		expect(idle.handbrakeTorque).toBe(0);
 	});
 
 	it("freio de mão independe do freio", () => {
 		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const handbrake = control.step(inputOf({ throttle: 1, handbrake: true }), 15, DT);
-		expect(handbrake.handbrakeForce).toBe(CONFIG.eBrakeForce);
-		expect(handbrake.brakeForce).toBe(0);
+		expect(handbrake.handbrakeTorque).toBe(CONFIG.handbrakeTorque);
+		expect(handbrake.brakeTorque).toBe(0);
 	});
 });
 

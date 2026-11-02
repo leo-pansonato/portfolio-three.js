@@ -152,13 +152,14 @@ export default class VehiclePhysics {
 
 	/**
 	 * Aplica os comandos ao controlador (rodas 0/1 dianteiras, 2/3 traseiras) e o arrasto ao chassi
-	 * @param dt passo de física (s): freio e arrasto viram impulso por passo (N·s)
+	 * @param dt passo de física (s): torques viram força no raio da roda (N); freio e arrasto, impulso por passo (N·s)
 	 */
 	applyCommands(commands: VehicleCommands, dt: number): void {
+		const radius = this.definition.physics.wheelRadius;
 		this.controller.setWheelSteering(0, commands.steeringAngle);
 		this.controller.setWheelSteering(1, commands.steeringAngle);
-		this.applyEngineForce(commands.engineForce);
-		this.applyBraking(commands.brakeForce * dt, commands.handbrakeForce * dt);
+		this.applyEngineForce(commands.driveTorque / radius);
+		this.applyBraking((commands.brakeTorque / radius) * dt, (commands.handbrakeTorque / radius) * dt);
 		this.applyAerodynamicDrag(dt);
 	}
 

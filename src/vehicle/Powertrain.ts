@@ -39,7 +39,8 @@ export default class Powertrain {
 	) {}
 
 	/**
-	 * Avança um passo de física e devolve a força total nas rodas motrizes (N; negativa em ré)
+	 * Avança um passo de física e devolve o torque total nas rodas motrizes (N·m; negativo em ré),
+	 * já reduzido pela inércia do motor (inertiaFactor)
 	 * @param forwardSpeed velocidade ao longo de +X local do chassi (m/s)
 	 * @param dt passo de física (s)
 	 */
@@ -67,8 +68,8 @@ export default class Powertrain {
 		if (state.gear !== REVERSE_GEAR) {
 			torque *= ramp((config.topSpeed - forwardSpeed) / SPEED_LIMITER_RAMP);
 		}
-		const wheelForce = ((torque * ratio * config.efficiency) / this.wheelRadius) * this.inertiaFactor(ratio);
-		return state.gear === REVERSE_GEAR ? -wheelForce : wheelForce;
+		const wheelTorque = torque * ratio * config.efficiency * this.inertiaFactor(ratio);
+		return state.gear === REVERSE_GEAR ? -wheelTorque : wheelTorque;
 	}
 
 	/** Torque a plena carga na rotação dada (N·m), interpolado na curva */

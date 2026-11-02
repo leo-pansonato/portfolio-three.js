@@ -144,12 +144,12 @@ export interface VehicleAerodynamicsConfig {
 
 /** Parâmetros de condução */
 export interface VehicleDrivingConfig {
-	/** Freio por roda (N) */
-	brakeForce: number;
-	/** Freio sem acelerador nem freio, por roda (N) */
-	rollingResistance: number;
-	/** Freio de mão por roda traseira (N) */
-	eBrakeForce: number;
+	/** Torque de freio por roda (N·m) */
+	brakeTorque: number;
+	/** Torque de freio sem acelerador nem freio, por roda (N·m) */
+	rollingResistanceTorque: number;
+	/** Torque do freio de mão por roda traseira (N·m) */
+	handbrakeTorque: number;
 	/** Esterço máximo (rad) */
 	maxSteerVal: number;
 	/** Velocidade do volante em direção ao alvo (rad/s) */

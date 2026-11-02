@@ -88,9 +88,9 @@ export const bmwF82: VehicleDefinition = {
 		},
 	},
 	configs: {
-		brakeForce: 3600,
-		rollingResistance: 93,
-		eBrakeForce: 3300,
+		brakeTorque: 1188,
+		rollingResistanceTorque: 30.69,
+		handbrakeTorque: 1089,
 		maxSteerVal: 0.5,
 		steerSpeed: 1.3,
 		steerReturn: 2.0,

@@ -7,12 +7,12 @@ import { VehicleState } from "./VehicleState";
 export interface VehicleCommands {
 	/** Esterço das rodas dianteiras (rad; positivo vira à esquerda) */
 	steeringAngle: number;
-	/** Força do motor por roda motriz (N; negativa em ré) */
-	engineForce: number;
-	/** Freio por roda (N) */
-	brakeForce: number;
-	/** Freio de mão por roda traseira (N) */
-	handbrakeForce: number;
+	/** Torque do motor por roda motriz (N·m; negativo em ré) */
+	driveTorque: number;
+	/** Torque de freio por roda (N·m) */
+	brakeTorque: number;
+	/** Torque do freio de mão por roda traseira (N·m) */
+	handbrakeTorque: number;
 }
 
 /**
@@ -21,7 +21,7 @@ export interface VehicleCommands {
  * Altera apenas o VehicleState recebido; sem THREE nem DOM.
  */
 export default class VehicleControl {
-	readonly commands: VehicleCommands = { steeringAngle: 0, engineForce: 0, brakeForce: 0, handbrakeForce: 0 };
+	readonly commands: VehicleCommands = { steeringAngle: 0, driveTorque: 0, brakeTorque: 0, handbrakeTorque: 0 };
 	readonly powertrain: Powertrain;
 
 	private readonly config: VehicleDrivingConfig;
@@ -98,8 +98,8 @@ export default class VehicleControl {
 		const brakeValue = input.brake;
 		const request = this.powertrainRequest;
 
-		let brakeForce = 0;
-		let handbrakeForce = 0;
+		let brakeTorque = 0;
+		let handbrakeTorque = 0;
 
 		const reversing = brakeValue > 0 && isAlmostStopped && throttleValue === 0;
 
@@ -115,22 +115,22 @@ export default class VehicleControl {
 		}
 
 		if (brakeValue > 0 && !reversing) {
-			brakeForce = config.brakeForce * brakeValue;
+			brakeTorque = config.brakeTorque * brakeValue;
 		}
 
 		if (input.handbrake) {
-			handbrakeForce = config.eBrakeForce;
+			handbrakeTorque = config.handbrakeTorque;
 		}
 
 		// o controlador do Rapier não tem resistência ao rolamento
 		if (throttleValue === 0 && brakeValue === 0) {
-			brakeForce = config.rollingResistance;
+			brakeTorque = config.rollingResistanceTorque;
 		}
 
-		const wheelForce = this.powertrain.step(request, this.state.forwardSpeed, dt);
+		const wheelTorque = this.powertrain.step(request, this.state.forwardSpeed, dt);
 
-		this.commands.engineForce = wheelForce / this.drivenWheelCount;
-		this.commands.brakeForce = brakeForce;
-		this.commands.handbrakeForce = handbrakeForce;
+		this.commands.driveTorque = wheelTorque / this.drivenWheelCount;
+		this.commands.brakeTorque = brakeTorque;
+		this.commands.handbrakeTorque = handbrakeTorque;
 	}
 }

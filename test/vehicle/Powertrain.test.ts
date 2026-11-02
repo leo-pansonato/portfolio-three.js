@@ -50,31 +50,31 @@ describe("Powertrain", () => {
 		expect(powertrain.torqueAt(9000)).toBe(300);
 	});
 
-	it("força nas rodas = torque × relação × diferencial × eficiência / raio", () => {
+	it("torque nas rodas = torque × relação × diferencial × eficiência", () => {
 		const { state, powertrain } = setup();
 		const speed = speedAt(3000, 1);
-		const force = powertrain.step(FULL, speed, DT);
+		const wheelTorque = powertrain.step(FULL, speed, DT);
 
 		expect(state.gear).toBe(1);
 		expect(state.engineRpm).toBeCloseTo(3000, 6);
-		expect(force).toBeCloseTo((400 * 3 * 4 * 0.9) / WHEEL_RADIUS, 6);
+		expect(wheelTorque).toBeCloseTo(400 * 3 * 4 * 0.9, 6);
 	});
 
 	it("parado: rotação na marcha lenta e torque da marcha lenta", () => {
 		const { state, powertrain } = setup();
-		const force = powertrain.step(FULL, 0, DT);
+		const wheelTorque = powertrain.step(FULL, 0, DT);
 
 		expect(state.engineRpm).toBe(CONFIG.idleRpm);
-		expect(force).toBeCloseTo((200 * 3 * 4 * 0.9) / WHEEL_RADIUS, 6);
+		expect(wheelTorque).toBeCloseTo(200 * 3 * 4 * 0.9, 6);
 	});
 
-	it("inércia do motor reduz a força pela massa equivalente da marcha", () => {
+	it("inércia do motor reduz o torque pela massa equivalente da marcha", () => {
 		const { powertrain } = setup({ ...CONFIG, engineInertia: 0.2 });
 		const ratio = 3 * 4;
 		const equivalentMass = (0.2 * ratio * ratio * 0.9) / (WHEEL_RADIUS * WHEEL_RADIUS);
-		const force = powertrain.step(FULL, speedAt(3000, 1), DT);
+		const wheelTorque = powertrain.step(FULL, speedAt(3000, 1), DT);
 
-		expect(force).toBeCloseTo(((400 * ratio * 0.9) / WHEEL_RADIUS) * (MASS / (MASS + equivalentMass)), 6);
+		expect(wheelTorque).toBeCloseTo(400 * ratio * 0.9 * (MASS / (MASS + equivalentMass)), 6);
 		expect(powertrain.inertiaFactor(4)).toBeGreaterThan(powertrain.inertiaFactor(ratio));
 	});
 
@@ -123,7 +123,7 @@ describe("Powertrain", () => {
 		expect(powertrain.step(FULL, CONFIG.topSpeed - 0.5, DT)).toBeGreaterThan(0);
 	});
 
-	it("ré com relação própria e força negativa; boost multiplica o torque", () => {
+	it("ré com relação própria e torque negativo; boost multiplica o torque", () => {
 		const { state, powertrain } = setup();
 		const reverse = powertrain.step(
 			{ throttle: 1, reverse: true, boost: false },
@@ -133,7 +133,7 @@ describe("Powertrain", () => {
 
 		expect(state.gear).toBe(REVERSE_GEAR);
 		expect(state.engineRpm).toBeCloseTo(3000, 6);
-		expect(reverse).toBeCloseTo((-400 * 3.2 * 4 * 0.9) / WHEEL_RADIUS, 6);
+		expect(reverse).toBeCloseTo(-400 * 3.2 * 4 * 0.9, 6);
 
 		const boosted = powertrain.step({ throttle: 1, reverse: true, boost: true }, -speedAt(3000, 1) * (3 / 3.2), DT);
 		expect(boosted).toBeCloseTo(reverse * CONFIG.boostTorqueMultiplier, 6);
