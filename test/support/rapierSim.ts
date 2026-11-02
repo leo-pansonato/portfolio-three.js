@@ -11,7 +11,12 @@ import { ScriptedInput, SimHandle, VehicleSnapshot } from "./sim";
  * O chão replica a parte física de Environment.createPlane, porém maior.
  * ModelLoader deve ser mockado pelo teste (o Player cai no fallback de primitivas).
  */
-export async function createRapierSim(vehicleId: string, fixedTimeStep?: number): Promise<SimHandle> {
+export interface RapierSimHandle extends SimHandle {
+	readonly player: Player;
+	readonly physicsWorld: PhysicsWorld;
+}
+
+export async function createRapierSim(vehicleId: string, fixedTimeStep?: number): Promise<RapierSimHandle> {
 	const scene = new THREE.Scene();
 	const physicsWorld: PhysicsWorld = await RapierPhysicsWorld.create(scene, fixedTimeStep);
 
@@ -31,6 +36,8 @@ export async function createRapierSim(vehicleId: string, fixedTimeStep?: number)
 
 	return {
 		input: scripted.state,
+		player,
+		physicsWorld,
 		frame(deltaTime: number): void {
 			// mesma ordem de Game.gameLoop: física, depois componentes
 			physicsWorld.update(deltaTime);

@@ -6,6 +6,7 @@ import VehicleView from "../render/VehicleView";
 import VehicleControl from "../vehicle/VehicleControl";
 import VehiclePhysics from "../vehicle/VehiclePhysics";
 import { createVehicleState, VehicleState } from "../vehicle/VehicleState";
+import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
 import Entity from "./Entity";
 
 /**
@@ -54,6 +55,7 @@ export default class Player extends Entity {
 
 		// controle por passo: InputFrame do quadro → volante e forças → controlador
 		this.physicsPreStepCallback = (dt: number) => {
+			this.physics.updateTelemetry(dt);
 			this.physics.savePreviousWheelStates();
 			this.updateControl(dt);
 			this.physics.updateVehicle(dt);
@@ -135,6 +137,10 @@ export default class Player extends Entity {
 	 */
 	getWheelAngle(): number {
 		return this.physics.wheelSteering(0) * (180 / Math.PI);
+	}
+
+	getTelemetry(): Readonly<VehicleTelemetry> {
+		return this.physics.telemetry;
 	}
 
 	getMovimentDirection(): THREE.Vector3 {

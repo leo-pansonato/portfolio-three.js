@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
 import { PhysicsBody, PhysicsWorld, RaycastVehicle } from "../physics/PhysicsWorld";
 import { VehicleCommands } from "./VehicleControl";
+import { createVehicleTelemetry, createWheelTelemetry, STANDARD_GRAVITY, VehicleTelemetry } from "./VehicleTelemetry";
 
 /** Valores de uma roda no passo anterior, para a interpolação visual */
 export interface WheelStepState {
@@ -22,11 +23,15 @@ export default class VehiclePhysics {
 	readonly chassisBody: PhysicsBody;
 	readonly controller: RaycastVehicle;
 	readonly wheels: WheelStepState[] = [];
+	readonly telemetry: VehicleTelemetry = createVehicleTelemetry();
 
 	private readonly suspensionRestLength: number;
 	private tempVector3 = new THREE.Vector3();
 	private tempVelocity = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
+	private tempRight = new THREE.Vector3();
+	private previousVelocity = new THREE.Vector3();
+	private hasPreviousVelocity = false;
 
 	static readonly LOCAL_FORWARD = new THREE.Vector3(1, 0, 0);
 	static readonly LOCAL_DOWN = new THREE.Vector3(0, -1, 0);
@@ -95,6 +100,7 @@ export default class VehiclePhysics {
 				previousSteering: 0,
 				previousRotation: 0,
 			});
+			this.telemetry.wheels.push(createWheelTelemetry(physicsData.suspensionRestLength));
 		});
 	}
 
@@ -143,6 +149,49 @@ export default class VehiclePhysics {
 		this.controller.setWheelBrake(1, normalBrake);
 	}
 
+	/**
+	 * Atualiza a telemetria com o resultado do último passo; chamar no início do pré-passo
+	 * @param dt passo de física (s)
+	 */
+	updateTelemetry(dt: number): void {
+		const telemetry = this.telemetry;
+		const velocity = this.chassisBody.getLinearVelocity(this.tempVelocity);
+		this.chassisBody.getRotation(this.tempQuaternion);
+		const forward = this.tempVector3.copy(VehiclePhysics.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
+		const right = this.tempRight.copy(VehiclePhysics.LOCAL_RIGHT).applyQuaternion(this.tempQuaternion);
+
+		telemetry.timeStep = dt;
+		telemetry.speed = velocity.length();
+		telemetry.forwardSpeed = velocity.dot(forward);
+		telemetry.lateralSpeed = velocity.dot(right);
+
+		if (this.hasPreviousVelocity && dt > 0) {
+			const previous = this.previousVelocity;
+			const ax = (velocity.x - previous.x) / dt;
+			const ay = (velocity.y - previous.y) / dt;
+			const az = (velocity.z - previous.z) / dt;
+			telemetry.longitudinalAccelerationG = (ax * forward.x + ay * forward.y + az * forward.z) / STANDARD_GRAVITY;
+			telemetry.lateralAccelerationG = (ax * right.x + ay * right.y + az * right.z) / STANDARD_GRAVITY;
+		} else {
+			telemetry.longitudinalAccelerationG = 0;
+			telemetry.lateralAccelerationG = 0;
+		}
+		this.previousVelocity.copy(velocity);
+		this.hasPreviousVelocity = true;
+
+		telemetry.steeringAngle = this.wheelSteering(0);
+		for (let i = 0; i < telemetry.wheels.length; i++) {
+			const wheel = telemetry.wheels[i];
+			wheel.inContact = this.wheelIsInContact(i);
+			wheel.suspensionLength = this.wheelSuspensionLength(i);
+			wheel.compression = this.suspensionRestLength - wheel.suspensionLength;
+			wheel.suspensionForce = this.controller.wheelSuspensionForce(i) ?? 0;
+			wheel.forwardImpulse = this.controller.wheelForwardImpulse(i) ?? 0;
+			wheel.sideImpulse = this.controller.wheelSideImpulse(i) ?? 0;
+			wheel.steering = this.wheelSteering(i);
+		}
+	}
+
 	/** Velocidade do chassi ao longo de +X local (m/s; negativa em ré) */
 	forwardSpeed(): number {
 		const velocity = this.chassisBody.getLinearVelocity(this.tempVelocity);
@@ -178,6 +227,7 @@ export default class VehiclePhysics {
 		this.chassisBody.setLinearVelocity({ x: 0, y: 0, z: 0 });
 		this.chassisBody.setAngularVelocity({ x: 0, y: 0, z: 0 });
 		this.physicsWorld.resetInterpolation(this.chassisBody);
+		this.hasPreviousVelocity = false;
 	}
 
 	/** Remove o controlador e o chassi (corpo e colisor) do mundo */
