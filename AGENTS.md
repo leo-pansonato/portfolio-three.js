@@ -6,7 +6,7 @@ Guia para dividir o desenvolvimento entre agentes do Claude Code sem conflitos e
 
 ## 1. Realidade atual: pouco paralelismo seguro
 
-O código tem ~3,2 mil linhas. Depois do P1-2, controle, física e visual do veículo vivem em arquivos próprios (`src/vehicle/`, `src/render/VehicleView.ts`, `src/data/vehicles/`) e `Player.ts` só os liga. `src/main.ts` continua tocado por quase toda mudança de fluxo, e input/câmera ainda dependem de `Game`/`Player` (P1-4).
+O código tem ~3,2 mil linhas. Depois do P1-2, controle, física e visual do veículo vivem em arquivos próprios (`src/vehicle/`, `src/render/VehicleView.ts`, `src/data/vehicles/`) e `Player.ts` só os liga. `src/main.ts` continua tocado por quase toda mudança de fluxo. Depois do P1-4, input (`src/input/`) e câmera não dependem mais de `Game`/`Player`: recebem `InputFrame`/`LookInput` e as ações discretas são assinadas em `main.ts`.
 
 Paralelizar agora apenas:
 
@@ -14,6 +14,7 @@ Paralelizar agora apenas:
 - testes novos em arquivos novos;
 - renderização que não toque `main.ts` (ex.: `LightingManager`, `Environment` visual, `render/VehicleView`);
 - física/controle do veículo em `src/vehicle/` em paralelo com renderização, se nenhum dos dois precisar mudar `Player.ts`;
+- input em `src/input/` (e o consumo de `LookInput` na câmera) em paralelo com física ou renderização, se não mudar o contrato `InputFrame` nem `main.ts`;
 - documentação.
 
 Os critérios para liberar paralelismo amplo estão no fim do [ROADMAP.md](ROADMAP.md).
@@ -28,9 +29,9 @@ Os papéis existem porque há trabalho real em cada área. Não crie novos sem u
 | **physics-vehicle** | `.claude/agents/physics-vehicle.md` | `src/physics/*` (`PhysicsWorld`, `RapierPhysicsWorld`), `src/vehicle/*` (`VehicleControl`, `VehiclePhysics`, `VehicleState`), `src/data/vehicles/*`, `Environment.ts` (colisores), `test/physics/`, `test/vehicle/`, `test/support/` | tocar renderização, câmera, UI |
 | **rendering** | `.claude/agents/rendering.md` | `LightingManager.ts`, parte visual de `Environment.ts`, materiais, `ModelLoader.ts`, `VehicleManager.ts` (carregamento), `src/render/*` (inclui `VehicleView`) → `src/world/` (visual) | alterar física ou ordem do loop |
 | **architecture-reviewer** | `.claude/agents/architecture-reviewer.md` | somente leitura | editar arquivos |
-| **Agente de propósito geral** | `general-purpose` com escopo definido | input/câmera/UI (`InputManager.ts`, `CameraController.ts`, `UIManager.ts`), testes, tooling | sair do escopo dado |
+| **Agente de propósito geral** | `general-purpose` com escopo definido | input/câmera/UI (`src/input/*`: `InputManager`, `InputFrame`, `InputBindings`; `CameraController.ts`, `UIManager.ts`), `test/input/`, testes, tooling | sair do escopo dado |
 
-Input, câmera, UI e ferramentas não têm agente dedicado: o volume de trabalho não justifica. Use um agente de propósito geral com escopo explícito. Reavalie quando P1-4, P2-5 ou P2-6 começarem.
+Input, câmera, UI e ferramentas não têm agente dedicado: o volume de trabalho não justifica. Use um agente de propósito geral com escopo explícito. Reavalie quando P2-5 ou P2-6 começarem.
 
 ## 3. Quando delegar
 
