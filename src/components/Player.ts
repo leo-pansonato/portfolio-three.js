@@ -55,13 +55,13 @@ export default class Player extends Entity {
 		if (!definition) throw new Error(`Configuração do veículo ${this.currentVehicleId} não encontrada.`);
 
 		this.vehicleData = definition;
-		this.state = createVehicleState();
-		this.control = new VehicleControl(definition.configs, this.state);
+		this.state = createVehicleState(definition.powertrain.idleRpm);
+		this.control = new VehicleControl(definition, this.state);
 		this.physics = new VehiclePhysics(this.physicsManager, definition);
 
 		// controle por passo: InputFrame do quadro → volante e forças → controlador
 		this.physicsPreStepCallback = (dt: number) => {
-			this.physics.updateTelemetry(dt);
+			this.physics.updateTelemetry(dt, this.state);
 			this.physics.savePreviousWheelStates();
 			const input = this.nextStepInput();
 			this.recorder?.record(input);
@@ -147,6 +147,8 @@ export default class Player extends Entity {
 			linearVelocity: { x: 0, y: 0, z: 0 },
 			angularVelocity: { x: 0, y: 0, z: 0 },
 			steeringAngle: this.state.steeringAngle,
+			gear: this.state.gear,
+			shiftTimeRemaining: this.state.shiftTimeRemaining,
 		};
 		this.physics.captureChassisState(initial);
 		this.physics.applyChassisState(initial);
@@ -176,6 +178,8 @@ export default class Player extends Entity {
 		this.cancelReplay();
 		this.physics.restoreChassisState(replay.initial);
 		this.state.steeringAngle = replay.initial.steeringAngle;
+		this.state.gear = replay.initial.gear;
+		this.state.shiftTimeRemaining = replay.initial.shiftTimeRemaining;
 		this.playback = new ReplayPlayback(replay);
 	}
 

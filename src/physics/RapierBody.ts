@@ -55,4 +55,8 @@ export default class RapierBody implements PhysicsBody {
 	setAngularVelocity(velocity: Vec3Like): void {
 		this.raw.setAngvel(velocity, true);
 	}
+
+	applyImpulse(impulse: Vec3Like): void {
+		this.raw.applyImpulse(impulse, true);
+	}
 }

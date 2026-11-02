@@ -1,5 +1,6 @@
-import { VehicleDrivingConfig } from "../data/vehicles/types";
+import { VehicleDefinition, VehicleDrivingConfig } from "../data/vehicles/types";
 import { InputFrame } from "../input/InputFrame";
+import Powertrain, { PowertrainRequest } from "./Powertrain";
 import { VehicleState } from "./VehicleState";
 
 /** Saída do controle para a física do veículo */
@@ -16,16 +17,30 @@ export interface VehicleCommands {
 
 /**
  * Converte o InputFrame em comandos, a cada passo de física (dt fixo):
- * rampa e retorno do volante, motor, freio, ré, freio de mão, boost e resistência ao rolamento.
+ * rampa e retorno do volante, trem de força (Powertrain), freio, ré, freio de mão, boost e resistência ao rolamento.
  * Altera apenas o VehicleState recebido; sem THREE nem DOM.
  */
 export default class VehicleControl {
 	readonly commands: VehicleCommands = { steeringAngle: 0, engineForce: 0, brakeForce: 0, handbrakeForce: 0 };
+	readonly powertrain: Powertrain;
+
+	private readonly config: VehicleDrivingConfig;
+	private readonly drivenWheelCount: number;
+	private readonly powertrainRequest: PowertrainRequest = { throttle: 0, reverse: false, boost: false };
 
 	constructor(
-		private readonly config: VehicleDrivingConfig,
+		definition: Readonly<VehicleDefinition>,
 		private readonly state: VehicleState,
-	) {}
+	) {
+		this.config = definition.configs;
+		this.drivenWheelCount = this.config.tractionDisplacement === "all" ? 4 : 2;
+		this.powertrain = new Powertrain(
+			definition.powertrain,
+			definition.physics.wheelRadius,
+			definition.physics.mass,
+			state,
+		);
+	}
 
 	/**
 	 * @param forwardSpeed velocidade ao longo da frente do chassi (m/s)
@@ -34,7 +49,7 @@ export default class VehicleControl {
 	step(input: InputFrame, forwardSpeed: number, dt: number): VehicleCommands {
 		this.state.forwardSpeed = forwardSpeed;
 		this.updateSteering(input, dt);
-		this.updateDriving(input);
+		this.updateDriving(input, dt);
 		return this.commands;
 	}
 
@@ -76,30 +91,31 @@ export default class VehicleControl {
 		this.commands.steeringAngle = state.steeringAngle;
 	}
 
-	private updateDriving(input: InputFrame): void {
+	private updateDriving(input: InputFrame, dt: number): void {
 		const config = this.config;
 		const isAlmostStopped = this.state.forwardSpeed < 2.0;
+		const throttleValue = input.throttle;
+		const brakeValue = input.brake;
+		const request = this.powertrainRequest;
 
-		let engineForce = 0;
 		let brakeForce = 0;
 		let handbrakeForce = 0;
 
-		const throttleValue = input.throttle;
-		const brakeValue = input.brake;
+		const reversing = brakeValue > 0 && isAlmostStopped && throttleValue === 0;
 
-		this.state.boostMultiplier = input.boost ? config.maxBoostForce : 1;
-
+		request.boost = input.boost;
 		if (throttleValue > 0) {
-			engineForce = config.maxForce * throttleValue;
+			request.throttle = throttleValue;
+			request.reverse = false;
+		} else if (reversing) {
+			request.throttle = brakeValue;
+			request.reverse = true;
+		} else {
+			request.throttle = 0;
 		}
 
-		if (brakeValue > 0) {
-			if (isAlmostStopped && throttleValue === 0) {
-				// ré
-				engineForce = -config.maxForce * brakeValue;
-			} else {
-				brakeForce = config.brakeForce * brakeValue;
-			}
+		if (brakeValue > 0 && !reversing) {
+			brakeForce = config.brakeForce * brakeValue;
 		}
 
 		if (input.handbrake) {
@@ -111,9 +127,9 @@ export default class VehicleControl {
 			brakeForce = config.rollingResistance;
 		}
 
-		engineForce *= this.state.boostMultiplier;
+		const wheelForce = this.powertrain.step(request, this.state.forwardSpeed, dt);
 
-		this.commands.engineForce = engineForce;
+		this.commands.engineForce = wheelForce / this.drivenWheelCount;
 		this.commands.brakeForce = brakeForce;
 		this.commands.handbrakeForce = handbrakeForce;
 	}

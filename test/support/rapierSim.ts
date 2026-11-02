@@ -16,13 +16,20 @@ export interface RapierSimHandle extends SimHandle {
 	readonly physicsWorld: PhysicsWorld;
 }
 
-export async function createRapierSim(vehicleId: string, fixedTimeStep?: number): Promise<RapierSimHandle> {
+/**
+ * @param groundHalfSize meia-largura do chão (m); a velocidade máxima precisa de vários km
+ */
+export async function createRapierSim(
+	vehicleId: string,
+	fixedTimeStep?: number,
+	groundHalfSize = 1000,
+): Promise<RapierSimHandle> {
 	const scene = new THREE.Scene();
 	const physicsWorld: PhysicsWorld = await RapierPhysicsWorld.create(scene, fixedTimeStep);
 
 	const groundBody = physicsWorld.createRigidBody({ type: "static", position: { x: 0, y: 0, z: 0 } });
 	// maior que o plano do jogo (200 m): a frenagem não pode sair do chão
-	physicsWorld.createGroundCollider(groundBody, 0.8, 1000);
+	physicsWorld.createGroundCollider(groundBody, 0.8, groundHalfSize);
 
 	const scripted = new ScriptedInput();
 	const player = new Player(scene, scripted, physicsWorld);

@@ -2,6 +2,7 @@ import GameComponent from "../components/GameComponent";
 import Player from "../components/Player";
 import { Replay } from "../replay/Replay";
 import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
+import { REVERSE_GEAR } from "../vehicle/VehicleState";
 import { devMode } from "./DevModeManager";
 
 const WHEEL_LABELS = ["DE", "DD", "TE", "TD"];
@@ -21,6 +22,7 @@ export default class UIManager extends GameComponent {
 	private rotationCounter: HTMLElement | null;
 	private wheelAngleCounter: HTMLElement | null;
 	private accelerationCounter: HTMLElement | null;
+	private engineCounter: HTMLElement | null;
 	private wheelCells: Record<WheelColumn, HTMLElement>[] = [];
 	private hudTimer = UIManager.DEV_HUD_INTERVAL;
 	private recordButton: HTMLButtonElement | null;
@@ -41,6 +43,7 @@ export default class UIManager extends GameComponent {
 		this.rotationCounter = document.getElementById("rotation");
 		this.wheelAngleCounter = document.getElementById("wheel-angle");
 		this.accelerationCounter = document.getElementById("acceleration");
+		this.engineCounter = document.getElementById("engine");
 		this.createWheelTable(document.getElementById("telemetry-wheels"));
 		this.recordButton = document.getElementById("replay-record") as HTMLButtonElement | null;
 		this.playButton = document.getElementById("replay-play") as HTMLButtonElement | null;
@@ -153,6 +156,10 @@ export default class UIManager extends GameComponent {
 	private updateTelemetry(telemetry: Readonly<VehicleTelemetry>): void {
 		if (this.accelerationCounter)
 			this.accelerationCounter.textContent = `long ${telemetry.longitudinalAccelerationG.toFixed(2)} g  lat ${telemetry.lateralAccelerationG.toFixed(2)} g`;
+		if (this.engineCounter) {
+			const gear = telemetry.gear === REVERSE_GEAR ? "R" : String(telemetry.gear);
+			this.engineCounter.textContent = `${gear}  ${telemetry.engineRpm.toFixed(0)} rpm`;
+		}
 
 		const toKiloNewton = telemetry.timeStep > 0 ? 1 / (telemetry.timeStep * 1000) : 0;
 		for (let i = 0; i < this.wheelCells.length; i++) {

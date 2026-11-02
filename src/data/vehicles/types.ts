@@ -51,18 +51,63 @@ export interface VehiclePhysicsConfig {
 	frictionSlip: number;
 	/** Multiplicador do impulso lateral (adimensional) */
 	sideFrictionStiffness: number;
+	/**
+	 * Atrito longitudinal que limita a força do motor por roda (adimensional, multiplica a carga normal).
+	 * Em linha reta o controlador da Rapier não aplica frictionSlip ao motor (ADR-0003)
+	 */
+	tractionFriction: number;
 }
 
 export type TractionDisplacement = "rear" | "front" | "all";
 
+/** Ponto da curva de torque a plena carga */
+export interface TorqueCurvePoint {
+	/** Rotação do motor (rpm) */
+	rpm: number;
+	/** Torque no virabrequim (N·m) */
+	torque: number;
+}
+
+/** Trem de força: motor, câmbio automático e diferencial (ADR-0003, etapa 1) */
+export interface VehiclePowertrainConfig {
+	/** Curva de torque a plena carga, em rpm crescente; interpolação linear */
+	torqueCurve: TorqueCurvePoint[];
+	/** Marcha lenta (rpm) */
+	idleRpm: number;
+	/** Corte de giro: sem torque a partir desta rotação (rpm) */
+	revLimitRpm: number;
+	/** Sobe de marcha a partir desta rotação (rpm) */
+	upshiftRpm: number;
+	/** Desce de marcha abaixo desta rotação, se a marcha de baixo ficar abaixo de upshiftRpm (rpm) */
+	downshiftRpm: number;
+	/** Relações das marchas à frente, da 1ª à última (adimensional) */
+	gearRatios: number[];
+	/** Relação da ré (adimensional, positiva) */
+	reverseRatio: number;
+	/** Relação do diferencial (adimensional) */
+	finalDriveRatio: number;
+	/** Eficiência da transmissão, do virabrequim às rodas (0–1) */
+	efficiency: number;
+	/** Inércia rotacional do motor, volante e embreagem no virabrequim (kg·m²) */
+	engineInertia: number;
+	/** Troca de marcha: torque cortado e intervalo mínimo entre trocas (s) */
+	shiftTime: number;
+	/** Limitador eletrônico de velocidade (m/s) */
+	topSpeed: number;
+	/** Multiplicador do torque com boost (adimensional, 1–1,5) */
+	boostTorqueMultiplier: number;
+}
+
+/** Aerodinâmica: arrasto 0,5·ρ·Cd·A·v² oposto à velocidade */
+export interface VehicleAerodynamicsConfig {
+	/** Coeficiente de arrasto Cd (adimensional) */
+	dragCoefficient: number;
+	/** Área frontal A (m²) */
+	frontalArea: number;
+}
+
 /** Parâmetros de condução */
 export interface VehicleDrivingConfig {
-	/** Sem uso (não há limitador de velocidade) */
-	maxSpeed: number;
-	/** Força do motor por roda motriz (N) */
-	maxForce: number;
-	/** Multiplicador da força do motor com boost (adimensional) */
-	maxBoostForce: number;
 	/** Freio por roda (N) */
 	brakeForce: number;
 	/** Freio sem acelerador nem freio, por roda (N) */
@@ -98,6 +143,8 @@ export interface VehicleDefinition {
 		materials: Record<string, { castShadow: boolean; receiveShadow: boolean }>;
 	};
 	physics: VehiclePhysicsConfig;
+	powertrain: VehiclePowertrainConfig;
+	aerodynamics: VehicleAerodynamicsConfig;
 	cameraSettings: Record<CameraMode, CameraConfig>;
 	configs: VehicleDrivingConfig;
 	wheels: {

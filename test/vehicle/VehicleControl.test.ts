@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { VehicleDrivingConfig } from "../../src/data/vehicles/types";
+import { getVehicleDefinition } from "../../src/data/vehicles";
+import { VehicleDefinition, VehicleDrivingConfig } from "../../src/data/vehicles/types";
 import { createInputFrame, InputFrame } from "../../src/input/InputFrame";
 import VehicleControl from "../../src/vehicle/VehicleControl";
-import { createVehicleState } from "../../src/vehicle/VehicleState";
+import { createVehicleState, REVERSE_GEAR } from "../../src/vehicle/VehicleState";
 
 const DT = 1 / 60; // s
 
 const CONFIG: VehicleDrivingConfig = Object.freeze({
-	maxSpeed: 20,
-	maxForce: 4000, // N
-	maxBoostForce: 3,
 	brakeForce: 3000, // N
 	rollingResistance: 80, // N
 	eBrakeForce: 2500, // N
@@ -19,9 +17,13 @@ const CONFIG: VehicleDrivingConfig = Object.freeze({
 	tractionDisplacement: "rear",
 });
 
+const DEFINITION: VehicleDefinition = { ...getVehicleDefinition("bmw_f82")!, configs: CONFIG };
+const POWERTRAIN = DEFINITION.powertrain;
+const WHEEL_RADIUS = DEFINITION.physics.wheelRadius; // m
+
 function setup() {
 	const state = createVehicleState();
-	const control = new VehicleControl(CONFIG, state);
+	const control = new VehicleControl(DEFINITION, state);
 	const input = createInputFrame();
 	const run = (steps: number, forwardSpeed = 0) => {
 		for (let i = 0; i < steps; i++) control.step(input, forwardSpeed, DT);
@@ -66,27 +68,43 @@ describe("VehicleControl — volante", () => {
 });
 
 describe("VehicleControl — motor e freio", () => {
-	it("acelerador proporcional; boost multiplica a força e volta a 1 ao soltar", () => {
-		const control = new VehicleControl(CONFIG, createVehicleState());
+	it("acelerador proporcional; boost multiplica o torque e volta a 1 ao soltar", () => {
+		const control = new VehicleControl(DEFINITION, createVehicleState(POWERTRAIN.idleRpm));
+		const speed = 10; // m/s, 1ª marcha
+		const rpm = (speed / WHEEL_RADIUS) * control.powertrain.overallRatio(1) * (60 / (2 * Math.PI));
+		const ratio = control.powertrain.overallRatio(1);
+		const fullForce =
+			((control.powertrain.torqueAt(rpm) * ratio * POWERTRAIN.efficiency) / WHEEL_RADIUS / 2) *
+			control.powertrain.inertiaFactor(ratio);
 
-		expect(control.step(inputOf({ throttle: 0.5 }), 10, DT).engineForce).toBe(2000);
-		expect(control.step(inputOf({ throttle: 1, boost: true }), 10, DT).engineForce).toBe(12000);
-		expect(control.step(inputOf({ throttle: 1 }), 10, DT).engineForce).toBe(4000);
+		expect(control.step(inputOf({ throttle: 0.5 }), speed, DT).engineForce).toBeCloseTo(fullForce / 2, 6);
+		expect(control.step(inputOf({ throttle: 1, boost: true }), speed, DT).engineForce).toBeCloseTo(
+			fullForce * POWERTRAIN.boostTorqueMultiplier,
+			6,
+		);
+		expect(control.step(inputOf({ throttle: 1 }), speed, DT).engineForce).toBeCloseTo(fullForce, 6);
 	});
 
 	it("freio quase parado e sem acelerador engata a ré", () => {
-		const control = new VehicleControl(CONFIG, createVehicleState());
+		const state = createVehicleState(POWERTRAIN.idleRpm);
+		const control = new VehicleControl(DEFINITION, state);
 
 		const stopped = control.step(inputOf({ brake: 1 }), 1.9, DT);
-		expect(stopped.engineForce).toBe(-CONFIG.maxForce);
+		expect(state.gear).toBe(REVERSE_GEAR);
+		expect(stopped.engineForce).toBeLessThan(0);
 		expect(stopped.brakeForce).toBe(0);
 
-		// já em ré (velocidade negativa) continua acelerando para trás
-		expect(control.step(inputOf({ brake: 0.5 }), -5, DT).engineForce).toBe(-CONFIG.maxForce * 0.5);
+		// já em ré (velocidade negativa) continua acelerando para trás, proporcional ao pedal
+		const full = control.step(inputOf({ brake: 1 }), -5, DT).engineForce;
+		expect(control.step(inputOf({ brake: 0.5 }), -5, DT).engineForce).toBeCloseTo(full * 0.5, 6);
+
+		// acelerador volta para a 1ª
+		expect(control.step(inputOf({ throttle: 1 }), -1, DT).engineForce).toBeGreaterThan(0);
+		expect(state.gear).toBe(1);
 	});
 
 	it("freio em movimento freia, sem ré", () => {
-		const control = new VehicleControl(CONFIG, createVehicleState());
+		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const moving = control.step(inputOf({ brake: 1 }), 2, DT);
 		expect(moving.engineForce).toBe(0);
@@ -94,12 +112,12 @@ describe("VehicleControl — motor e freio", () => {
 
 		// acelerador junto com freio também não engata a ré
 		const both = control.step(inputOf({ throttle: 1, brake: 1 }), 0, DT);
-		expect(both.engineForce).toBe(CONFIG.maxForce);
+		expect(both.engineForce).toBeGreaterThan(0);
 		expect(both.brakeForce).toBe(CONFIG.brakeForce);
 	});
 
 	it("sem acelerador nem freio aplica a resistência ao rolamento", () => {
-		const control = new VehicleControl(CONFIG, createVehicleState());
+		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const idle = control.step(createInputFrame(), 15, DT);
 		expect(idle.engineForce).toBe(0);
@@ -108,7 +126,7 @@ describe("VehicleControl — motor e freio", () => {
 	});
 
 	it("freio de mão independe do freio", () => {
-		const control = new VehicleControl(CONFIG, createVehicleState());
+		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const handbrake = control.step(inputOf({ throttle: 1, handbrake: true }), 15, DT);
 		expect(handbrake.handbrakeForce).toBe(CONFIG.eBrakeForce);
@@ -119,7 +137,7 @@ describe("VehicleControl — motor e freio", () => {
 describe("VehicleControl — estado por instância", () => {
 	it("duas instâncias com a mesma definição não compartilham estado", () => {
 		const a = setup();
-		const b = new VehicleControl(CONFIG, createVehicleState());
+		const b = new VehicleControl(DEFINITION, createVehicleState());
 		a.input.steer = -1;
 		a.run(30, 12);
 

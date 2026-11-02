@@ -15,6 +15,10 @@ export interface ReplayInitialState {
 	angularVelocity: Vec3Like;
 	/** Esterço das rodas dianteiras (rad; positivo à esquerda) */
 	steeringAngle: number;
+	/** Marcha engatada: 1…n à frente, −1 ré */
+	gear: number;
+	/** Tempo restante da troca de marcha em curso (s) */
+	shiftTimeRemaining: number;
 }
 
 /**

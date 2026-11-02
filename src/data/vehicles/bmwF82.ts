@@ -25,6 +25,33 @@ export const bmwF82: VehicleDefinition = {
 		suspensionRelaxation: 1.6,
 		frictionSlip: 2.0,
 		sideFrictionStiffness: 1.0,
+		tractionFriction: 1.0,
+	},
+	powertrain: {
+		torqueCurve: [
+			{ rpm: 750, torque: 320 },
+			{ rpm: 1000, torque: 400 },
+			{ rpm: 1850, torque: 550 },
+			{ rpm: 5500, torque: 550 },
+			{ rpm: 7300, torque: 415 },
+			{ rpm: 7600, torque: 380 },
+		],
+		idleRpm: 750,
+		revLimitRpm: 7600,
+		upshiftRpm: 7300,
+		downshiftRpm: 3000,
+		gearRatios: [4.806, 2.593, 1.701, 1.277, 1.0, 0.844, 0.671],
+		reverseRatio: 4.172,
+		finalDriveRatio: 3.462,
+		efficiency: 0.9,
+		engineInertia: 0.2,
+		shiftTime: 0.1,
+		topSpeed: 280 / 3.6,
+		boostTorqueMultiplier: 1.3,
+	},
+	aerodynamics: {
+		dragCoefficient: 0.34,
+		frontalArea: 2.2,
 	},
 	cameraSettings: {
 		[CameraMode.THIRD_PERSON]: {
@@ -52,9 +79,6 @@ export const bmwF82: VehicleDefinition = {
 		},
 	},
 	configs: {
-		maxSpeed: 20,
-		maxForce: 5000,
-		maxBoostForce: 3,
 		brakeForce: 3600,
 		rollingResistance: 93,
 		eBrakeForce: 3300,

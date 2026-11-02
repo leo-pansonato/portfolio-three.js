@@ -65,6 +65,8 @@ export interface PhysicsBody {
 	setLinearVelocity(velocity: Vec3Like): void;
 	/** Velocidade angular no mundo (rad/s) */
 	setAngularVelocity(velocity: Vec3Like): void;
+	/** Impulso no centro de massa, em eixos do mundo (N·s): muda a velocidade linear em impulso/massa na hora */
+	applyImpulse(impulse: Vec3Like): void;
 }
 
 /** Roda do controlador de veículo; vetores em eixos locais do chassi (frente +X, cima +Y, direita +Z) */

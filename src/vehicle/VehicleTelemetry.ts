@@ -33,6 +33,10 @@ export interface VehicleTelemetry {
 	lateralAccelerationG: number;
 	/** Esterço das rodas dianteiras (rad; positivo à esquerda) */
 	steeringAngle: number;
+	/** Rotação do motor (rpm) */
+	engineRpm: number;
+	/** Marcha engatada: 1…n à frente, −1 ré */
+	gear: number;
 	wheels: WheelTelemetry[];
 }
 
@@ -47,6 +51,8 @@ export function createVehicleTelemetry(): VehicleTelemetry {
 		longitudinalAccelerationG: 0,
 		lateralAccelerationG: 0,
 		steeringAngle: 0,
+		engineRpm: 0,
+		gear: 1,
 		wheels: [],
 	};
 }

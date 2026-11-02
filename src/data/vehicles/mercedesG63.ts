@@ -25,6 +25,33 @@ export const mercedesG63: VehicleDefinition = {
 		suspensionRelaxation: 1.6,
 		frictionSlip: 1.4,
 		sideFrictionStiffness: 1.0,
+		tractionFriction: 1.0,
+	},
+	powertrain: {
+		torqueCurve: [
+			{ rpm: 650, torque: 450 },
+			{ rpm: 1000, torque: 550 },
+			{ rpm: 2500, torque: 850 },
+			{ rpm: 3500, torque: 850 },
+			{ rpm: 6000, torque: 684 },
+			{ rpm: 6500, torque: 600 },
+		],
+		idleRpm: 650,
+		revLimitRpm: 6500,
+		upshiftRpm: 6200,
+		downshiftRpm: 2200,
+		gearRatios: [5.35, 3.24, 2.25, 1.64, 1.21, 1.0, 0.87, 0.72, 0.6],
+		reverseRatio: 4.8,
+		finalDriveRatio: 3.27,
+		efficiency: 0.85,
+		engineInertia: 0.25,
+		shiftTime: 0.2,
+		topSpeed: 220 / 3.6,
+		boostTorqueMultiplier: 1.3,
+	},
+	aerodynamics: {
+		dragCoefficient: 0.54,
+		frontalArea: 3.3,
 	},
 	cameraSettings: {
 		[CameraMode.THIRD_PERSON]: {
@@ -52,9 +79,6 @@ export const mercedesG63: VehicleDefinition = {
 		},
 	},
 	configs: {
-		maxSpeed: 20,
-		maxForce: 3500,
-		maxBoostForce: 3,
 		brakeForce: 5700,
 		rollingResistance: 75,
 		eBrakeForce: 3900,

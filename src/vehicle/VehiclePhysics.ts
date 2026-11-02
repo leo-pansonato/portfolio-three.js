@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
 import { PhysicsBody, PhysicsWorld, QuatLike, RaycastVehicle, Vec3Like } from "../physics/PhysicsWorld";
+import { aerodynamicDragImpulse } from "./aerodynamics";
 import { VehicleCommands } from "./VehicleControl";
+import { VehicleState } from "./VehicleState";
 import { createVehicleTelemetry, createWheelTelemetry, STANDARD_GRAVITY, VehicleTelemetry } from "./VehicleTelemetry";
 
 /** Valores de uma roda no passo anterior, para a interpolação visual */
@@ -34,10 +36,13 @@ export default class VehiclePhysics {
 	readonly telemetry: VehicleTelemetry = createVehicleTelemetry();
 
 	private readonly suspensionRestLength: number;
+	/** Forças de suspensão do controlador valem para o estado atual (falso após escrever o estado do chassi) */
+	private wheelLoadsValid = false;
 	private tempVector3 = new THREE.Vector3();
 	private tempVelocity = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
 	private tempRight = new THREE.Vector3();
+	private tempImpulse = new THREE.Vector3();
 	private previousVelocity = new THREE.Vector3();
 	private hasPreviousVelocity = false;
 
@@ -123,29 +128,54 @@ export default class VehiclePhysics {
 	}
 
 	/**
-	 * Aplica os comandos ao controlador (rodas 0/1 dianteiras, 2/3 traseiras)
-	 * @param dt passo de física (s): o freio vira impulso máximo por passo (N·s)
+	 * Aplica os comandos ao controlador (rodas 0/1 dianteiras, 2/3 traseiras) e o arrasto ao chassi
+	 * @param dt passo de física (s): freio e arrasto viram impulso por passo (N·s)
 	 */
 	applyCommands(commands: VehicleCommands, dt: number): void {
 		this.controller.setWheelSteering(0, commands.steeringAngle);
 		this.controller.setWheelSteering(1, commands.steeringAngle);
 		this.applyEngineForce(commands.engineForce);
 		this.applyBraking(commands.brakeForce * dt, commands.handbrakeForce * dt);
+		this.applyAerodynamicDrag(dt);
+	}
+
+	/** Arrasto aerodinâmico oposto à velocidade do chassi, como impulso no centro de massa (N·s) */
+	private applyAerodynamicDrag(dt: number): void {
+		const velocity = this.chassisBody.getLinearVelocity(this.tempVelocity);
+		this.chassisBody.applyImpulse(
+			aerodynamicDragImpulse(this.definition.aerodynamics, velocity, dt, this.tempImpulse),
+		);
 	}
 
 	/** Atualiza o controlador; chamar no pré-passo, antes de `world.step()` */
 	updateVehicle(dt: number): void {
 		this.controller.updateVehicle(dt);
+		this.wheelLoadsValid = true;
 	}
 
 	/** Força do motor por roda motriz (N) conforme a tração */
 	private applyEngineForce(force: number): void {
 		const front = this.definition.configs.tractionDisplacement === "rear" ? 0 : force;
 		const rear = this.definition.configs.tractionDisplacement === "front" ? 0 : force;
-		this.controller.setWheelEngineForce(0, front);
-		this.controller.setWheelEngineForce(1, front);
-		this.controller.setWheelEngineForce(2, rear);
-		this.controller.setWheelEngineForce(3, rear);
+		this.setTractionForce(0, front);
+		this.setTractionForce(1, front);
+		this.setTractionForce(2, rear);
+		this.setTractionForce(3, rear);
+	}
+
+	/**
+	 * Força do motor limitada ao atrito longitudinal (tractionFriction × carga normal do último passo, N):
+	 * em linha reta o controlador da Rapier não limita o impulso do motor.
+	 * Sem limite no passo seguinte a uma escrita de estado, para o replay não depender do passo anterior.
+	 */
+	private setTractionForce(index: number, force: number): void {
+		if (!this.wheelLoadsValid) {
+			this.controller.setWheelEngineForce(index, force);
+			return;
+		}
+		const normalLoad = Math.max(0, this.controller.wheelSuspensionForce(index) ?? 0);
+		const limit = this.definition.physics.tractionFriction * normalLoad;
+		this.controller.setWheelEngineForce(index, Math.max(-limit, Math.min(limit, force)));
 	}
 
 	/** Impulsos de freio por passo (N·s por roda); o freio de mão substitui o freio nas traseiras */
@@ -160,9 +190,12 @@ export default class VehiclePhysics {
 	/**
 	 * Atualiza a telemetria com o resultado do último passo; chamar no início do pré-passo
 	 * @param dt passo de física (s)
+	 * @param state estado do veículo no último passo (rotação e marcha)
 	 */
-	updateTelemetry(dt: number): void {
+	updateTelemetry(dt: number, state: Readonly<VehicleState>): void {
 		const telemetry = this.telemetry;
+		telemetry.engineRpm = state.engineRpm;
+		telemetry.gear = state.gear;
 		const velocity = this.chassisBody.getLinearVelocity(this.tempVelocity);
 		this.chassisBody.getRotation(this.tempQuaternion);
 		const forward = this.tempVector3.copy(VehiclePhysics.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
@@ -236,6 +269,7 @@ export default class VehiclePhysics {
 		this.chassisBody.setAngularVelocity({ x: 0, y: 0, z: 0 });
 		this.physicsWorld.resetInterpolation(this.chassisBody);
 		this.hasPreviousVelocity = false;
+		this.wheelLoadsValid = false;
 	}
 
 	captureChassisState<T extends ChassisState>(out: T): T {
@@ -252,6 +286,7 @@ export default class VehiclePhysics {
 		this.chassisBody.setRotation(state.rotation);
 		this.chassisBody.setLinearVelocity(state.linearVelocity);
 		this.chassisBody.setAngularVelocity(state.angularVelocity);
+		this.wheelLoadsValid = false;
 	}
 
 	/** Teleporta o chassi para o estado dado, sem interpolar a partir da pose anterior */
