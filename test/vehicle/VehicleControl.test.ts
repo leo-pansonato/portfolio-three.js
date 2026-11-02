@@ -73,9 +73,7 @@ describe("VehicleControl — motor e freio", () => {
 		const speed = 10; // m/s, 1ª marcha
 		const rpm = (speed / WHEEL_RADIUS) * control.powertrain.overallRatio(1) * (60 / (2 * Math.PI));
 		const ratio = control.powertrain.overallRatio(1);
-		const fullTorque =
-			((control.powertrain.torqueAt(rpm) * ratio * POWERTRAIN.efficiency) / 2) *
-			control.powertrain.inertiaFactor(ratio);
+		const fullTorque = (control.powertrain.torqueAt(rpm) * ratio * POWERTRAIN.efficiency) / 2;
 
 		expect(control.step(inputOf({ throttle: 0.5 }), speed, DT).driveTorque).toBeCloseTo(fullTorque / 2, 6);
 		expect(control.step(inputOf({ throttle: 1, boost: true }), speed, DT).driveTorque).toBeCloseTo(

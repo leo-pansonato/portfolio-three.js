@@ -16,6 +16,16 @@ export interface WheelTelemetry {
 	sideImpulse: number;
 	/** Esterço (rad; positivo à esquerda) */
 	steering: number;
+	/** Velocidade angular da roda (rad/s; positiva rolando para a frente) */
+	angularVelocity: number;
+	/** Escorregamento longitudinal (adimensional; positivo tracionando) */
+	slipRatio: number;
+	/** Ângulo de deriva (rad; positivo com o contato indo para a direita da roda) */
+	slipAngle: number;
+	/** Força longitudinal do pneu (N; positiva para a frente da roda) */
+	longitudinalForce: number;
+	/** Força lateral do pneu (N; positiva para a direita da roda) */
+	lateralForce: number;
 }
 
 export interface VehicleTelemetry {
@@ -66,5 +76,10 @@ export function createWheelTelemetry(suspensionRestLength: number): WheelTelemet
 		forwardImpulse: 0,
 		sideImpulse: 0,
 		steering: 0,
+		angularVelocity: 0,
+		slipRatio: 0,
+		slipAngle: 0,
+		longitudinalForce: 0,
+		lateralForce: 0,
 	};
 }

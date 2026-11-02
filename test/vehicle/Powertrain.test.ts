@@ -6,7 +6,6 @@ import { createVehicleState, REVERSE_GEAR } from "../../src/vehicle/VehicleState
 
 const DT = 1 / 60; // s
 const WHEEL_RADIUS = 0.3; // m
-const MASS = 1500; // kg
 const RPM_PER_RAD_S = 60 / (2 * Math.PI);
 
 const CONFIG: VehiclePowertrainConfig = Object.freeze({
@@ -33,7 +32,7 @@ const FULL: PowertrainRequest = { throttle: 1, reverse: false, boost: false };
 
 function setup(config: VehiclePowertrainConfig = CONFIG) {
 	const state = createVehicleState(config.idleRpm);
-	return { state, powertrain: new Powertrain(config, WHEEL_RADIUS, MASS, state) };
+	return { state, powertrain: new Powertrain(config, WHEEL_RADIUS, state) };
 }
 
 /** Velocidade (m/s) em que o motor gira a `rpm` na marcha dada */
@@ -68,14 +67,27 @@ describe("Powertrain", () => {
 		expect(wheelTorque).toBeCloseTo(200 * 3 * 4 * 0.9, 6);
 	});
 
-	it("inércia do motor reduz o torque pela massa equivalente da marcha", () => {
-		const { powertrain } = setup({ ...CONFIG, engineInertia: 0.2 });
-		const ratio = 3 * 4;
-		const equivalentMass = (0.2 * ratio * ratio * 0.9) / (WHEEL_RADIUS * WHEEL_RADIUS);
+	it("inércia do motor refletida nas rodas = J·G²·η da marcha engatada; não reduz o torque", () => {
+		const { state, powertrain } = setup({ ...CONFIG, engineInertia: 0.2 });
 		const wheelTorque = powertrain.step(FULL, speedAt(3000, 1), DT);
 
-		expect(wheelTorque).toBeCloseTo(400 * ratio * 0.9 * (MASS / (MASS + equivalentMass)), 6);
-		expect(powertrain.inertiaFactor(4)).toBeGreaterThan(powertrain.inertiaFactor(ratio));
+		expect(wheelTorque).toBeCloseTo(400 * 3 * 4 * 0.9, 6);
+		expect(powertrain.reflectedInertia()).toBeCloseTo(0.2 * (3 * 4) ** 2 * 0.9, 9);
+		state.gear = 4;
+		expect(powertrain.reflectedInertia()).toBeCloseTo(0.2 * 4 ** 2 * 0.9, 9);
+	});
+
+	it("rotação segue a velocidade das rodas motrizes; troca e limitador, a do veículo", () => {
+		const { state, powertrain } = setup();
+		powertrain.step(FULL, speedAt(1000, 1), DT, speedAt(3000, 1));
+		expect(state.engineRpm).toBeCloseTo(3000, 6);
+		powertrain.step(FULL, speedAt(1000, 1), DT, speedAt(6100, 1));
+		expect(state.gear).toBe(1);
+		powertrain.step(FULL, speedAt(6100, 1), DT, speedAt(1000, 1));
+		expect(state.gear).toBe(2);
+		state.gear = 4;
+		state.shiftTimeRemaining = 0;
+		expect(powertrain.step(FULL, CONFIG.topSpeed, DT, speedAt(3000, 4))).toBe(0);
 	});
 
 	it("sobe de marcha no giro de troca, corta o torque durante a troca e não volta (histerese)", () => {

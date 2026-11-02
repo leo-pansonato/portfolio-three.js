@@ -1,19 +1,13 @@
 import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
-import {
-	createRaycastHit,
-	PhysicsBody,
-	PhysicsWorld,
-	QuatLike,
-	RaycastHit,
-	RaycastVehicle,
-	Vec3Like,
-} from "../physics/PhysicsWorld";
+import { createRaycastHit, PhysicsBody, PhysicsWorld, QuatLike, RaycastHit, Vec3Like } from "../physics/PhysicsWorld";
 import { aerodynamicDragImpulse } from "./aerodynamics";
 import Suspension from "./Suspension";
+import Tire from "./Tire";
 import { VehicleCommands } from "./VehicleControl";
 import { VehicleState } from "./VehicleState";
 import { createVehicleTelemetry, createWheelTelemetry, STANDARD_GRAVITY, VehicleTelemetry } from "./VehicleTelemetry";
+import WheelDynamics, { createWheelState, WheelState, WheelStepInput } from "./WheelDynamics";
 
 /** Valores de uma roda no passo anterior, para a interpolação visual */
 export interface WheelStepState {
@@ -34,26 +28,48 @@ export interface ChassisState {
 }
 
 /**
- * Física de um veículo: chassi (corpo dinâmico + cuboid), suspensão própria por roda (raio pelo PhysicsWorld,
- * impulso no ponto de fixação) e controlador de veículo por raycast só para os pneus.
- * Dono desses objetos do motor; `destroy()` os remove do mundo.
+ * Física de um veículo sobre o corpo rígido (ADR-0003): chassi (corpo dinâmico + cuboid), suspensão por roda
+ * (raio pelo PhysicsWorld, impulso no ponto de fixação) e pneus próprios (WheelDynamics: roda com inércia e
+ * curva de Pacejka, impulso no ponto de contato, nos eixos da roda projetados no plano de contato).
+ * Rodas 0/1 dianteiras (esterçam), 2/3 traseiras. Dono do chassi; `destroy()` o remove do mundo.
  * Eixos do chassi (ADR-0002): frente +X, cima +Y, direita +Z; THREE só para matemática.
  */
 export default class VehiclePhysics {
 	readonly chassisBody: PhysicsBody;
-	readonly controller: RaycastVehicle;
 	readonly wheels: WheelStepState[] = [];
 	readonly telemetry: VehicleTelemetry = createVehicleTelemetry();
 	readonly suspension: Suspension;
+	readonly tire: Tire;
+	/** Estado de cada roda (velocidade angular, giro, escorregamento, forças do pneu) */
+	readonly wheelStates: WheelState[] = [];
 
+	private readonly wheelDynamics: WheelDynamics;
 	private readonly suspensionRestLength: number;
 	/** Pontos de fixação da suspensão (m, eixos locais do chassi) */
 	private readonly connectionPoints: THREE.Vector3[] = [];
 	private readonly hits: RaycastHit[] = [];
-	/** Forças de suspensão do último passo valem para o estado atual (falso após escrever o estado do chassi) */
-	private wheelLoadsValid = false;
+	/** Rodas que recebem o torque do motor */
+	private readonly driven: boolean[] = [];
+	private readonly drivenCount: number;
+	/** Esterço por roda (rad) */
+	private readonly steering: number[] = [];
+	/** Torque do motor por roda (N·m) */
+	private readonly driveTorques: number[] = [];
+	/** Torque máximo de freio por roda (N·m) */
+	private readonly brakeTorques: number[] = [];
+	/** Inércia do motor refletida em cada roda motriz (kg·m²) */
+	private drivelineInertia = 0;
 	/** Comprimentos da suspensão do último passo valem para o estado atual (falso após escrever o estado do chassi) */
 	private suspensionLengthsValid = false;
+	private readonly stepInput: WheelStepInput = {
+		longitudinalSpeed: 0,
+		lateralSpeed: 0,
+		normalLoad: 0,
+		driveTorque: 0,
+		brakeTorque: 0,
+		inertia: 0,
+		contactMass: 0,
+	};
 	private tempVector3 = new THREE.Vector3();
 	private tempVelocity = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
@@ -64,6 +80,9 @@ export default class VehiclePhysics {
 	private tempDirection = new THREE.Vector3();
 	private tempPointVelocity = new THREE.Vector3();
 	private tempGroundVelocity = new THREE.Vector3();
+	private tempNormal = new THREE.Vector3();
+	private tempWheelForward = new THREE.Vector3();
+	private tempWheelRight = new THREE.Vector3();
 	private previousVelocity = new THREE.Vector3();
 	private hasPreviousVelocity = false;
 
@@ -83,6 +102,8 @@ export default class VehiclePhysics {
 			physicsData.suspensionRestLength,
 			definition.wheels.adjustments.length,
 		);
+		this.tire = new Tire(definition.tire);
+		this.wheelDynamics = new WheelDynamics(this.tire, physicsData.wheelRadius);
 
 		this.chassisBody = physicsWorld.createRigidBody({
 			type: "dynamic",
@@ -108,29 +129,16 @@ export default class VehiclePhysics {
 			this.chassisBody,
 		);
 
-		this.controller = physicsWorld.createVehicleController(this.chassisBody);
-		this.addWheels();
-	}
-
-	private addWheels(): void {
-		const physicsData = this.definition.physics;
-		// o controlador usa +X como frente (indexForwardAxis = 0) e +Y como cima
-		const down = VehiclePhysics.LOCAL_DOWN;
-		const axle = VehiclePhysics.LOCAL_RIGHT;
-
-		this.definition.wheels.adjustments.forEach((wheel) => {
-			this.controller.addWheel({
-				connectionPoint: wheel.position,
-				direction: down,
-				axle,
-				suspensionRestLength: physicsData.suspensionRestLength,
-				radius: physicsData.wheelRadius,
-				frictionSlip: wheel.frictionSlip ?? physicsData.frictionSlip,
-				sideFrictionStiffness: wheel.sideFrictionStiffness ?? physicsData.sideFrictionStiffness,
-			});
+		const traction = definition.configs.tractionDisplacement;
+		definition.wheels.adjustments.forEach((wheel, index) => {
+			const front = index < 2;
 			this.connectionPoints.push(new THREE.Vector3(wheel.position.x, wheel.position.y, wheel.position.z));
 			this.hits.push(createRaycastHit());
-
+			this.wheelStates.push(createWheelState());
+			this.driven.push(traction === "all" || (traction === "front") === front);
+			this.steering.push(0);
+			this.driveTorques.push(0);
+			this.brakeTorques.push(0);
 			this.wheels.push({
 				previousSuspensionLength: physicsData.suspensionRestLength,
 				previousSteering: 0,
@@ -138,6 +146,7 @@ export default class VehiclePhysics {
 			});
 			this.telemetry.wheels.push(createWheelTelemetry(physicsData.suspensionRestLength));
 		});
+		this.drivenCount = this.driven.filter(Boolean).length;
 	}
 
 	/** Guarda os valores das rodas antes do passo (início do pré-passo) */
@@ -151,15 +160,19 @@ export default class VehiclePhysics {
 	}
 
 	/**
-	 * Aplica os comandos ao controlador (rodas 0/1 dianteiras, 2/3 traseiras) e o arrasto ao chassi
-	 * @param dt passo de física (s): torques viram força no raio da roda (N); freio e arrasto, impulso por passo (N·s)
+	 * Guarda os comandos para as rodas (esterço nas dianteiras, motor nas motrizes, freio de mão substitui o freio
+	 * nas traseiras) e aplica o arrasto ao chassi
+	 * @param dt passo de física (s): o arrasto vira impulso por passo (N·s)
 	 */
 	applyCommands(commands: VehicleCommands, dt: number): void {
-		const radius = this.definition.physics.wheelRadius;
-		this.controller.setWheelSteering(0, commands.steeringAngle);
-		this.controller.setWheelSteering(1, commands.steeringAngle);
-		this.applyEngineForce(commands.driveTorque / radius);
-		this.applyBraking((commands.brakeTorque / radius) * dt, (commands.handbrakeTorque / radius) * dt);
+		const rearBrake = commands.handbrakeTorque > 0 ? commands.handbrakeTorque : commands.brakeTorque;
+		for (let i = 0; i < this.steering.length; i++) {
+			const front = i < 2;
+			this.steering[i] = front ? commands.steeringAngle : 0;
+			this.driveTorques[i] = this.driven[i] ? commands.driveTorque : 0;
+			this.brakeTorques[i] = front ? commands.brakeTorque : rearBrake;
+		}
+		this.drivelineInertia = commands.drivelineInertia;
 		this.applyAerodynamicDrag(dt);
 	}
 
@@ -171,16 +184,15 @@ export default class VehiclePhysics {
 		);
 	}
 
-	/** Suspensão e depois o controlador (pneus); chamar no pré-passo, antes de `world.step()` */
+	/** Suspensão e depois os pneus; chamar no pré-passo, antes de `world.step()` */
 	updateVehicle(dt: number): void {
 		this.updateSuspension(dt);
-		this.controller.updateVehicle(dt);
-		this.wheelLoadsValid = true;
+		this.updateTires(dt);
 	}
 
 	/**
 	 * Mede cada roda com um raio da fixação ao longo da suspensão (ignorando o chassi), calcula as forças e as aplica
-	 * como impulso (N·s) ao longo da normal de contato, no ponto de fixação; a carga vai ao controlador para o atrito.
+	 * como impulso (N·s) ao longo da normal de contato, no ponto de fixação.
 	 * Velocidade de compressão pela variação do comprimento no último passo (roda sem contato conta como estendida):
 	 * a velocidade do corpo ao fim do passo não é a média do passo (subpassos do motor) e daria força de amortecimento
 	 * em repouso. Logo após escrever o estado do chassi, vem da velocidade do corpo.
@@ -212,18 +224,12 @@ export default class VehiclePhysics {
 
 		for (let i = 0; i < this.connectionPoints.length; i++) {
 			const wheel = this.suspension.wheels[i];
-			if (!wheel.inContact) {
-				this.controller.setWheelTireLoad(i, 0, this.suspensionRestLength, -1);
-				continue;
-			}
-			const hit = this.hits[i];
-			const normal = hit.normal;
+			if (!wheel.inContact) continue;
+			const normal = this.hits[i].normal;
 			const impulse = wheel.force * dt;
 			this.tempImpulse.set(normal.x * impulse, normal.y * impulse, normal.z * impulse);
 			const hardPoint = this.tempHardPoint.copy(this.connectionPoints[i]).applyQuaternion(rotation).add(position);
 			chassis.applyImpulseAtPoint(this.tempImpulse, hardPoint);
-			const normalDotDirection = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
-			this.controller.setWheelTireLoad(i, wheel.force, wheel.length, normalDotDirection);
 		}
 	}
 
@@ -240,38 +246,57 @@ export default class VehiclePhysics {
 		return normalDotDirection < -0.1 ? normalSpeed / normalDotDirection : 0;
 	}
 
-	/** Força do motor por roda motriz (N) conforme a tração */
-	private applyEngineForce(force: number): void {
-		const front = this.definition.configs.tractionDisplacement === "rear" ? 0 : force;
-		const rear = this.definition.configs.tractionDisplacement === "front" ? 0 : force;
-		this.setTractionForce(0, front);
-		this.setTractionForce(1, front);
-		this.setTractionForce(2, rear);
-		this.setTractionForce(3, rear);
-	}
-
 	/**
-	 * Força do motor limitada ao atrito longitudinal (tractionFriction × carga normal do último passo, N):
-	 * em linha reta o controlador da Rapier não limita o impulso do motor.
-	 * Sem limite no passo seguinte a uma escrita de estado, para o replay não depender do passo anterior.
+	 * Pneus: velocidade do contato nos eixos da roda (frente esterçada e direita, projetadas no plano de contato),
+	 * carga da suspensão deste passo, torques de motor e freio → WheelDynamics → impulso (N·s) no ponto de contato.
+	 * A massa do contato é a fração da massa do chassi pela carga da roda. Roda sem contato só gira.
 	 */
-	private setTractionForce(index: number, force: number): void {
-		if (!this.wheelLoadsValid) {
-			this.controller.setWheelEngineForce(index, force);
-			return;
-		}
-		const normalLoad = this.suspension.wheels[index].force;
-		const limit = this.definition.physics.tractionFriction * normalLoad;
-		this.controller.setWheelEngineForce(index, Math.max(-limit, Math.min(limit, force)));
-	}
+	private updateTires(dt: number): void {
+		const chassis = this.chassisBody;
+		const rotation = chassis.getRotation(this.tempQuaternion);
+		const mass = this.definition.physics.mass;
+		const wheelInertia = this.definition.physics.wheelInertia;
+		const input = this.stepInput;
 
-	/** Impulsos de freio por passo (N·s por roda); o freio de mão substitui o freio nas traseiras */
-	private applyBraking(normalBrake: number, handBrake: number): void {
-		const rearBrake = handBrake > 0 ? handBrake : normalBrake;
-		this.controller.setWheelBrake(2, rearBrake);
-		this.controller.setWheelBrake(3, rearBrake);
-		this.controller.setWheelBrake(0, normalBrake);
-		this.controller.setWheelBrake(1, normalBrake);
+		let totalLoad = 0;
+		for (let i = 0; i < this.suspension.wheels.length; i++) totalLoad += this.suspension.wheels[i].force;
+
+		for (let i = 0; i < this.wheelStates.length; i++) {
+			const suspension = this.suspension.wheels[i];
+			const load = suspension.inContact ? suspension.force : 0;
+			input.driveTorque = this.driveTorques[i];
+			input.brakeTorque = this.brakeTorques[i];
+			input.inertia = wheelInertia + (this.driven[i] ? this.drivelineInertia : 0);
+			input.normalLoad = load;
+			input.contactMass = totalLoad > 0 ? (mass * load) / totalLoad : 0;
+			input.longitudinalSpeed = 0;
+			input.lateralSpeed = 0;
+
+			if (load <= 0) {
+				this.wheelDynamics.step(this.wheelStates[i], input, dt);
+				continue;
+			}
+
+			const hit = this.hits[i];
+			const normal = this.tempNormal.set(hit.normal.x, hit.normal.y, hit.normal.z);
+			const steer = this.steering[i];
+			const forward = this.tempWheelForward.set(Math.cos(steer), 0, -Math.sin(steer)).applyQuaternion(rotation);
+			forward.addScaledVector(normal, -forward.dot(normal)).normalize();
+			const right = this.tempWheelRight.crossVectors(forward, normal);
+
+			const velocity = chassis.getVelocityAtPoint(hit.point, this.tempPointVelocity);
+			if (hit.body) velocity.sub(hit.body.getVelocityAtPoint(hit.point, this.tempGroundVelocity));
+			input.longitudinalSpeed = velocity.dot(forward);
+			input.lateralSpeed = velocity.dot(right);
+
+			const state = this.wheelStates[i];
+			this.wheelDynamics.step(state, input, dt);
+
+			const longitudinal = state.longitudinalForce * dt;
+			const lateral = state.lateralForce * dt;
+			this.tempImpulse.copy(forward).multiplyScalar(longitudinal).addScaledVector(right, lateral);
+			chassis.applyImpulseAtPoint(this.tempImpulse, hit.point);
+		}
 	}
 
 	/**
@@ -311,13 +336,19 @@ export default class VehiclePhysics {
 		for (let i = 0; i < telemetry.wheels.length; i++) {
 			const wheel = telemetry.wheels[i];
 			const suspension = this.suspension.wheels[i];
+			const tire = this.wheelStates[i];
 			wheel.inContact = suspension.inContact;
 			wheel.suspensionLength = suspension.length;
 			wheel.compression = suspension.compression;
 			wheel.suspensionForce = suspension.force;
-			wheel.forwardImpulse = this.controller.wheelForwardImpulse(i) ?? 0;
-			wheel.sideImpulse = this.controller.wheelSideImpulse(i) ?? 0;
+			wheel.forwardImpulse = tire.longitudinalForce * dt;
+			wheel.sideImpulse = tire.lateralForce * dt;
 			wheel.steering = this.wheelSteering(i);
+			wheel.angularVelocity = tire.angularVelocity;
+			wheel.slipRatio = tire.slipRatio;
+			wheel.slipAngle = tire.slipAngle;
+			wheel.longitudinalForce = tire.longitudinalForce;
+			wheel.lateralForce = tire.lateralForce;
 		}
 	}
 
@@ -329,6 +360,15 @@ export default class VehiclePhysics {
 		return velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
 	}
 
+	/** Velocidade média da banda de rodagem das rodas motrizes ω·r (m/s; negativa em ré) */
+	drivenWheelSpeed(): number {
+		let sum = 0;
+		for (let i = 0; i < this.wheelStates.length; i++) {
+			if (this.driven[i]) sum += this.wheelStates[i].angularVelocity;
+		}
+		return this.drivenCount > 0 ? (sum / this.drivenCount) * this.definition.physics.wheelRadius : 0;
+	}
+
 	/** Comprimento atual da suspensão (m) */
 	wheelSuspensionLength(index: number): number {
 		return this.suspension.wheels[index]?.length ?? this.suspensionRestLength;
@@ -336,19 +376,19 @@ export default class VehiclePhysics {
 
 	/** Esterço atual (rad) */
 	wheelSteering(index: number): number {
-		return this.controller.wheelSteering(index) ?? 0;
+		return this.steering[index] ?? 0;
 	}
 
 	/** Giro acumulado (rad) */
 	wheelRotation(index: number): number {
-		return this.controller.wheelRotation(index) ?? 0;
+		return this.wheelStates[index]?.rotation ?? 0;
 	}
 
 	wheelIsInContact(index: number): boolean {
 		return this.suspension.wheels[index]?.inContact ?? false;
 	}
 
-	/** Teleporta 1 m acima, nivelado e parado */
+	/** Teleporta 1 m acima, nivelado e parado, com as rodas paradas */
 	reset(): void {
 		const currentPos = this.chassisBody.getPosition(this.tempVector3);
 		this.chassisBody.setPosition({ x: currentPos.x, y: currentPos.y + 1, z: currentPos.z });
@@ -357,8 +397,8 @@ export default class VehiclePhysics {
 		this.chassisBody.setAngularVelocity({ x: 0, y: 0, z: 0 });
 		this.physicsWorld.resetInterpolation(this.chassisBody);
 		this.hasPreviousVelocity = false;
-		this.wheelLoadsValid = false;
 		this.suspensionLengthsValid = false;
+		for (const wheel of this.wheelStates) wheel.angularVelocity = 0;
 	}
 
 	captureChassisState<T extends ChassisState>(out: T): T {
@@ -369,14 +409,31 @@ export default class VehiclePhysics {
 		return out;
 	}
 
-	/** Escreve o estado no chassi; o motor pode normalizar a rotação, então aplicar o mesmo estado dá o mesmo resultado */
+	/**
+	 * Escreve o estado no chassi; o motor pode normalizar a rotação, então aplicar o mesmo estado dá o mesmo resultado.
+	 * As rodas passam a rolar sem escorregar na velocidade do chassi no ponto de fixação (só depende do estado escrito).
+	 */
 	applyChassisState(state: Readonly<ChassisState>): void {
 		this.chassisBody.setPosition(state.position);
 		this.chassisBody.setRotation(state.rotation);
 		this.chassisBody.setLinearVelocity(state.linearVelocity);
 		this.chassisBody.setAngularVelocity(state.angularVelocity);
-		this.wheelLoadsValid = false;
 		this.suspensionLengthsValid = false;
+		this.syncWheelSpeeds();
+	}
+
+	/** Velocidade angular de cada roda = velocidade do chassi no ponto de fixação, ao longo da frente, / raio */
+	private syncWheelSpeeds(): void {
+		const chassis = this.chassisBody;
+		const position = chassis.getPosition(this.tempPosition);
+		const rotation = chassis.getRotation(this.tempQuaternion);
+		const forward = this.tempVector3.copy(VehiclePhysics.LOCAL_FORWARD).applyQuaternion(rotation);
+		const radius = this.definition.physics.wheelRadius;
+		for (let i = 0; i < this.wheelStates.length; i++) {
+			const hardPoint = this.tempHardPoint.copy(this.connectionPoints[i]).applyQuaternion(rotation).add(position);
+			const velocity = chassis.getVelocityAtPoint(hardPoint, this.tempPointVelocity);
+			this.wheelStates[i].angularVelocity = velocity.dot(forward) / radius;
+		}
 	}
 
 	/** Teleporta o chassi para o estado dado, sem interpolar a partir da pose anterior */
@@ -386,9 +443,8 @@ export default class VehiclePhysics {
 		this.hasPreviousVelocity = false;
 	}
 
-	/** Remove o controlador e o chassi (corpo e colisor) do mundo */
+	/** Remove o chassi (corpo e colisor) do mundo */
 	destroy(): void {
-		this.physicsWorld.removeVehicleController(this.controller);
 		this.physicsWorld.removeRigidBody(this.chassisBody);
 	}
 }

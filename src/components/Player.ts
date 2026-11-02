@@ -83,7 +83,7 @@ export default class Player extends Entity {
 	 * Controle do veículo a cada passo de física (dt fixo, s)
 	 */
 	private updateControl(input: Readonly<InputFrame>, dt: number): void {
-		const commands = this.control.step(input, this.physics.forwardSpeed(), dt);
+		const commands = this.control.step(input, this.physics.forwardSpeed(), dt, this.physics.drivenWheelSpeed());
 		this.physics.applyCommands(commands, dt);
 	}
 

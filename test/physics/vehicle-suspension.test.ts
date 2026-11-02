@@ -58,7 +58,7 @@ describe.each(VEHICLES)("suspensão própria — %s", (id) => {
 	const k = catalog.suspension.springRate;
 	const cornerMass = mass / 4;
 
-	it("carga estática por roda = m·g distribuída pela posição do CG; o controlador recebe a mesma carga", async () => {
+	it("carga estática por roda = m·g distribuída pela posição do CG", async () => {
 		const rig = await createVehicleRig(definition(id));
 		rig.steps(180);
 		const frontX = catalog.wheels.adjustments[0].position.x;
@@ -73,7 +73,6 @@ describe.each(VEHICLES)("suspensão própria — %s", (id) => {
 		for (const i of [2, 3]) expect(wheels[i].force / expectedRear).toBeCloseTo(1, 2);
 		for (let i = 0; i < 4; i++) {
 			expect(wheels[i].compression).toBeCloseTo(wheels[i].force / k, 4);
-			expect(rig.physics.controller.wheelSuspensionForce(i)! / wheels[i].force).toBeCloseTo(1, 3);
 		}
 		rig.dispose();
 	});

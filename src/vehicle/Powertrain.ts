@@ -24,8 +24,9 @@ export interface PowertrainRequest {
 
 /**
  * Motor (curva de torque, marcha lenta, corte de giro), câmbio automático com histerese e diferencial.
- * Sem inércia de roda nem embreagem (ADR-0003, etapa 1): a rotação vem da velocidade do chassi,
- * limitada por baixo pela marcha lenta; a inércia do motor entra como massa equivalente por marcha.
+ * Sem embreagem nem conversor (ADR-0003, etapa 4): a rotação vem da velocidade das rodas motrizes,
+ * limitada por baixo pela marcha lenta; a inércia do motor é refletida nas rodas (reflectedInertia).
+ * O câmbio decide pela velocidade do veículo (como a central do câmbio), para não caçar marcha com a roda patinando.
  * Altera só o VehicleState recebido; sem alocação por passo.
  */
 export default class Powertrain {
@@ -33,18 +34,21 @@ export default class Powertrain {
 		private readonly config: Readonly<VehiclePowertrainConfig>,
 		/** Raio da roda (m) */
 		private readonly wheelRadius: number,
-		/** Massa do veículo (kg) */
-		private readonly vehicleMass: number,
 		private readonly state: VehicleState,
 	) {}
 
 	/**
-	 * Avança um passo de física e devolve o torque total nas rodas motrizes (N·m; negativo em ré),
-	 * já reduzido pela inércia do motor (inertiaFactor)
-	 * @param forwardSpeed velocidade ao longo de +X local do chassi (m/s)
+	 * Avança um passo de física e devolve o torque total nas rodas motrizes (N·m; negativo em ré)
+	 * @param forwardSpeed velocidade ao longo de +X local do chassi (m/s): troca de marcha e limitador de velocidade
 	 * @param dt passo de física (s)
+	 * @param drivelineSpeed velocidade média da banda de rodagem das rodas motrizes ω·r (m/s): rotação do motor
 	 */
-	step(request: Readonly<PowertrainRequest>, forwardSpeed: number, dt: number): number {
+	step(
+		request: Readonly<PowertrainRequest>,
+		forwardSpeed: number,
+		dt: number,
+		drivelineSpeed: number = forwardSpeed,
+	): number {
 		const config = this.config;
 		const state = this.state;
 
@@ -58,7 +62,7 @@ export default class Powertrain {
 		}
 
 		const ratio = this.overallRatio(state.gear);
-		state.engineRpm = Math.max(config.idleRpm, this.drivelineRpm(forwardSpeed, ratio));
+		state.engineRpm = Math.max(config.idleRpm, this.drivelineRpm(drivelineSpeed, ratio));
 		state.boostMultiplier = request.boost ? config.boostTorqueMultiplier : 1;
 
 		if (request.throttle <= 0 || state.shiftTimeRemaining > 0 || state.engineRpm >= config.revLimitRpm) return 0;
@@ -68,7 +72,7 @@ export default class Powertrain {
 		if (state.gear !== REVERSE_GEAR) {
 			torque *= ramp((config.topSpeed - forwardSpeed) / SPEED_LIMITER_RAMP);
 		}
-		const wheelTorque = torque * ratio * config.efficiency * this.inertiaFactor(ratio);
+		const wheelTorque = torque * ratio * config.efficiency;
 		return state.gear === REVERSE_GEAR ? -wheelTorque : wheelTorque;
 	}
 
@@ -94,32 +98,26 @@ export default class Powertrain {
 		return gearbox * config.finalDriveRatio;
 	}
 
-	/**
-	 * Fração da força que acelera o veículo; o resto acelera o motor (adimensional):
-	 * m / (m + J·G²·η/r²), com J a inércia do motor e G a relação total
-	 */
-	inertiaFactor(overallRatio: number): number {
-		const config = this.config;
-		const equivalentMass =
-			(config.engineInertia * overallRatio * overallRatio * config.efficiency) /
-			(this.wheelRadius * this.wheelRadius);
-		return this.vehicleMass / (this.vehicleMass + equivalentMass);
+	/** Inércia do motor refletida no conjunto das rodas motrizes na marcha engatada (kg·m²): J·G²·η */
+	reflectedInertia(): number {
+		const ratio = this.overallRatio(this.state.gear);
+		return this.config.engineInertia * ratio * ratio * this.config.efficiency;
 	}
 
-	/** Rotação do motor ditada pelas rodas, sem escorregamento (rpm) */
-	private drivelineRpm(forwardSpeed: number, overallRatio: number): number {
-		return (Math.abs(forwardSpeed) / this.wheelRadius) * overallRatio * RAD_PER_SECOND_TO_RPM;
+	/** Rotação do motor ditada pelas rodas (rpm) */
+	private drivelineRpm(drivelineSpeed: number, overallRatio: number): number {
+		return (Math.abs(drivelineSpeed) / this.wheelRadius) * overallRatio * RAD_PER_SECOND_TO_RPM;
 	}
 
-	private selectForwardGear(forwardSpeed: number): void {
+	private selectForwardGear(vehicleSpeed: number): void {
 		const config = this.config;
 		const state = this.state;
-		const rpm = this.drivelineRpm(forwardSpeed, this.overallRatio(state.gear));
+		const rpm = this.drivelineRpm(vehicleSpeed, this.overallRatio(state.gear));
 		if (state.gear < config.gearRatios.length && rpm >= config.upshiftRpm) {
 			state.gear++;
 			state.shiftTimeRemaining = config.shiftTime;
 		} else if (state.gear > 1 && rpm < config.downshiftRpm) {
-			const lowerRpm = this.drivelineRpm(forwardSpeed, this.overallRatio(state.gear - 1));
+			const lowerRpm = this.drivelineRpm(vehicleSpeed, this.overallRatio(state.gear - 1));
 			if (lowerRpm < config.upshiftRpm) {
 				state.gear--;
 				state.shiftTimeRemaining = config.shiftTime;

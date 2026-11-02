@@ -36,7 +36,7 @@ export async function createVehicleRig(
 	physicsWorld.addPreStepCallback((dt) => {
 		physics.updateTelemetry(dt, state);
 		physics.savePreviousWheelStates();
-		physics.applyCommands(control.step(scripted, physics.forwardSpeed(), dt), dt);
+		physics.applyCommands(control.step(scripted, physics.forwardSpeed(), dt, physics.drivenWheelSpeed()), dt);
 		physics.updateVehicle(dt);
 	});
 

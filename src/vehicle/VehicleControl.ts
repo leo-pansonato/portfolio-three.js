@@ -13,6 +13,8 @@ export interface VehicleCommands {
 	brakeTorque: number;
 	/** Torque do freio de mão por roda traseira (N·m) */
 	handbrakeTorque: number;
+	/** Inércia do motor refletida em cada roda motriz na marcha engatada (kg·m²) */
+	drivelineInertia: number;
 }
 
 /**
@@ -21,7 +23,13 @@ export interface VehicleCommands {
  * Altera apenas o VehicleState recebido; sem THREE nem DOM.
  */
 export default class VehicleControl {
-	readonly commands: VehicleCommands = { steeringAngle: 0, driveTorque: 0, brakeTorque: 0, handbrakeTorque: 0 };
+	readonly commands: VehicleCommands = {
+		steeringAngle: 0,
+		driveTorque: 0,
+		brakeTorque: 0,
+		handbrakeTorque: 0,
+		drivelineInertia: 0,
+	};
 	readonly powertrain: Powertrain;
 
 	private readonly config: VehicleDrivingConfig;
@@ -34,22 +42,18 @@ export default class VehicleControl {
 	) {
 		this.config = definition.configs;
 		this.drivenWheelCount = this.config.tractionDisplacement === "all" ? 4 : 2;
-		this.powertrain = new Powertrain(
-			definition.powertrain,
-			definition.physics.wheelRadius,
-			definition.physics.mass,
-			state,
-		);
+		this.powertrain = new Powertrain(definition.powertrain, definition.physics.wheelRadius, state);
 	}
 
 	/**
 	 * @param forwardSpeed velocidade ao longo da frente do chassi (m/s)
 	 * @param dt passo de física (s)
+	 * @param drivelineSpeed velocidade média da banda de rodagem das rodas motrizes ω·r (m/s), para a rotação do motor
 	 */
-	step(input: InputFrame, forwardSpeed: number, dt: number): VehicleCommands {
+	step(input: InputFrame, forwardSpeed: number, dt: number, drivelineSpeed: number = forwardSpeed): VehicleCommands {
 		this.state.forwardSpeed = forwardSpeed;
 		this.updateSteering(input, dt);
-		this.updateDriving(input, dt);
+		this.updateDriving(input, dt, drivelineSpeed);
 		return this.commands;
 	}
 
@@ -91,7 +95,7 @@ export default class VehicleControl {
 		this.commands.steeringAngle = state.steeringAngle;
 	}
 
-	private updateDriving(input: InputFrame, dt: number): void {
+	private updateDriving(input: InputFrame, dt: number, drivelineSpeed: number): void {
 		const config = this.config;
 		const isAlmostStopped = this.state.forwardSpeed < 2.0;
 		const throttleValue = input.throttle;
@@ -122,15 +126,15 @@ export default class VehicleControl {
 			handbrakeTorque = config.handbrakeTorque;
 		}
 
-		// o controlador do Rapier não tem resistência ao rolamento
 		if (throttleValue === 0 && brakeValue === 0) {
 			brakeTorque = config.rollingResistanceTorque;
 		}
 
-		const wheelTorque = this.powertrain.step(request, this.state.forwardSpeed, dt);
+		const wheelTorque = this.powertrain.step(request, this.state.forwardSpeed, dt, drivelineSpeed);
 
 		this.commands.driveTorque = wheelTorque / this.drivenWheelCount;
 		this.commands.brakeTorque = brakeTorque;
 		this.commands.handbrakeTorque = handbrakeTorque;
+		this.commands.drivelineInertia = this.powertrain.reflectedInertia() / this.drivenWheelCount;
 	}
 }
