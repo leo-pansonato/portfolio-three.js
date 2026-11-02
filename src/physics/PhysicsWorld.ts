@@ -67,6 +67,26 @@ export interface PhysicsBody {
 	setAngularVelocity(velocity: Vec3Like): void;
 	/** Impulso no centro de massa, em eixos do mundo (N·s): muda a velocidade linear em impulso/massa na hora */
 	applyImpulse(impulse: Vec3Like): void;
+	/** Impulso (N·s) aplicado num ponto do mundo (m): muda as velocidades linear e angular na hora */
+	applyImpulseAtPoint(impulse: Vec3Like, point: Vec3Like): void;
+	/** Velocidade (m/s) do ponto do mundo (m) solidário ao corpo */
+	getVelocityAtPoint<T extends Vec3Like>(point: Vec3Like, out: T): T;
+}
+
+/** Resultado de um raio; reescrito no lugar por castRayWithNormal */
+export interface RaycastHit {
+	/** Distância ao longo do raio (m, com direção unitária) */
+	distance: number;
+	/** Ponto atingido no mundo (m) */
+	point: Vec3Like;
+	/** Normal da superfície atingida, unitária, em eixos do mundo */
+	normal: Vec3Like;
+	/** Corpo dono do colisor atingido; null se o colisor não tem corpo */
+	body: PhysicsBody | null;
+}
+
+export function createRaycastHit(): RaycastHit {
+	return { distance: 0, point: { x: 0, y: 0, z: 0 }, normal: { x: 0, y: 1, z: 0 }, body: null };
 }
 
 /** Roda do controlador de veículo; vetores em eixos locais do chassi (frente +X, cima +Y, direita +Z) */
@@ -176,6 +196,23 @@ export interface PhysicsWorld {
 	 * @returns distância ao longo do raio, ou null
 	 */
 	castRay(origin: Vec3Like, direction: Vec3Like, maxDistance: number): number | null;
+
+	/**
+	 * Primeiro colisor atingido por um raio, com ponto, normal e corpo; corpos sólidos (distância 0 se a origem está dentro).
+	 * Vê os colisores como estavam no fim do último passo.
+	 * @param direction direção no mundo, unitária
+	 * @param maxDistance comprimento do raio (m)
+	 * @param out reescrito só quando há acerto
+	 * @param excludeBody corpo cujos colisores o raio ignora (ex.: o próprio chassi)
+	 * @returns true se atingiu algo
+	 */
+	castRayWithNormal(
+		origin: Vec3Like,
+		direction: Vec3Like,
+		maxDistance: number,
+		out: RaycastHit,
+		excludeBody?: PhysicsBody,
+	): boolean;
 
 	countObjects(): PhysicsObjectCounts;
 	dispose(): void;

@@ -59,4 +59,16 @@ export default class RapierBody implements PhysicsBody {
 	applyImpulse(impulse: Vec3Like): void {
 		this.raw.applyImpulse(impulse, true);
 	}
+
+	applyImpulseAtPoint(impulse: Vec3Like, point: Vec3Like): void {
+		this.raw.applyImpulseAtPoint(impulse, point, true);
+	}
+
+	getVelocityAtPoint<T extends Vec3Like>(point: Vec3Like, out: T): T {
+		const velocity = this.raw.velocityAtPoint(point);
+		out.x = velocity.x;
+		out.y = velocity.y;
+		out.z = velocity.z;
+		return out;
+	}
 }

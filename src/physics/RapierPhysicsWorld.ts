@@ -8,6 +8,7 @@ import {
 	PhysicsObjectCounts,
 	PhysicsWorld,
 	PoseTarget,
+	RaycastHit,
 	RaycastVehicle,
 	RigidBodyConfig,
 	Vec3Like,
@@ -46,6 +47,9 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 
 	private entities: PhysicsEntity[] = [];
 	private entityByHandle = new Map<number, PhysicsEntity>();
+	/** Todos os corpos criados por este mundo, pelo handle da Rapier */
+	private bodyByHandle = new Map<number, RapierBody>();
+	private ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
 
 	/** Passo fixo da simulação (s) */
 	readonly fixedTimeStep: number;
@@ -213,7 +217,9 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 			rigidBodyDesc.setCcdEnabled(true);
 		}
 
-		return new RapierBody(this.world.createRigidBody(rigidBodyDesc));
+		const body = new RapierBody(this.world.createRigidBody(rigidBodyDesc));
+		this.bodyByHandle.set(body.raw.handle, body);
+		return body;
 	}
 
 	createCollider(config: ColliderConfig, body: PhysicsBody): void {
@@ -318,6 +324,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		if (index !== -1) this.entities.splice(index, 1);
 		const raw = rapierBody(body).raw;
 		this.entityByHandle.delete(raw.handle);
+		this.bodyByHandle.delete(raw.handle);
 		this.world.removeRigidBody(raw);
 		this.debugRenderer?.invalidate();
 	}
@@ -378,6 +385,38 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		return hit ? hit.timeOfImpact : null;
 	}
 
+	castRayWithNormal(
+		origin: Vec3Like,
+		direction: Vec3Like,
+		maxDistance: number,
+		out: RaycastHit,
+		excludeBody?: PhysicsBody,
+	): boolean {
+		const ray = this.ray;
+		ray.origin.x = origin.x;
+		ray.origin.y = origin.y;
+		ray.origin.z = origin.z;
+		ray.dir.x = direction.x;
+		ray.dir.y = direction.y;
+		ray.dir.z = direction.z;
+
+		const exclude = excludeBody ? rapierBody(excludeBody).raw : undefined;
+		const hit = this.world.castRayAndGetNormal(ray, maxDistance, true, undefined, undefined, undefined, exclude);
+		if (!hit) return false;
+
+		const distance = hit.timeOfImpact;
+		out.distance = distance;
+		out.point.x = origin.x + direction.x * distance;
+		out.point.y = origin.y + direction.y * distance;
+		out.point.z = origin.z + direction.z * distance;
+		out.normal.x = hit.normal.x;
+		out.normal.y = hit.normal.y;
+		out.normal.z = hit.normal.z;
+		const parent = hit.collider.parent();
+		out.body = parent ? (this.bodyByHandle.get(parent.handle) ?? null) : null;
+		return true;
+	}
+
 	countObjects(): PhysicsObjectCounts {
 		return {
 			bodies: this.world.bodies.len(),
@@ -390,6 +429,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		this.removeDebugger();
 		this.entities = [];
 		this.entityByHandle.clear();
+		this.bodyByHandle.clear();
 		this.world.free();
 	}
 }
