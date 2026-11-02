@@ -1,0 +1,10 @@
+dist/
+node_modules/
+.agents/
+.claude/
+assets/
+textures/
+test/baselines/
+package-lock.json
+skills-lock.json
+*.md
