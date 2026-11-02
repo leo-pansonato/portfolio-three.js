@@ -25,10 +25,10 @@
 		"nonFinite": false
 	},
 	"bmw_f82.turn": {
-		"speed": 24.62645487316609,
-		"yawRate": 0.4354347423987679,
-		"radius": 56.55601741262383,
-		"maxTilt": 0.030929991966204762,
+		"speed": 24.632091331025272,
+		"yawRate": 0.430688497774284,
+		"radius": 57.192359346300684,
+		"maxTilt": 0.030902183697890995,
 		"nonFinite": false
 	},
 	"mercedes_g63.acceleration": {
@@ -57,10 +57,10 @@
 		"nonFinite": false
 	},
 	"mercedes_g63.turn": {
-		"speed": 16.279032984652606,
-		"yawRate": 0.5214303318616336,
-		"radius": 31.219957854259235,
-		"maxTilt": 0.041771028024738595,
+		"speed": 16.278762761047712,
+		"yawRate": 0.5204173173218938,
+		"radius": 31.28020959183187,
+		"maxTilt": 0.039650239049915784,
 		"nonFinite": false
 	}
 }
