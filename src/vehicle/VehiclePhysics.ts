@@ -81,8 +81,9 @@ export default class VehiclePhysics {
 	private tempPointVelocity = new THREE.Vector3();
 	private tempGroundVelocity = new THREE.Vector3();
 	private tempNormal = new THREE.Vector3();
-	private tempWheelForward = new THREE.Vector3();
-	private tempWheelRight = new THREE.Vector3();
+	/** Frente e direita de cada roda no plano de contato, no último passo (unitárias, mundo) */
+	private readonly wheelForward: THREE.Vector3[] = [];
+	private readonly wheelRight: THREE.Vector3[] = [];
 	private previousVelocity = new THREE.Vector3();
 	private hasPreviousVelocity = false;
 
@@ -135,6 +136,8 @@ export default class VehiclePhysics {
 			const front = index < 2;
 			this.connectionPoints.push(new THREE.Vector3(wheel.position.x, wheel.position.y, wheel.position.z));
 			this.hits.push(createRaycastHit());
+			this.wheelForward.push(new THREE.Vector3(1, 0, 0));
+			this.wheelRight.push(new THREE.Vector3(0, 0, 1));
 			this.wheelStates.push(createWheelState());
 			this.driven.push(traction === "all" || (traction === "front") === front);
 			this.steering.push(0);
@@ -185,15 +188,19 @@ export default class VehiclePhysics {
 		);
 	}
 
-	/** Suspensão e depois os pneus; chamar no pré-passo, antes de `world.step()` */
+	/**
+	 * Suspensão, pneus e depois os impulsos de todas as rodas; chamar no pré-passo, antes de `world.step()`.
+	 * Todas as forças vêm do mesmo estado do chassi (nenhuma roda vê o impulso de outra), então o resultado não
+	 * depende da ordem das rodas e um carro simétrico continua simétrico.
+	 */
 	updateVehicle(dt: number): void {
 		this.updateSuspension(dt);
 		this.updateTires(dt);
+		this.applyWheelImpulses(dt);
 	}
 
 	/**
-	 * Mede cada roda com um raio da fixação ao longo da suspensão (ignorando o chassi), calcula as forças e as aplica
-	 * como impulso (N·s) ao longo da normal de contato, no ponto de fixação.
+	 * Mede cada roda com um raio da fixação ao longo da suspensão (ignorando o chassi) e calcula as forças.
 	 * Velocidade de compressão pela variação do comprimento no último passo (roda sem contato conta como estendida):
 	 * a velocidade do corpo ao fim do passo não é a média do passo (subpassos do motor) e daria força de amortecimento
 	 * em repouso. Logo após escrever o estado do chassi, vem da velocidade do corpo.
@@ -222,15 +229,32 @@ export default class VehiclePhysics {
 		this.suspensionLengthsValid = true;
 
 		this.suspension.computeForces();
+	}
 
+	/**
+	 * Impulsos (N·s) de cada roda em contato: suspensão ao longo da normal no ponto de fixação, pneu nos eixos da roda
+	 * no ponto de contato
+	 */
+	private applyWheelImpulses(dt: number): void {
+		const chassis = this.chassisBody;
+		const position = chassis.getPosition(this.tempPosition);
+		const rotation = chassis.getRotation(this.tempQuaternion);
 		for (let i = 0; i < this.connectionPoints.length; i++) {
 			const wheel = this.suspension.wheels[i];
 			if (!wheel.inContact) continue;
-			const normal = this.hits[i].normal;
+			const hit = this.hits[i];
+			const normal = hit.normal;
 			const impulse = wheel.force * dt;
 			this.tempImpulse.set(normal.x * impulse, normal.y * impulse, normal.z * impulse);
 			const hardPoint = this.tempHardPoint.copy(this.connectionPoints[i]).applyQuaternion(rotation).add(position);
 			chassis.applyImpulseAtPoint(this.tempImpulse, hardPoint);
+
+			const state = this.wheelStates[i];
+			this.tempImpulse
+				.copy(this.wheelForward[i])
+				.multiplyScalar(state.longitudinalForce * dt)
+				.addScaledVector(this.wheelRight[i], state.lateralForce * dt);
+			chassis.applyImpulseAtPoint(this.tempImpulse, hit.point);
 		}
 	}
 
@@ -249,7 +273,7 @@ export default class VehiclePhysics {
 
 	/**
 	 * Pneus: velocidade do contato nos eixos da roda (frente esterçada e direita, projetadas no plano de contato),
-	 * carga da suspensão deste passo, torques de motor e freio → WheelDynamics → impulso (N·s) no ponto de contato.
+	 * carga da suspensão deste passo, torques de motor e freio → WheelDynamics (forças aplicadas depois).
 	 * A massa do contato é a fração da massa do chassi pela carga da roda. Roda sem contato só gira.
 	 */
 	private updateTires(dt: number): void {
@@ -281,22 +305,16 @@ export default class VehiclePhysics {
 			const hit = this.hits[i];
 			const normal = this.tempNormal.set(hit.normal.x, hit.normal.y, hit.normal.z);
 			const steer = this.steering[i];
-			const forward = this.tempWheelForward.set(Math.cos(steer), 0, -Math.sin(steer)).applyQuaternion(rotation);
+			const forward = this.wheelForward[i].set(Math.cos(steer), 0, -Math.sin(steer)).applyQuaternion(rotation);
 			forward.addScaledVector(normal, -forward.dot(normal)).normalize();
-			const right = this.tempWheelRight.crossVectors(forward, normal);
+			const right = this.wheelRight[i].crossVectors(forward, normal);
 
 			const velocity = chassis.getVelocityAtPoint(hit.point, this.tempPointVelocity);
 			if (hit.body) velocity.sub(hit.body.getVelocityAtPoint(hit.point, this.tempGroundVelocity));
 			input.longitudinalSpeed = velocity.dot(forward);
 			input.lateralSpeed = velocity.dot(right);
 
-			const state = this.wheelStates[i];
-			this.wheelDynamics.step(state, input, dt);
-
-			const longitudinal = state.longitudinalForce * dt;
-			const lateral = state.lateralForce * dt;
-			this.tempImpulse.copy(forward).multiplyScalar(longitudinal).addScaledVector(right, lateral);
-			chassis.applyImpulseAtPoint(this.tempImpulse, hit.point);
+			this.wheelDynamics.step(this.wheelStates[i], input, dt);
 		}
 	}
 
