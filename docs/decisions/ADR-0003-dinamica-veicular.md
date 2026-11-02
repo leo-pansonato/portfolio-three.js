@@ -207,7 +207,7 @@ Estimativas de ordem de grandeza (nenhum valor é ficha técnica):
 | Diferencial dianteiro | — | aberto |
 | Diferencial central | — | 40/60, pré-carga 100 N·m, bloqueio 0,3 / 0,15 |
 
-**Parâmetro existente alterado:** μx do G63 voltou de 1,0 para 0,95 (commit próprio). A etapa 3 o subira para compensar os diferenciais abertos; com o central bloqueando, o 0–100 caía para 4,27 s, abaixo da faixa (4,3–6 s, real 4,5). Bloqueio menor no central deixava o tempo na faixa, mas as dianteiras patinavam mais que na etapa 3 (bloqueio 0,15: 4,42 s e escorregamento médio 0,94).
+**Parâmetro existente alterado:** μx do G63 voltou de 1,0 para 0,95 (commit próprio). A etapa 3 o subira para compensar os diferenciais abertos; com o central bloqueando, o 0–100 caía para 4,27 s, abaixo da faixa (4,3–6 s, real 4,5). Bloqueio menor no central deixava o tempo na faixa, mas as dianteiras patinavam mais que na etapa 3 (bloqueio 0,15: 4,42 s e escorregamento médio 0,94). **Revertido por decisão do usuário (2026-11-02):** μx do G63 fica em 1,0 e a faixa do 0–100 do G63 passa a 4,0–6 s.
 
 ### Resultado medido (harness em Node, 60 Hz)
 

@@ -25,7 +25,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - Medir `renderer.info` com a janela oculta: o rAF para; servir uma cópia temporária do `index.html` que troca `requestAnimationFrame` por `setTimeout` e captura o renderer em `Scene.prototype.onBeforeRender`.
 
 
-- G63 0–100 em 4,35 s e BMW 4,40 s, sem controle de tração; μx do G63 voltou a 0,95 na etapa 4 (o 1,0 compensava os diferenciais abertos).
+- G63 0–100 em 4,27 s e BMW 4,40 s, sem controle de tração; μx do G63 em 1,0 por decisão do usuário (faixa do teste 4,0–6 s).
 - Sem controle de tração: BMW roda com acelerador pleno em curva fechada e patina na 2ª (P2-2).
 - Pneu sem estado de deformação: parado em rampa deve deslizar ~g·sinθ·dt por passo, mesmo freado (não medido, sem cenário de rampa).
 - `linearDamping` 0,01 do chassi redundante com o arrasto (removê-lo muda a linha de base). Ponto morto existe no estado, mas o jogador não o seleciona.
