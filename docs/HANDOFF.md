@@ -9,16 +9,15 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
-## Em andamento (pausado pelo usuário)
+## Em andamento
 
-- P1-1, P2-7 e ajuste do CSM (cascatas SI, materiais carregados) já estão na `master`.
-- P1-2 (decompor `Player`) concluído na branch local `refact/vehicle-decomposition` (worktree `.claude/worktrees/agent-a20261f0087ff6476`), rebaseada sobre a `master`, aguardando revisão/integração pelo coordenador: dados+VehicleState, VehicleControl, VehiclePhysics, VehicleView, docs. Linha de base inalterada; 37 testes.
+- P1-4 (input desacoplado): branch `refact/input-frame` no worktree `.claude/worktrees/agent-abd4adaad3071d956`; o subagente está refazendo o rebase sobre a `master` (P1-3 integrado). Ao terminar: conferir build/testes, ff na `master`, push, remover worktree e branches.
 
 ## Próximos itens (ordem)
 
-1. Integrar P1-3 (branch `refact/physics-world`); P1-4 input desacoplado, P1-5 ciclo de vida (texturas, cache do ModelLoader, CSM em materiais carregados).
+1. P1-5 ciclo de vida (texturas, cache do ModelLoader, dispose do Environment, `CSMHelper.dispose` em undefined ao apertar F2 duas vezes antes do 1º quadro).
 2. P1-6 telemetria/replay, P1-7 lint.
-3. P2: dinâmica própria (P2-1: arrasto, câmbio, pneu, CG baixo), renderização (P2-4), câmeras (P2-5), mundo (P2-3).
+3. P2-1 dinâmica própria (arrasto, câmbio, pneu, CG baixo), P2-5 câmeras, P2-3 mundo, P2-4 renderização.
 
 ## Pendências conhecidas
 
