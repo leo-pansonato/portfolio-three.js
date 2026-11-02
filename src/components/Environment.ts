@@ -1,14 +1,19 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { PhysicsWorld } from "../physics/PhysicsWorld";
+import { PhysicsBody, PhysicsWorld } from "../physics/PhysicsWorld";
+import { disposeObjects } from "../render/disposeObjects";
 import GameComponent from "./GameComponent";
 
 /**
- * Ambiente de jogo
+ * Ambiente de jogo: dono do plano, das caixas (meshes e corpos) e da textura do céu
  */
 export default class Environment extends GameComponent {
   private scene: THREE.Scene;
   private physicsWorld: PhysicsWorld;
+  private objects: THREE.Object3D[] = [];
+  private bodies: PhysicsBody[] = [];
+  private skyTextures: THREE.Texture[] = [];
+  private disposed = false;
 
   constructor(scene: THREE.Scene, physicsWorld: PhysicsWorld) {
     super();
@@ -32,6 +37,7 @@ export default class Environment extends GameComponent {
     plane.rotation.x = -Math.PI / 2;
     plane.receiveShadow = true;
     this.scene.add(plane);
+    this.objects.push(plane);
 
     // Plano físico: corpo estático com um cuboid fino (superfície em y = 0)
     const groundBody = this.physicsWorld.createRigidBody({
@@ -39,6 +45,7 @@ export default class Environment extends GameComponent {
       position: { x: 0, y: 0, z: 0 },
     });
     this.physicsWorld.createGroundCollider(groundBody, 0.8, 1000);
+    this.bodies.push(groundBody);
   }
 
   createCubeSkybox(path: string): void {
@@ -54,6 +61,11 @@ export default class Environment extends GameComponent {
         path + "nz.jpg",
       ],
       (texture) => {
+        if (this.disposed) {
+          texture.dispose();
+          return;
+        }
+        this.skyTextures.push(texture);
         this.scene.background = texture;
         this.scene.environment = texture;
         console.log("Skybox loaded successfully");
@@ -67,6 +79,11 @@ export default class Environment extends GameComponent {
     loader.load(
       path + file,
       (texture) => {
+        if (this.disposed) {
+          texture.dispose();
+          return;
+        }
+        this.skyTextures.push(texture);
         texture.mapping = THREE.EquirectangularReflectionMapping;
         this.scene.background = texture;
         this.scene.environment = texture;
@@ -99,6 +116,7 @@ export default class Environment extends GameComponent {
       boxMesh.castShadow = true;
       boxMesh.receiveShadow = true;
       this.scene.add(boxMesh);
+      this.objects.push(boxMesh);
 
       // Criar corpo físico (massa de 5, como na versão cannon-es)
       const boxBody = this.physicsWorld.createRigidBody({
@@ -116,7 +134,26 @@ export default class Environment extends GameComponent {
 
       // Adicionar ao gerenciador de física
       this.physicsWorld.addEntity(boxBody, boxMesh);
+      this.bodies.push(boxBody);
     });
+  }
+
+  /** Remove da cena e do mundo físico o que o ambiente criou e libera geometrias, materiais e a textura do céu */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+
+    disposeObjects(this.objects);
+    this.objects = [];
+    for (const body of this.bodies) this.physicsWorld.removeRigidBody(body);
+    this.bodies = [];
+
+    for (const texture of this.skyTextures) {
+      if (this.scene.background === texture) this.scene.background = null;
+      if (this.scene.environment === texture) this.scene.environment = null;
+      texture.dispose();
+    }
+    this.skyTextures = [];
   }
 
 }
