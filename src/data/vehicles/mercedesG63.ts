@@ -34,7 +34,7 @@ export const mercedesG63: VehicleDefinition = {
 		antiRollStiffness: { front: 30000, rear: 15000 },
 	},
 	tire: {
-		longitudinal: { stiffness: 20, shape: 1.3, peakFriction: 0.95, curvature: 0 },
+		longitudinal: { stiffness: 20, shape: 1.3, peakFriction: 1.0, curvature: 0 },
 		lateral: { stiffness: 15, shape: 1.3, peakFriction: 0.9, curvature: 0 },
 		lowSpeedThreshold: 1,
 	},
@@ -90,9 +90,9 @@ export const mercedesG63: VehicleDefinition = {
 		},
 	},
 	configs: {
-		brakeTorque: { front: 2166, rear: 2166 },
+		brakeTorque: { front: 2900, rear: 1200 },
 		rollingResistanceTorque: 28.5,
-		handbrakeTorque: 1482,
+		handbrakeTorque: 2900,
 		maxSteerVal: 0.5,
 		steerSpeed: 2.0,
 		steerReturn: 2.0,
