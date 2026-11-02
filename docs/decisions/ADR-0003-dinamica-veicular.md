@@ -123,11 +123,70 @@ Testes: `test/physics/physics-world-queries.test.ts` (contrato), `test/vehicle/S
 
 Limitações: sem massa não suspensa (a roda não tem inércia nem salta); a reação da suspensão não é aplicada ao corpo atingido (como no controlador); um raio por roda (sem shape cast: degraus e bordas finas passam entre raios); a carga para o atrito ainda passa pelo truque de rigidez enquanto o pneu for do controlador (sai na etapa 3); a rolagem em curva é pequena (BMW < 1° a ~1 g, braço de rolagem efetivo ~0,13 m) e a barra a reduz menos do que a rigidez de rolagem indicaria (BMW −24%, G63 −53% com barras de k/2); a hipótese é o controlador aplicar o impulso lateral perto da altura do CG (`roll_influence` da Rapier, sem acesso pela API JS) — não verificado, resolve-se com o pneu próprio da etapa 3.
 
+## Etapa 3 — implementada
+
+O `DynamicRayCastVehicleController` saiu do veículo e do contrato (`RaycastVehicle`, `createVehicleController`, `RapierVehicle`, `frictionSlip`, `sideFrictionStiffness`, `tractionFriction` removidos). Nada dele foi mantido.
+
+- `vehicle/Tire` (sem THREE nem motor): escorregamento longitudinal κ = (ω·r − vx)/max(|vx|, vMín) e deriva α = atan(vy/max(|vx|, vMín)), com vMín = 1 m/s (`tire.lowSpeedThreshold`): parado κ = α = 0, sem singularidade. Curva de Pacejka simplificada F = μ·Fz·sin(C·atan(B·x − E·(B·x − atan(B·x)))) por direção (`tire.longitudinal`, `tire.lateral`; o pico é achado por bisseção para qualquer E ≤ 1, C > 1). Atrito combinado por escorregamento normalizado: sx = κ/κpico, sy = α/αpico, s = |(sx, sy)|; cada força usa a sua curva em s e a fração sx/s ou sy/s, o que mantém a força dentro da elipse (μx·Fz, μy·Fz).
+- `vehicle/WheelDynamics`: velocidade angular (rad/s) com inércia `physics.wheelInertia` mais a do motor refletida (J·G²·η dividida pelas rodas motrizes). Euler implícito no passo de 1/60 s, sem subpassos: a força de cada direção é a do escorregamento no fim do passo, com a roda acelerada pelos torques e o contato pela massa do chassi que ele carrega. Cada direção vira F = Fpneu(escorregamento(F)), monótona, resolvida por falsa posição (Illinois) entre ±μ·Fz: lateral primeiro (com κ do início do passo), longitudinal depois. Freio de Coulomb: se o torque que segura a roda parada cabe no freio, ela trava; senão o freio se opõe ao giro, sem inverter. Elipse de atrito no fim.
+- A primeira versão linearizava a curva no início do passo (inclinação ≥ 0). Passado o pico, o passo virava explícito e saltava a região linear: ciclo-limite parado (G63 com ±5 kN alternando a cada passo). A raiz da equação implícita resolve isso.
+- `VehiclePhysics`: mede as quatro rodas, calcula suspensão e pneus no mesmo estado do chassi e só então aplica os impulsos. Aplicar o impulso de cada roda antes de medir a próxima criava assimetria: BMW 4,3 m de desvio em 80 m de reta. Frente da roda = frente do chassi girada pelo esterço e projetada no plano de contato; direita = frente × normal. Impulso (Fx·frente + Fy·direita)·dt no ponto de contato (`applyImpulseAtPoint`). Esterço como antes, sem Ackermann.
+- Massa do contato = fração (carga da roda / soma das cargas) da massa efetiva do chassi para um impulso no chão: 1/(1/m + h²/I), com h a altura do CG sobre o contato e I a inércia de rolagem (lateral) ou de arfagem (longitudinal) da caixa uniforme do collider. Com a massa só pela carga, o pneu lateral passava do ponto em baixa velocidade (o impulso no chão também rola o chassi): o G63 oscilava parado e derivava 1,8 cm.
+- Torque: `Powertrain.step` devolve torque nas rodas (N·m), `reflectedInertia()` a inércia do motor nas rodas; `VehicleCommands` passou a `driveTorque`, `frontBrakeTorque`, `rearBrakeTorque`, `handbrakeTorque` (N·m por roda) e `drivelineInertia`. Rotação do motor = média de ω·r das rodas motrizes × relação total, nunca abaixo da lenta. A troca de marcha usa a velocidade do veículo (como a central do câmbio), para não caçar marcha com a roda patinando; o limitador de velocidade também.
+- **Provisório até a etapa 4:** diferencial aberto com o mesmo torque em cada roda motriz (o G63 reparte igual entre as quatro: centro e eixos abertos); a inércia do motor entra em cada roda motriz como J·G²·η/n, exata só com as rodas na mesma velocidade; embreagem fechada só com acelerador e fora de troca. Freando em 1ª com a embreagem sempre fechada, a inércia refletida (25 kg·m² por roda no BMW) consumia quase todo o freio traseiro. Sem conversor nem freio-motor.
+- Freios em N·m: os valores em N do catálogo foram convertidos por r (BMW 3.600 N → 1.188 N·m; G63 5.700 N → 2.166 N·m), depois repartidos por eixo (tabela abaixo). A resistência ao rolamento sem pedal virou torque (30,7 e 28,5 N·m).
+- **Centro de massa** (`ColliderConfig.centerOfMass`, novo no contrato; `physics.centerOfMass`): com o pneu no contato, o CG no centro do collider (BMW 0,77 m, G63 1,08 m do chão) capotava o G63 a ~0,74 g de aceleração lateral. Passou para 0,27 m (BMW) e 0,28 m (G63) abaixo do centro: ~0,50 m e ~0,80 m do chão. A massa continua densidade × volume e a inércia é a da caixa uniforme. Esse item estava previsto para a etapa 4 e veio antes porque bloqueava a etapa 3.
+- Telemetria: por roda, velocidade angular, escorregamento, deriva e forças (N), além dos impulsos (N·s) que o HUD já mostrava. O HUD de dev ganhou escorregamento (%) e deriva (°). `VehicleView` lê esterço e giro da física própria. Replay: ao escrever o estado do chassi (gravação, reprodução, reset), as rodas passam a rolar na velocidade do chassi no ponto de fixação. Isso só depende do estado escrito e mantém a reprodução bit a bit.
+
+### Dados adotados
+
+Estimativas de ordem de grandeza: pneu de rua esportivo (BMW) e SUV com roda 22" (G63). Os freios são a conversão acima com divisão por eixo.
+
+| | BMW | G63 |
+|---|---|---|
+| Longitudinal B / C / μ / E (pico κ) | 24 / 1,3 / 1,15 / 0 (0,11) | 20 / 1,3 / 1,0 / 0 (0,13) |
+| Lateral B / C / μ / E (pico α) | 19 / 1,3 / 1,05 / 0 (7,9°) | 15 / 1,3 / 0,9 / 0 (10°) |
+| vMín | 1 m/s | 1 m/s |
+| Inércia da roda | 1,3 kg·m² | 2,3 kg·m² |
+| Freio por roda dianteira / traseira | 1.616 / 760 N·m (68/32, total igual ao anterior) | 2.900 / 1.200 N·m (71/29, total −5%) |
+| Freio de mão por roda traseira | 2.000 N·m (antes 1.089) | 2.900 N·m (antes 1.482) |
+| Centro de massa (y local) | −0,27 m | −0,28 m |
+
+O freio de mão convertido não travava a roda (abaixo de r·μ·Fz da traseira). Com os freios iguais nos dois eixos, a traseira travava antes da dianteira e o carro rodava em frenagem reta. μx do G63 foi de 0,95 para 1,0 (com 0,95: 0–100 em 6,02 s).
+
+### Resultado medido (harness em Node, 60 Hz)
+
+| Cenário | Antes (etapa 2) | Depois |
+|---|---|---|
+| BMW / G63 0–100 km/h | 4,22 / 5,37 s | 4,37 / 5,87 s |
+| BMW / G63 velocidade máxima | 272,7 / 216,7 km/h | 272,2 / 216,7 km/h |
+| BMW / G63 frenagem de 100 km/h (média até parar) | 8,71 / 8,74 m/s² | 8,59 / 8,31 m/s² |
+| BMW / G63 skidpad, aceleração lateral máxima (cenário novo) | — | 0,976 / 0,810 g |
+| BMW / G63 curva com acelerador pleno e volante todo (aceleração lateral) | 1,08 / 0,86 g | 0,56 / 0,70 g (o BMW roda: 3,6 m/s, 1,55 rad/s) |
+| BMW / G63 altura de repouso | 0,7679 / 1,0813 m | 0,7679 / 1,0813 m |
+| BMW / G63 desvio lateral em 5 s de reta | 0 / 0 m | 6·10⁻¹⁰ / 1·10⁻⁸ m |
+| BMW / G63 rolagem por aceleração lateral, sem barra → com barra | 0,00099 → 0,00055 / 0,00174 → 0,00101 rad/(m/s²) | 0,00619 → 0,00351 / 0,01199 → 0,00710 rad/(m/s²) |
+| Custo da física por passo (Node, BMW em curva) | ~12,7 µs | ~20 µs |
+
+Rolagem: a 1 g, BMW 2,0° (3,5° sem barra) e G63 4,0° (6,7° sem barra); antes, 0,3° e 0,6°. A barra reduz a rolagem em 43% (BMW) e 41% (G63), igual à razão de rigidez. A medida bate com m·h/(K + m·g·d) em ±0,3%: h é a altura do CG, K = Σ eixo (k·t²/2 + k_barra·t²) e d a altura da fixação da suspensão acima do CG (o peso nas fixações estabiliza). Antes a medida também acompanhava a barra (−44% e −42%), mas com braço de rolagem ~6 vezes menor. A observação da etapa 2 de que a barra reduzia menos do que a rigidez indicava vinha do teste, não da física: a fórmula de rolagem usava o +Y local no plano do mundo e variava com o rumo do carro em curva. O teste foi corrigido.
+
+Freio de mão a 60 km/h com volante à esquerda: as rodas traseiras travam (κ = −1), a deriva traseira passa do pico do pneu e a deriva do chassi passa de 2 vezes a da mesma curva sem freio de mão (teste).
+
+Testes: `test/vehicle/Tire.test.ts` (pico analítico e numérico, simetria, força lateral zero com α = 0, rigidez inicial B·C·μ·Fz, saturação, proporcional à carga, elipse em grade nos três pneus, regularização parado), `test/vehicle/WheelDynamics.test.ts` (rolamento livre, convergência sem oscilar abaixo da aderência, roda que dispara acima dela, travamento sem inverter, freio abaixo do travamento, roda no ar, quarto de carro: deriva lateral a zero sem trocar de sinal, arrancada monotônica, aceleração igual a 1/60 e 1/240 s com até 1% de diferença, parada sem tremer), `test/physics/physics-world-queries.test.ts` (centro de massa), `test/physics/vehicle-plausibility.test.ts` (faixas acima, skidpad, freio de mão), `test/physics/vehicle-suspension.test.ts` (rolagem contra o analítico), `test/vehicle/VehicleTelemetry.test.ts` (forças e escorregamentos por roda).
+
+Limitações:
+
+- Acelerador pleno em curva fechada faz o BMW rodar (tração traseira de 317 kW sem controle de tração); na 2ª a 60–100 km/h a traseira patina. É plausível para o carro sem assistências; o controle de tração é do P2-2.
+- G63 0–100 em 5,87 s (real 4,5): com diferenciais abertos as rodas dianteiras, aliviadas na arrancada, patinam e levam o motor ao corte. Resolve-se com o diferencial da etapa 4 (central com repartição 40/60 e bloqueio), não com tuning.
+- Parado em rampa, o pneu é viscoso, sem estado de deformação: espera-se deslizamento lento de ~g·sinθ·dt por passo, mesmo freado. Não foi medido, porque não há cenário de rampa; resolve-se com comprimento de relaxação.
+- A roda livre fica um passo atrás do chassi, porque cada roda é resolvida sem ver a aceleração vinda das outras. Na telemetria isso aparece como escorregamento de −a·dt/v no início do passo; a força média está certa.
+- Custo: ~60% a mais por passo (a busca de raiz roda até 3 vezes por roda). Ainda muito abaixo do orçamento (P3-1).
+
 ## Consequências
 
 - Velocidade máxima e aceleração passam a depender de potência, relações e arrasto, como num carro real; a velocidade máxima leva ~5 km para ser atingida (o plano do jogo tem 200 m; P2-3).
-- O G63 fica mais lento que o real na largada (5,4 × 4,5 s): falta a multiplicação de torque do conversor e o escorregamento do pneu; resolver nas etapas 3–4, não com tuning.
+- O G63 fica mais lento que o real na largada (5,9 × 4,5 s): com o pneu próprio, o que falta é o diferencial (dianteiras patinam com diferenciais abertos) e o conversor; resolver na etapa 4, não com tuning.
 - Sem freio-motor nem resistência ao rolamento com acelerador: só o arrasto, o `linearDamping` 0,01 do chassi e a `rollingResistance` sem pedal. O `linearDamping` vira redundante com o arrasto; removê-lo é mudança de comportamento para outra tarefa.
-- `tractionFriction` é provisório: some na etapa 3, quando o pneu modelar a aderência longitudinal e lateral juntas.
+- `tractionFriction` saiu na etapa 3 com o controlador da Rapier; o pneu limita tração e atrito lateral juntos.
 - Contrato `PhysicsWorld` ganha `PhysicsBody.applyImpulse`; `VehicleDefinition` ganha `powertrain`, `aerodynamics` e `physics.tractionFriction`; `VehicleState`/`VehicleTelemetry`/`ReplayInitialState` ganham marcha (e rpm/troca, conforme o caso).
-- Etapa 2 feita (seção acima). Próximo passo: etapa 3 (modelo de pneu), quando o controlador da Rapier sai.
+- Etapas 2 e 3 feitas (seções acima). Contrato: `PhysicsWorld` perdeu `RaycastVehicle`/`createVehicleController` e ganhou `ColliderConfig.centerOfMass`; `VehicleDefinition` ganhou `tire`, `physics.wheelInertia`, `physics.centerOfMass` e freio por eixo em N·m; `VehicleCommands` passou a torques. Próximo passo: etapa 4 (diferencial, embreagem/conversor, freio-motor).
