@@ -42,6 +42,7 @@ export async function createVehicleRig(
 
 	return {
 		input: scripted.state,
+		analog: scripted.analog,
 		physics,
 		physicsWorld,
 		frame(deltaTime: number): void {

@@ -43,6 +43,7 @@ export async function createRapierSim(
 
 	return {
 		input: scripted.state,
+		analog: scripted.analog,
 		player,
 		physicsWorld,
 		frame(deltaTime: number): void {

@@ -286,3 +286,62 @@ export function brakingFromHundredScenario(sim: SimHandle, frameDt: number): Bra
 		nonFinite: runner.nonFinite,
 	};
 }
+
+export interface SkidpadResult {
+	/** Maior aceleração lateral média em 1 s, v·guinada (m/s²) */
+	maxLateralAcceleration: number;
+	/** Velocidade horizontal nesse trecho (m/s) */
+	speedAtMax: number;
+	/** Maior ângulo entre a velocidade e a frente do chassi durante o teste (rad) */
+	maxSideslip: number;
+	nonFinite: boolean;
+}
+
+/** Volante fixo do skidpad (fração do esterço máximo, à esquerda) */
+export const SKIDPAD_STEER = 0.2;
+
+/**
+ * Curva em regime (skidpad): volante fixo à esquerda e velocidade subindo devagar (0,5 m/s², acelerador
+ * proporcional) até o pneu saturar. Mede a maior aceleração lateral média em 1 s; para se o carro rodar
+ * (deriva do chassi acima de 0,35 rad).
+ */
+export function skidpadScenario(sim: SimHandle, frameDt: number): SkidpadResult {
+	const runner = new ScenarioRunner(sim, frameDt);
+	runner.setInput({});
+	let previous = runner.run(SETTLE_TIME);
+	const startTime = runner.time;
+	const window = Math.round(1 / frameDt);
+	const lateral: number[] = [];
+	const speeds: number[] = [];
+	let maxLateralAcceleration = 0;
+	let speedAtMax = 0;
+	let maxSideslip = 0;
+	sim.analog.steer = -SKIDPAD_STEER;
+	runner.run(40, (s) => {
+		const speed = Math.hypot(s.velocity.x, s.velocity.z);
+		const target = 6 + 0.5 * (runner.time - startTime);
+		sim.analog.throttle = Math.min(1, Math.max(0, 0.5 * (target - speed)));
+		const yawRate = unwrap(heading(s.quaternion) - heading(previous.quaternion)) / frameDt;
+		const h = heading(s.quaternion);
+		const sideslip = speed > 1 ? Math.abs(unwrap(Math.atan2(-s.velocity.z, s.velocity.x) - h)) : 0;
+		maxSideslip = Math.max(maxSideslip, sideslip);
+		previous = s;
+		lateral.push(speed * yawRate);
+		speeds.push(speed);
+		if (lateral.length > window) {
+			lateral.shift();
+			speeds.shift();
+		}
+		if (lateral.length === window) {
+			const mean = lateral.reduce((sum, a) => sum + a, 0) / window;
+			if (mean > maxLateralAcceleration) {
+				maxLateralAcceleration = mean;
+				speedAtMax = speeds.reduce((sum, v) => sum + v, 0) / window;
+			}
+		}
+		return sideslip > 0.35;
+	});
+	sim.analog.steer = undefined;
+	sim.analog.throttle = undefined;
+	return { maxLateralAcceleration, speedAtMax, maxSideslip, nonFinite: runner.nonFinite };
+}

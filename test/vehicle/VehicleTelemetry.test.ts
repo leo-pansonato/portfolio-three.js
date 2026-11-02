@@ -52,6 +52,32 @@ describe.each(["bmw_f82", "mercedes_g63"])("telemetria — %s", (vehicleId) => {
 		expect(t.speed).toBeCloseTo(Math.hypot(t.forwardSpeed, t.lateralSpeed), 1);
 	});
 
+	it("pneus: escorregamento, rotação e força por roda coerentes com o impulso no passo", async () => {
+		const sim = await createRapierSim(vehicleId);
+		run(sim, 2);
+		sim.input.throttle = true;
+		run(sim, 1);
+		const t = sim.player.getTelemetry();
+		const definition = getVehicleDefinition(vehicleId)!;
+		const radius = definition.physics.wheelRadius;
+		const driven = definition.configs.tractionDisplacement === "all" ? [0, 1, 2, 3] : [2, 3];
+
+		for (const [i, wheel] of t.wheels.entries()) {
+			expect(wheel.longitudinalForce * t.timeStep).toBeCloseTo(wheel.forwardImpulse, 9);
+			expect(wheel.lateralForce * t.timeStep).toBeCloseTo(wheel.sideImpulse, 9);
+			expect(Math.abs(wheel.slipAngle)).toBeLessThan(0.01);
+			if (driven.includes(i)) {
+				expect(wheel.slipRatio).toBeGreaterThan(0);
+				expect(wheel.longitudinalForce).toBeGreaterThan(0);
+			} else {
+				// roda livre: no início do passo fica atrás do chassi pelo que ele acelerou no passo anterior (a·dt/v)
+				const lag = (t.longitudinalAccelerationG * STANDARD_GRAVITY * t.timeStep) / t.forwardSpeed;
+				expect(Math.abs(wheel.slipRatio + lag)).toBeLessThan(0.005);
+				expect(wheel.angularVelocity * radius).toBeCloseTo(t.forwardSpeed, 0);
+			}
+		}
+	});
+
 	it("curva à direita: aceleração lateral positiva (+Z), esterço negativo e impulsos laterais positivos", async () => {
 		const sim = await createRapierSim(vehicleId);
 		run(sim, 2);

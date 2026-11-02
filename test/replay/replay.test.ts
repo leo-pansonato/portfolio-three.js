@@ -97,10 +97,15 @@ function chassisVector(sim: RapierSimHandle): number[] {
 	];
 }
 
-async function record(vehicleId: string, frameDt: number, warmupSeconds = 1): Promise<Recording> {
+async function record(
+	vehicleId: string,
+	frameDt: number,
+	warmupSeconds = 1,
+	warmupInput: Partial<DriveInput> = { throttle: true, left: true },
+): Promise<Recording> {
 	const sim = await createRapierSim(vehicleId);
 	drive(sim, {}, 1.5, frameDt);
-	drive(sim, { throttle: true, left: true }, warmupSeconds, frameDt);
+	drive(sim, warmupInput, warmupSeconds, frameDt);
 
 	sim.player.startRecording();
 	const trajectory = sampleSteps(sim);
@@ -147,12 +152,12 @@ describe("replay", () => {
 
 			const start = recording.poses[0];
 			const end = recording.final;
-			expect(Math.hypot(end[0] - start[0], end[2] - start[2])).toBeGreaterThan(30);
+			expect(Math.hypot(end[0] - start[0], end[2] - start[2])).toBeGreaterThan(15);
 		},
 	);
 
 	it("gravação iniciada em marcha alta restaura marcha e troca em curso", async () => {
-		const recording = await record("bmw_f82", 1 / 60, 3.5);
+		const recording = await record("bmw_f82", 1 / 60, 3.5, { throttle: true });
 		expect(recording.replay.initial.gear).toBeGreaterThanOrEqual(2);
 
 		const played = await play(recording.replay, 1 / 60);

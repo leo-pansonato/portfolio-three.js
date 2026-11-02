@@ -45,11 +45,11 @@ function recordHeights(rig: VehicleRig, steps: number): number[] {
 	return heights;
 }
 
-/** Rolagem do chassi (rad): inclinação do +Z local em relação ao plano horizontal */
+/** Rolagem do chassi (rad; positiva em torno de +X): inclinação do +Z local em relação ao plano horizontal */
 function roll(rig: VehicleRig): number {
 	const q = rig.physics.chassisBody.getRotation({ x: 0, y: 0, z: 0, w: 1 });
-	const rightY = 2 * (q.y * q.z + q.w * q.x);
-	return Math.asin(Math.max(-1, Math.min(1, rightY)));
+	const rightY = 2 * (q.y * q.z - q.w * q.x);
+	return Math.asin(Math.max(-1, Math.min(1, -rightY)));
 }
 
 describe.each(VEHICLES)("suspensão própria — %s", (id) => {
@@ -222,26 +222,55 @@ describe.each(VEHICLES)("suspensão própria — %s", (id) => {
 		expect(Math.abs(await steadyRoll(antiRoll)) / (torque / (springRoll + barRoll))).toBeCloseTo(1, 1);
 	});
 
-	it("barra estabilizadora reduz a rolagem em curva em regime", async () => {
-		const meanRoll = async (antiRoll: number) => {
+	/**
+	 * Pneu no contato (h = altura do CG ao chão) e suspensão no ponto de fixação, d acima do CG: o peso nas
+	 * fixações estabiliza (m·g·d) em vez de desestabilizar como no contato
+	 */
+	it("curva em regime: rolagem por aceleração lateral = m·h / (K + m·g·d), com e sem barra (±2%)", async () => {
+		const track = (i: number) => 2 * Math.abs(catalog.wheels.adjustments[i].position.z);
+		const springRoll = (k * (track(0) ** 2 + track(2) ** 2)) / 2;
+		const restHeight = catalog.physics.suspensionRestLength - (mass * G) / 4 / k + catalog.physics.wheelRadius;
+		const cgHeight = restHeight + catalog.physics.centerOfMass.y;
+		const hardPointAboveCg = catalog.wheels.adjustments[0].position.y - catalog.physics.centerOfMass.y;
+		const rollGradient = async (front: number, rear: number) => {
 			const rig = await createVehicleRig(
-				definition(id, (d) => (d.suspension.antiRollStiffness = { front: antiRoll, rear: antiRoll })),
+				definition(id, (d) => (d.suspension.antiRollStiffness = { front, rear })),
 			);
 			rig.steps(120);
-			rig.input.throttle = true;
-			rig.input.left = true;
-			rig.steps(4 / DT);
-			let sum = 0;
+			rig.analog.steer = -0.2;
+			const speed = () => {
+				const v = rig.physics.chassisBody.getLinearVelocity({ x: 0, y: 0, z: 0 });
+				return Math.hypot(v.x, v.z);
+			};
+			let time = 0;
+			const holdSpeed = () => {
+				time += DT;
+				const target = Math.min(12, 2 + 1.5 * time);
+				rig.analog.throttle = Math.min(1, Math.max(0, 0.3 * (target - speed())));
+			};
+			rig.steps(12 / DT, holdSpeed);
+			let rollSum = 0;
+			let lateralSum = 0;
 			const steps = 2 / DT;
-			rig.steps(steps, () => (sum += roll(rig)));
+			rig.steps(steps, () => {
+				holdSpeed();
+				rollSum += roll(rig);
+				lateralSum += speed() * rig.physics.chassisBody.getAngularVelocity({ x: 0, y: 0, z: 0 }).y;
+			});
 			rig.dispose();
-			return sum / steps;
+			return { gradient: rollSum / lateralSum, lateral: lateralSum / steps };
 		};
-		const without = await meanRoll(0);
-		const withBar = await meanRoll(k / 2);
+		const expected = (barRoll: number) => (mass * cgHeight) / (springRoll + barRoll + mass * G * hardPointAboveCg);
+		const bars = catalog.suspension.antiRollStiffness;
+		const catalogBarRoll = bars.front * track(0) ** 2 + bars.rear * track(2) ** 2;
 
-		expect(Math.abs(without)).toBeGreaterThan(0.005);
-		expect(Math.sign(withBar)).toBe(Math.sign(without));
-		expect(Math.abs(withBar) / Math.abs(without)).toBeLessThan(0.85);
+		const without = await rollGradient(0, 0);
+		const withBars = await rollGradient(bars.front, bars.rear);
+
+		expect(without.lateral).toBeGreaterThan(3);
+		// curva à esquerda: o chassi inclina para fora (+Z), rolagem positiva em torno de +X
+		expect(without.gradient).toBeGreaterThan(0);
+		expect(Math.abs(without.gradient / expected(0) - 1)).toBeLessThan(0.02);
+		expect(Math.abs(withBars.gradient / expected(catalogBarRoll) - 1)).toBeLessThan(0.02);
 	});
 });

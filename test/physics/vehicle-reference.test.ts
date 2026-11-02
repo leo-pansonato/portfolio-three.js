@@ -84,6 +84,8 @@ describe.each(VEHICLES)("independência de FPS (%s)", (vehicleId) => {
 	// mesma sequência de passos; resta a amostragem por quadro das métricas
 	// (trajetória da curva somada em cordas). Antes do P1-1 a diferença a 30 FPS era 0,3–1%.
 	const REL_TOL = 1e-4;
+	// na curva o BMW roda (ω ≈ 1,5 rad/s): a corda de 1/30 s encurta o arco em (ω·dt)²/24 ≈ 1e-4
+	const TURN_REL_TOL = 1e-3;
 	const close = (actual: number, expected: number, absTol = 1e-9) =>
 		expect(Math.abs(actual - expected)).toBeLessThanOrEqual(Math.abs(expected) * REL_TOL + absTol);
 
@@ -104,8 +106,10 @@ describe.each(VEHICLES)("independência de FPS (%s)", (vehicleId) => {
 		// a parada só é vista no fim do quadro: até 1 quadro de 30 FPS de diferença, quase parado (1 cm)
 		close(braking.stoppingDistance, ref.braking.stoppingDistance, 0.01);
 		expect(Math.abs(braking.timeToStop - ref.braking.timeToStop)).toBeLessThanOrEqual(1 / 30 + 1e-9);
-		close(turn.speed, ref.turn.speed);
-		close(turn.yawRate, ref.turn.yawRate);
+		expect(Math.abs(turn.speed - ref.turn.speed)).toBeLessThanOrEqual(Math.abs(ref.turn.speed) * TURN_REL_TOL);
+		expect(Math.abs(turn.yawRate - ref.turn.yawRate)).toBeLessThanOrEqual(
+			Math.abs(ref.turn.yawRate) * TURN_REL_TOL,
+		);
 	});
 });
 
