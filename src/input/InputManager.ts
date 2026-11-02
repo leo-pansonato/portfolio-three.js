@@ -1,5 +1,5 @@
 import GameComponent from "../components/GameComponent";
-import { devMode } from "./DevModeManager";
+import { devMode } from "../managers/DevModeManager";
 
 export default class InputManager extends GameComponent {
 	private static readonly GAMEPAD_BUTTONS: ReadonlyArray<readonly [string, number]> = [

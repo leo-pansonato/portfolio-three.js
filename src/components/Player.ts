@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import InputManager from "../managers/InputManager";
+import InputManager from "../input/InputManager";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
 import VehicleView from "../render/VehicleView";

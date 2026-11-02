@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import InputManager from "../managers/InputManager";
+import InputManager from "../input/InputManager";
 import { CameraConfig, CameraMode } from "../data/vehicles";
 import GameComponent from "./GameComponent";
 import Player from "./Player";

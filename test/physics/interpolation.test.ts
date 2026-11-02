@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
-import InputManager from "../../src/managers/InputManager";
+import InputManager from "../../src/input/InputManager";
 import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { ScriptedInput } from "../support/sim";
 

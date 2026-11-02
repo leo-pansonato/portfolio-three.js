@@ -4,7 +4,7 @@ import CameraController from "./components/CameraController";
 import Environment from "./components/Environment";
 import GameComponent from "./components/GameComponent";
 import Player from "./components/Player";
-import InputManager from "./managers/InputManager";
+import InputManager from "./input/InputManager";
 import LightingManager from "./managers/LightingManager";
 import PerformanceManager from "./managers/PerformanceManager";
 import { PhysicsWorld } from "./physics/PhysicsWorld";

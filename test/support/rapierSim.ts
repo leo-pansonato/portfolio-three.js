@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import Player from "../../src/components/Player";
-import InputManager from "../../src/managers/InputManager";
+import InputManager from "../../src/input/InputManager";
 import { PhysicsWorld } from "../../src/physics/PhysicsWorld";
 import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { ScriptedInput, SimHandle, VehicleSnapshot } from "./sim";
