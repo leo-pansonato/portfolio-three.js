@@ -117,7 +117,7 @@ flowchart LR
 
 ### [x] P1-2 — Decompor `Player`
 
-- **Resultado:** catálogo congelado em `src/data/vehicles` (`VehicleDefinition`) e `VehicleState` por instância; `vehicle/VehicleControl` (input → comandos, sem THREE, testes unitários), `vehicle/VehiclePhysics` (chassi + controlador Rapier, THREE só para matemática), `render/VehicleView` (meshes, interpolação, carregamento e liberação na GPU). `Player` (~150 linhas) só orquestra; linha de base `rapier.json` inalterada. Restam: `Player` lê o `InputManager` (P1-4) e `VehiclePhysics` importa o Rapier (P1-3, concluído).
+- **Resultado:** catálogo congelado em `src/data/vehicles` (`VehicleDefinition`) e `VehicleState` por instância; `vehicle/VehicleControl` (input → comandos, sem THREE, testes unitários), `vehicle/VehiclePhysics` (chassi + controlador Rapier, THREE só para matemática), `render/VehicleView` (meshes, interpolação, carregamento e liberação na GPU). `Player` (~150 linhas) só orquestra; linha de base `rapier.json` inalterada. Restavam o input (P1-4, concluído) e o Rapier em `VehiclePhysics` (P1-3, concluído).
 
 - **Entregas:** `VehicleDefinition` (dados imutáveis) separada de `VehicleState`; `VehicleControl` (input → comandos, volante), `VehiclePhysics` (adaptador do veículo), `VehicleView` (meshes e sincronização), carregamento de assets fora do `Player`. Catálogo movido para `src/data/vehicles`.
 - **Dependências:** P1-1.
@@ -131,8 +131,9 @@ flowchart LR
 - **Entregas:** interface estreita (ARCHITECTURE §5) e adaptador Rapier; só o adaptador importa o motor.
 - **Conclusão:** `grep` por `@dimforge` encontra apenas `src/physics/`.
 
-### [ ] P1-4 — Input desacoplado
+### [x] P1-4 — Input desacoplado
 
+- **Resultado:** `src/input/`: contrato `InputFrame` (+ `LookInput` do mouse) reescrito uma vez por quadro e lido por `Player`/`VehicleControl` e `CameraController`; ações discretas como eventos tipados (`on(action, handler)`) assinados em `main.ts`; teclas e botões em `InputBindings` (dados). Linha de base `rapier.json` inalterada; testes em `test/input/`.
 - **Entregas:** `InputFrame` tipado; ações discretas como eventos/comandos tratados por quem é dono (sem `game: any`); remapeamento por dados.
 - **Conclusão:** `InputManager` não importa nem referencia `Game`, `Player` ou `CameraController`.
 
@@ -220,7 +221,7 @@ flowchart LR
 O projeto só deve receber trabalho de vários agentes em paralelo (em arquivos de código) quando:
 
 1. P0-1 a P0-5 concluídos (motor decidido e integrado; testes e cenários de referência existem).
-2. P1-2 concluído — **atendido**: `Player.ts` deixou de ser ponto de edição obrigatório para física, controle e render do veículo; `main.ts` ainda é (input e câmera dependem de `Game`, P1-4).
+2. P1-2 concluído — **atendido**: `Player.ts` deixou de ser ponto de edição obrigatório para física, controle e render do veículo; `main.ts` continua sendo o ponto de ligação (input e câmera já não dependem de `Game`, P1-4).
 3. `npm run build` e `npm test` verdes na `master`.
 4. Contratos de P1-3 e P1-4 documentados no código e em ARCHITECTURE.md.
 
