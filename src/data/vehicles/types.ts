@@ -58,6 +58,27 @@ export interface VehiclePhysicsConfig {
 	tractionFriction: number;
 }
 
+/**
+ * Suspensão por roda (ADR-0003, etapa 2), em unidades absolutas.
+ * Compressão medida a partir do comprimento livre (`physics.suspensionRestLength`), que é também a extensão máxima.
+ */
+export interface VehicleSuspensionConfig {
+	/** Rigidez da mola linear por roda (N/m) */
+	springRate: number;
+	/** Amortecimento na compressão por roda (N·s/m) */
+	compressionDamping: number;
+	/** Amortecimento na extensão por roda (N·s/m) */
+	reboundDamping: number;
+	/** Fim de curso: compressão máxima a partir do comprimento livre (m) */
+	maxCompression: number;
+	/** Batente: começa a atuar a esta distância do fim de curso (m) */
+	bumpStopLength: number;
+	/** Batente progressivo: força = rigidez × penetração² (N/m²) */
+	bumpStopStiffness: number;
+	/** Barra estabilizadora por eixo: força por diferença de compressão entre as rodas do eixo (N/m) */
+	antiRollStiffness: { front: number; rear: number };
+}
+
 export type TractionDisplacement = "rear" | "front" | "all";
 
 /** Ponto da curva de torque a plena carga */
