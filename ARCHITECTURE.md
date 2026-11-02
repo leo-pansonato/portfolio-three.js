@@ -98,7 +98,7 @@ Inicialização assíncrona: `Game.initialize()` aguarda `RapierPhysicsWorld.cre
 - Passo mantido em 1/60 s (avaliado 1/120 e 1/240 s): frenagem, aceleração e aceleração lateral mudam < 1%; a curva do G63 troca velocidade por guinada (~3% por halving do passo, sem convergir até 1/240 s) e o repouso baixa 3–4 mm. Custo da física desprezível nos dois casos (~6 vs ~9 µs por quadro em Node). Reavaliar no P2-1.
 - Criação tipada: `createRigidBody(RigidBodyConfig)`, `createCollider(ColliderConfig)`, `createGroundCollider`; `castRay`; `PhysicsBody.applyImpulse` (impulso no centro de massa, N·s).
 - Lista `entities` (corpo + alvo `PoseTarget`) para sincronização visual; `removeRigidBody` remove o corpo (e colisores) do mundo e do registro.
-- `PhysicsDebugRenderer`: `world.debugRender()` em `LineSegments` no modo dev (aloca buffers a cada quadro; só em dev). Ligado pelo próprio adaptador via `devMode`; não faz parte da interface.
+- `PhysicsDebugRenderer`: arestas de cada colisor criadas uma vez no espaço do corpo e posicionadas por quadro na pose interpolada, como as meshes (P2-9). Ligado pelo próprio adaptador via `devMode`; não faz parte da interface.
 - Atenção: `RigidBody.linvel()` do chassi apoiado no controlador de veículo não é zero em repouso (~g·dt); meça movimento por deslocamento.
 
 Unidades e eixos ([ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md)): **SI**, 1 unidade = 1 m; mundo com +Y para cima. Modelos em escala 1, chassi 4,6 × 1,2 × 1,8 m, massas 1.550 kg (BMW) e 2.500 kg (G63); o HUD mostra km/h reais. A plataforma de 200 m do `Environment` é pequena para essas velocidades (o harness usa um chão de 1 km).

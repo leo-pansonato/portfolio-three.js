@@ -212,7 +212,9 @@ flowchart LR
 
 - Não existe. Motor (por RPM/carga), pneus (por escorregamento), impactos, ambiente. Depende de P2-1 para os sinais.
 
-### [ ] P2-9 — Debug físico sincronizado com a pose interpolada
+### [x] P2-9 — Debug físico sincronizado com a pose interpolada
+
+- **Resultado:** `PhysicsDebugRenderer` monta um `LineSegments` por colisor (arestas da forma no espaço do corpo), uma vez, e por quadro só posiciona o grupo de cada corpo na pose interpolada (`RapierPhysicsWorld.debugPose`). Reconstrução só quando um colisor é criado ou um corpo removido. Testes em `test/physics/debug-renderer.test.ts`. O erro `computeBoundingSphere ... NaN` ao carregar com o modo dev ligado sumiu. Colisores sem forma suportada (trimesh, heightfield) não aparecem até o P2-3.
 
 - **Problema:** desde o P1-1 as meshes são interpoladas e ficam até 1 passo atrás da física, mas o `PhysicsDebugRenderer` desenha `world.debugRender()` cru, sem interpolar. A diferença chega a v·dt (0,93 m a 200 km/h com passo de 1/60 s). Em telas acima de 60 Hz as linhas só se movem nos quadros que tiveram passo, e o resultado é um “salto” que aumenta com a velocidade. Além disso, `update()` cria um `BufferAttribute` novo por quadro, o que gera lixo para o GC. Não é custo de cálculo: o passo de um carro leva bem menos de 1 ms.
 - **Entregas:**

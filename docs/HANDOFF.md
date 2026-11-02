@@ -5,13 +5,13 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 ## Estado (2026-11-02)
 
 - `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI) e P2-7 concluídos.
-- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 91 testes (cenários, trem de força, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
+- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 93 testes (cenários, trem de força, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
 ## Em andamento
 
-- P2-1 etapa 1 (trem de força + arrasto, ADR-0003 `Proposta`) entregue pelo `physics-vehicle` na branch do worktree, aguardando revisão/integração. ADR-0003 precisa ser aceito pelo usuário. Próxima: etapa 2 (suspensão própria; antes `castShape` e força em ponto no `PhysicsWorld`).
+- P2-1 etapa 1 integrada (9b42cb7); ADR-0003 `Proposta` aguarda aceite do usuário antes da etapa 2 (suspensão própria; antes `castShape` e força em ponto no `PhysicsWorld`). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
 
@@ -24,7 +24,6 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - `Game` (main.ts) não chama `Environment.dispose`/`LightingManager.dispose` nem tem `dispose` próprio; o placeholder do chassi continua registrado no `PhysicsWorld` após o modelo carregar.
 - Medir `renderer.info` com a janela oculta: o rAF para; servir uma cópia temporária do `index.html` que troca `requestAnimationFrame` por `setTimeout` e captura o renderer em `Scene.prototype.onBeforeRender`.
 
-- `computeBoundingSphere(): Computed radius is NaN` (geometria indexada) só ao carregar com modo dev ligado; não ocorre ao ligar F2 depois. Não reproduz em Node (CSMHelper, poses iniciais sem NaN). Criar o helper do CSM depois do primeiro `update` piorou (2 erros); revertido. Investigar no navegador.
 
 - CG no centro do collider (margem de capotamento ~1 g, perto da aderência lateral).
 - G63 0–100 em 5,4 s (real 4,5): falta conversor de torque e escorregamento (etapas 3–4), não ajustar por tuning.
@@ -47,4 +46,3 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - `rapierSim` expõe `player` e `physicsWorld` para testes que precisam de telemetria ou pré-passo próprio; terceiro argumento = meia-largura do chão (velocidade máxima precisa de 8 km).
 - O controlador Rapier só limita o impulso do motor por `frictionSlip` quando há impulso lateral; o limite de tração em `VehiclePhysics` usa a força de suspensão do passo anterior e é desligado no passo seguinte a uma escrita de estado (replay determinístico).
 - Testes: harness em `test/support/` (`rapierSim.ts`, `scenarios.ts`, `baseline.ts`); `UPDATE_BASELINE=1 npm test` regrava `test/baselines/rapier.json`.
-- Console no modo dev: `computeBoundingSphere(): Computed radius is NaN` ao carregar a página, já presente antes do P1-2 (provável `PhysicsDebugRenderer` no primeiro quadro); não investigado.
