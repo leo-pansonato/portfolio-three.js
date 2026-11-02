@@ -272,6 +272,24 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		if (config.density !== undefined) {
 			colliderDesc.setDensity(config.density);
 		}
+		if (config.centerOfMass) {
+			const h = config.halfExtents;
+			if ((config.shape !== "box" && config.shape !== "cuboid") || !h || config.density === undefined) {
+				throw new Error("centerOfMass só é suportado em box/cuboid com densidade");
+			}
+			const mass = config.density * 8 * h.x * h.y * h.z;
+			const c = config.centerOfMass;
+			colliderDesc.setMassProperties(
+				mass,
+				{ x: c.x, y: c.y, z: c.z },
+				{
+					x: (mass / 3) * (h.y * h.y + h.z * h.z),
+					y: (mass / 3) * (h.x * h.x + h.z * h.z),
+					z: (mass / 3) * (h.x * h.x + h.y * h.y),
+				},
+				{ x: 0, y: 0, z: 0, w: 1 },
+			);
+		}
 
 		if (config.translation) {
 			colliderDesc.setTranslation(config.translation.x, config.translation.y, config.translation.z);

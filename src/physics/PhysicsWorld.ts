@@ -46,6 +46,11 @@ export interface ColliderConfig {
 	restitution?: number;
 	/** Densidade (kg/m³): define a massa do corpo */
 	density?: number;
+	/**
+	 * Centro de massa em eixos locais do colisor (m); sem ele, o centro geométrico (densidade uniforme).
+	 * Só box/cuboid com densidade: a massa continua densidade × volume e a inércia é a da caixa uniforme.
+	 */
+	centerOfMass?: Vec3Like;
 	/** Offset local em relação ao corpo (m) */
 	translation?: Vec3Like;
 	rotation?: QuatLike;

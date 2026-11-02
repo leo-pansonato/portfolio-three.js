@@ -150,3 +150,54 @@ describe("PhysicsBody.applyImpulseAtPoint / getVelocityAtPoint", () => {
 		world.dispose();
 	});
 });
+
+describe("ColliderConfig.centerOfMass", () => {
+	const MASS = 1000; // kg, cubo de 1 m
+	const INERTIA = (MASS * 1 * 1) / 6; // kg·m²
+	const OFFSET = -0.3; // m, centro de massa abaixo do centro geométrico
+
+	async function lowCube(): Promise<{ world: PhysicsWorld; body: ReturnType<PhysicsWorld["createRigidBody"]> }> {
+		const world = await RapierPhysicsWorld.create(new THREE.Scene());
+		const body = world.createRigidBody({ type: "dynamic", position: { x: 0, y: 100, z: 0 }, canSleep: false });
+		world.createCollider(
+			{
+				shape: "cuboid",
+				halfExtents: { x: 0.5, y: 0.5, z: 0.5 },
+				density: MASS,
+				centerOfMass: { x: 0, y: OFFSET, z: 0 },
+			},
+			body,
+		);
+		return { world, body };
+	}
+
+	it("impulso no centro de massa deslocado não gira; a massa continua densidade × volume", async () => {
+		const { world, body } = await lowCube();
+		body.applyImpulseAtPoint({ x: 500, y: 0, z: 0 }, { x: 0, y: 100 + OFFSET, z: 0 });
+
+		expect(body.getLinearVelocity({ x: 0, y: 0, z: 0 }).x).toBeCloseTo(0.5, 5);
+		const w = body.getAngularVelocity({ x: 0, y: 0, z: 0 });
+		expect(Math.hypot(w.x, w.y, w.z)).toBeLessThan(1e-6);
+		world.dispose();
+	});
+
+	it("impulso no centro geométrico gira com braço até o centro de massa: Δω = I⁻¹ (r × J)", async () => {
+		const { world, body } = await lowCube();
+		// r = (0; 0,3; 0), J = (100; 0; 0): r × J = (0; 0; −30)
+		body.applyImpulseAtPoint({ x: 100, y: 0, z: 0 }, { x: 0, y: 100, z: 0 });
+
+		expect(body.getAngularVelocity({ x: 0, y: 0, z: 0 }).z).toBeCloseTo(-30 / INERTIA, 4);
+		world.dispose();
+	});
+
+	it("rejeita centro de massa sem densidade ou em forma que não seja caixa", async () => {
+		const world = await RapierPhysicsWorld.create(new THREE.Scene());
+		const body = world.createRigidBody({ type: "dynamic", position: { x: 0, y: 10, z: 0 } });
+		const centerOfMass = { x: 0, y: -0.1, z: 0 };
+		expect(() => world.createCollider({ shape: "ball", radius: 1, density: 1, centerOfMass }, body)).toThrow();
+		expect(() =>
+			world.createCollider({ shape: "cuboid", halfExtents: { x: 1, y: 1, z: 1 }, centerOfMass }, body),
+		).toThrow();
+		world.dispose();
+	});
+});
