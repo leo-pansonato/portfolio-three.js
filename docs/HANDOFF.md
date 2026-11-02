@@ -11,6 +11,12 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
+- Pausado por limite de crédito. P2-5, P2-4 e P2-6 interrompidos; trabalho salvo em commit `wip` (só local) em cada worktree:
+  - P2-5 câmeras: `worktree-agent-a9d4d1adf47cc3dee` (src/camera, CameraController, input; parou no CameraController).
+  - P2-4 renderização: `worktree-agent-ae6cfab8166d3fbdb` (PostProcessing, Atmosphere, LightingManager, Environment, main.ts; compilava, faltava conferir visual, ADR-0006 e docs).
+  - P2-6 HUD: `worktree-agent-a652eb8dc3058001a` (src/ui com React, UIManager, index.html, configs; faltava format/test/build, ADR-0004 e docs).
+  - Retomar: em cada worktree, desfazer o `wip` (`git reset --soft HEAD~1`), terminar o escopo do prompt original (ROADMAP P2-4/5/6), verificar e integrar um por vez (câmeras → renderização → HUD), resolvendo `main.ts`.
+
 - P2-1 concluído: etapa 4 (trem de força acoplado: motor com rotação própria, embreagem/conversor, diferenciais com bloqueio, freio-motor) integrada (409f384); ré chega a ~65 km/h no corte (rever relação de ré). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
