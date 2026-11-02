@@ -2,12 +2,21 @@ import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
 import { createRaycastHit, PhysicsBody, PhysicsWorld, QuatLike, RaycastHit, Vec3Like } from "../physics/PhysicsWorld";
 import { aerodynamicDragImpulse } from "./aerodynamics";
+import Driveline, { DrivelineCommands } from "./Driveline";
+import { RAD_PER_SECOND_TO_RPM } from "./Engine";
+import { gearRatio } from "./Powertrain";
 import Suspension from "./Suspension";
 import Tire from "./Tire";
 import { VehicleCommands } from "./VehicleControl";
 import { VehicleState } from "./VehicleState";
 import { createVehicleTelemetry, createWheelTelemetry, STANDARD_GRAVITY, VehicleTelemetry } from "./VehicleTelemetry";
-import WheelDynamics, { createWheelState, WheelState, WheelStepInput } from "./WheelDynamics";
+import WheelDynamics, {
+	createWheelState,
+	createWheelStep,
+	WheelState,
+	WheelStep,
+	WheelStepInput,
+} from "./WheelDynamics";
 
 /** Valores de uma roda no passo anterior, para a interpolação visual */
 export interface WheelStepState {
@@ -30,7 +39,8 @@ export interface ChassisState {
 /**
  * Física de um veículo sobre o corpo rígido (ADR-0003): chassi (corpo dinâmico + cuboid), suspensão por roda
  * (raio pelo PhysicsWorld, impulso no ponto de fixação) e pneus próprios (WheelDynamics: roda com inércia e
- * curva de Pacejka, impulso no ponto de contato, nos eixos da roda projetados no plano de contato).
+ * curva de Pacejka, impulso no ponto de contato, nos eixos da roda projetados no plano de contato) acoplados ao trem
+ * de força (Driveline: motor, embreagem ou conversor, câmbio e diferenciais).
  * Rodas 0/1 dianteiras (esterçam), 2/3 traseiras. Dono do chassi; `destroy()` o remove do mundo.
  * Eixos do chassi (ADR-0002): frente +X, cima +Y, direita +Z; THREE só para matemática.
  */
@@ -42,23 +52,29 @@ export default class VehiclePhysics {
 	readonly tire: Tire;
 	/** Estado de cada roda (velocidade angular, giro, escorregamento, forças do pneu) */
 	readonly wheelStates: WheelState[] = [];
+	readonly driveline: Driveline;
 
 	private readonly wheelDynamics: WheelDynamics;
+	/** Passo de cada roda (preparado e resolvido a cada passo de física) */
+	private readonly wheelSteps: WheelStep[] = [];
 	private readonly suspensionRestLength: number;
 	/** Pontos de fixação da suspensão (m, eixos locais do chassi) */
 	private readonly connectionPoints: THREE.Vector3[] = [];
 	private readonly hits: RaycastHit[] = [];
 	/** Rodas que recebem o torque do motor */
 	private readonly driven: boolean[] = [];
-	private readonly drivenCount: number;
 	/** Esterço por roda (rad) */
 	private readonly steering: number[] = [];
-	/** Torque do motor por roda (N·m) */
-	private readonly driveTorques: number[] = [];
 	/** Torque máximo de freio por roda (N·m) */
 	private readonly brakeTorques: number[] = [];
-	/** Inércia do motor refletida em cada roda motriz (kg·m²) */
-	private drivelineInertia = 0;
+	/** Comandos do trem de força do passo */
+	private readonly drivelineCommands: DrivelineCommands = {
+		throttle: 0,
+		torqueMultiplier: 1,
+		gearRatio: 0,
+		clutchTorque: 0,
+		converterCoupling: 0,
+	};
 	/** Inércias do chassi em rolagem (eixo X) e arfagem (eixo Z), as da caixa uniforme do collider (kg·m²) */
 	private readonly rollInertia: number;
 	private readonly pitchInertia: number;
@@ -112,6 +128,8 @@ export default class VehiclePhysics {
 		this.rollInertia = (physicsData.mass / 3) * (half.y * half.y + half.z * half.z);
 		this.pitchInertia = (physicsData.mass / 3) * (half.x * half.x + half.y * half.y);
 		this.wheelDynamics = new WheelDynamics(this.tire, physicsData.wheelRadius);
+		for (let i = 0; i < definition.wheels.adjustments.length; i++) this.wheelSteps.push(createWheelStep());
+		this.driveline = new Driveline(definition, this.wheelDynamics, this.wheelSteps);
 
 		this.chassisBody = physicsWorld.createRigidBody({
 			type: "dynamic",
@@ -138,17 +156,14 @@ export default class VehiclePhysics {
 			this.chassisBody,
 		);
 
-		const traction = definition.configs.tractionDisplacement;
 		definition.wheels.adjustments.forEach((wheel, index) => {
-			const front = index < 2;
 			this.connectionPoints.push(new THREE.Vector3(wheel.position.x, wheel.position.y, wheel.position.z));
 			this.hits.push(createRaycastHit());
 			this.wheelForward.push(new THREE.Vector3(1, 0, 0));
 			this.wheelRight.push(new THREE.Vector3(0, 0, 1));
 			this.wheelStates.push(createWheelState());
-			this.driven.push(traction === "all" || (traction === "front") === front);
+			this.driven.push(this.driveline.isDriven(index));
 			this.steering.push(0);
-			this.driveTorques.push(0);
 			this.brakeTorques.push(0);
 			this.wheels.push({
 				previousSuspensionLength: physicsData.suspensionRestLength,
@@ -157,7 +172,6 @@ export default class VehiclePhysics {
 			});
 			this.telemetry.wheels.push(createWheelTelemetry(physicsData.suspensionRestLength));
 		});
-		this.drivenCount = this.driven.filter(Boolean).length;
 	}
 
 	/** Guarda os valores das rodas antes do passo (início do pré-passo) */
@@ -171,8 +185,8 @@ export default class VehiclePhysics {
 	}
 
 	/**
-	 * Guarda os comandos para as rodas (esterço nas dianteiras, motor nas motrizes, freio de mão substitui o freio
-	 * nas traseiras) e aplica o arrasto ao chassi
+	 * Guarda os comandos para as rodas (esterço nas dianteiras, freio de mão substitui o freio nas traseiras) e para
+	 * o trem de força, e aplica o arrasto ao chassi
 	 * @param dt passo de física (s): o arrasto vira impulso por passo (N·s)
 	 */
 	applyCommands(commands: VehicleCommands, dt: number): void {
@@ -180,10 +194,14 @@ export default class VehiclePhysics {
 		for (let i = 0; i < this.steering.length; i++) {
 			const front = i < 2;
 			this.steering[i] = front ? commands.steeringAngle : 0;
-			this.driveTorques[i] = this.driven[i] ? commands.driveTorque : 0;
 			this.brakeTorques[i] = front ? commands.frontBrakeTorque : rearBrake;
 		}
-		this.drivelineInertia = commands.drivelineInertia;
+		const driveline = this.drivelineCommands;
+		driveline.throttle = commands.throttle;
+		driveline.torqueMultiplier = commands.torqueMultiplier;
+		driveline.gearRatio = commands.gearRatio;
+		driveline.clutchTorque = commands.clutchTorque;
+		driveline.converterCoupling = commands.converterCoupling;
 		this.applyAerodynamicDrag(dt);
 	}
 
@@ -280,7 +298,8 @@ export default class VehiclePhysics {
 
 	/**
 	 * Pneus: velocidade do contato nos eixos da roda (frente esterçada e direita, projetadas no plano de contato),
-	 * carga da suspensão deste passo, torques de motor e freio → WheelDynamics (forças aplicadas depois).
+	 * carga da suspensão deste passo e freio → WheelDynamics.prepare; as rodas livres são resolvidas sem torque e as
+	 * motrizes pelo trem de força (Driveline); forças aplicadas depois.
 	 * A massa do contato é a fração, pela carga da roda, da massa efetiva do chassi para um impulso horizontal no
 	 * chão: 1 / (1/m + h²/I), com h a altura do centro de massa sobre o contato e I a inércia de rolagem (lateral)
 	 * ou de arfagem (longitudinal). Sem isso o pneu, que em baixa velocidade zera o escorregamento no passo,
@@ -304,9 +323,9 @@ export default class VehiclePhysics {
 		for (let i = 0; i < this.wheelStates.length; i++) {
 			const suspension = this.suspension.wheels[i];
 			const load = suspension.inContact ? suspension.force : 0;
-			input.driveTorque = this.driveTorques[i];
+			input.driveTorque = 0;
 			input.brakeTorque = this.brakeTorques[i];
-			input.inertia = wheelInertia + (this.driven[i] ? this.drivelineInertia : 0);
+			input.inertia = wheelInertia;
 			input.normalLoad = load;
 			input.longitudinalContactMass = 0;
 			input.lateralContactMass = 0;
@@ -314,7 +333,7 @@ export default class VehiclePhysics {
 			input.lateralSpeed = 0;
 
 			if (load <= 0) {
-				this.wheelDynamics.step(this.wheelStates[i], input, dt);
+				this.prepareWheel(i, input, dt);
 				continue;
 			}
 
@@ -337,8 +356,18 @@ export default class VehiclePhysics {
 			input.longitudinalSpeed = velocity.dot(forward);
 			input.lateralSpeed = velocity.dot(right);
 
-			this.wheelDynamics.step(this.wheelStates[i], input, dt);
+			this.prepareWheel(i, input, dt);
 		}
+
+		this.driveline.step(this.drivelineCommands, dt);
+		for (let i = 0; i < this.wheelStates.length; i++)
+			this.wheelDynamics.commit(this.wheelStates[i], this.wheelSteps[i]);
+	}
+
+	private prepareWheel(index: number, input: Readonly<WheelStepInput>, dt: number): void {
+		const step = this.wheelSteps[index];
+		this.wheelDynamics.prepare(this.wheelStates[index], input, dt, step);
+		if (!this.driven[index]) this.wheelDynamics.solve(step, 0, false);
 	}
 
 	/**
@@ -348,8 +377,13 @@ export default class VehiclePhysics {
 	 */
 	updateTelemetry(dt: number, state: Readonly<VehicleState>): void {
 		const telemetry = this.telemetry;
-		telemetry.engineRpm = state.engineRpm;
+		const driveline = this.driveline;
+		telemetry.engineRpm = driveline.engineRpm();
 		telemetry.gear = state.gear;
+		telemetry.clutchSlipRpm =
+			(driveline.engineSpeed - this.drivelineCommands.gearRatio * driveline.outputSpeed(this.wheelStates)) *
+			RAD_PER_SECOND_TO_RPM;
+		telemetry.clutchLocked = driveline.clutchLocked;
 		const velocity = this.chassisBody.getLinearVelocity(this.tempVelocity);
 		this.chassisBody.getRotation(this.tempQuaternion);
 		const forward = this.tempVector3.copy(VehiclePhysics.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
@@ -391,6 +425,7 @@ export default class VehiclePhysics {
 			wheel.slipAngle = tire.slipAngle;
 			wheel.longitudinalForce = tire.longitudinalForce;
 			wheel.lateralForce = tire.lateralForce;
+			wheel.driveTorque = this.driven[i] ? this.wheelSteps[i].driveTorque : 0;
 		}
 	}
 
@@ -402,13 +437,17 @@ export default class VehiclePhysics {
 		return velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
 	}
 
-	/** Velocidade média da banda de rodagem das rodas motrizes ω·r (m/s; negativa em ré) */
+	/**
+	 * Velocidade da saída do câmbio em unidades de banda de rodagem ω·r (m/s; negativa em ré): média das rodas
+	 * motrizes pela cinemática dos diferenciais (no central, ponderada pela repartição de torque)
+	 */
 	drivenWheelSpeed(): number {
-		let sum = 0;
-		for (let i = 0; i < this.wheelStates.length; i++) {
-			if (this.driven[i]) sum += this.wheelStates[i].angularVelocity;
-		}
-		return this.drivenCount > 0 ? (sum / this.drivenCount) * this.definition.physics.wheelRadius : 0;
+		return this.driveline.outputSpeed(this.wheelStates) * this.definition.physics.wheelRadius;
+	}
+
+	/** Rotação do motor (rpm) */
+	engineRpm(): number {
+		return this.driveline.engineRpm();
 	}
 
 	/** Comprimento atual da suspensão (m) */
@@ -441,6 +480,7 @@ export default class VehiclePhysics {
 		this.hasPreviousVelocity = false;
 		this.suspensionLengthsValid = false;
 		for (const wheel of this.wheelStates) wheel.angularVelocity = 0;
+		this.driveline.resetIterationStart();
 	}
 
 	captureChassisState<T extends ChassisState>(out: T): T {
@@ -453,15 +493,21 @@ export default class VehiclePhysics {
 
 	/**
 	 * Escreve o estado no chassi; o motor pode normalizar a rotação, então aplicar o mesmo estado dá o mesmo resultado.
-	 * As rodas passam a rolar sem escorregar na velocidade do chassi no ponto de fixação (só depende do estado escrito).
+	 * As rodas passam a rolar sem escorregar na velocidade do chassi no ponto de fixação e o motor gira na rotação da
+	 * marcha `gear` (se dada; senão a do último comando): só depende do estado escrito.
 	 */
-	applyChassisState(state: Readonly<ChassisState>): void {
+	applyChassisState(state: Readonly<ChassisState & { gear?: number }>): void {
 		this.chassisBody.setPosition(state.position);
 		this.chassisBody.setRotation(state.rotation);
 		this.chassisBody.setLinearVelocity(state.linearVelocity);
 		this.chassisBody.setAngularVelocity(state.angularVelocity);
 		this.suspensionLengthsValid = false;
 		this.syncWheelSpeeds();
+		const ratio =
+			state.gear === undefined
+				? this.drivelineCommands.gearRatio
+				: gearRatio(this.definition.powertrain, state.gear);
+		this.driveline.synchronize(this.wheelStates, ratio);
 	}
 
 	/** Velocidade angular de cada roda = velocidade do chassi no ponto de fixação, ao longo da frente, / raio */
@@ -479,7 +525,7 @@ export default class VehiclePhysics {
 	}
 
 	/** Teleporta o chassi para o estado dado, sem interpolar a partir da pose anterior */
-	restoreChassisState(state: Readonly<ChassisState>): void {
+	restoreChassisState(state: Readonly<ChassisState & { gear?: number }>): void {
 		this.applyChassisState(state);
 		this.physicsWorld.resetInterpolation(this.chassisBody);
 		this.hasPreviousVelocity = false;

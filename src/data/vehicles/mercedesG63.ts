@@ -56,6 +56,14 @@ export const mercedesG63: VehicleDefinition = {
 		shiftTime: 0.2,
 		topSpeed: 220 / 3.6,
 		boostTorqueMultiplier: 1.3,
+		friction: { idleTorque: 30, revLimitTorque: 100 },
+		clutch: { maxTorque: 1300, engagementStartRpm: 1800, engagementRpm: 2500 },
+		torqueConverter: { stallRpm: 2500, stallTorqueRatio: 1.9, couplingSpeedRatio: 0.85 },
+		differentials: {
+			front: { torqueSplit: 0.5, preloadTorque: 0, powerLocking: 0, coastLocking: 0, viscousCoupling: 0 },
+			rear: { torqueSplit: 0.5, preloadTorque: 0, powerLocking: 0, coastLocking: 0, viscousCoupling: 0 },
+			center: { torqueSplit: 0.4, preloadTorque: 100, powerLocking: 0.3, coastLocking: 0.15, viscousCoupling: 0 },
+		},
 	},
 	aerodynamics: {
 		dragCoefficient: 0.54,

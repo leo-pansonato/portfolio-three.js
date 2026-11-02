@@ -56,6 +56,11 @@ export const bmwF82: VehicleDefinition = {
 		shiftTime: 0.1,
 		topSpeed: 280 / 3.6,
 		boostTorqueMultiplier: 1.3,
+		friction: { idleTorque: 25, revLimitTorque: 80 },
+		clutch: { maxTorque: 1000, engagementStartRpm: 750, engagementRpm: 3000 },
+		differentials: {
+			rear: { torqueSplit: 0.5, preloadTorque: 40, powerLocking: 0.2, coastLocking: 0.1, viscousCoupling: 0 },
+		},
 	},
 	aerodynamics: {
 		dragCoefficient: 0.34,

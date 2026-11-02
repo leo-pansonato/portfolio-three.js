@@ -1,25 +1,19 @@
 import { VehicleDefinition, VehicleDrivingConfig } from "../data/vehicles/types";
 import { InputFrame } from "../input/InputFrame";
+import { DrivelineCommands } from "./Driveline";
 import Powertrain, { PowertrainRequest } from "./Powertrain";
 import { VehicleState } from "./VehicleState";
 
-/** Saída do controle para a física do veículo */
-export interface VehicleCommands {
+/** Saída do controle para a física do veículo: esterço, freios e comandos do trem de força */
+export interface VehicleCommands extends DrivelineCommands {
 	/** Esterço das rodas dianteiras (rad; positivo vira à esquerda) */
 	steeringAngle: number;
-	/** Torque do motor por roda motriz (N·m; negativo em ré) */
-	driveTorque: number;
 	/** Torque de freio por roda dianteira (N·m) */
 	frontBrakeTorque: number;
 	/** Torque de freio por roda traseira (N·m) */
 	rearBrakeTorque: number;
 	/** Torque do freio de mão por roda traseira (N·m) */
 	handbrakeTorque: number;
-	/**
-	 * Inércia do motor refletida em cada roda motriz (kg·m²): só com acelerador e fora de troca de marcha;
-	 * sem acelerador a embreagem fica aberta (provisório até a embreagem/conversor da etapa 4)
-	 */
-	drivelineInertia: number;
 }
 
 /**
@@ -30,16 +24,18 @@ export interface VehicleCommands {
 export default class VehicleControl {
 	readonly commands: VehicleCommands = {
 		steeringAngle: 0,
-		driveTorque: 0,
 		frontBrakeTorque: 0,
 		rearBrakeTorque: 0,
 		handbrakeTorque: 0,
-		drivelineInertia: 0,
+		throttle: 0,
+		torqueMultiplier: 1,
+		gearRatio: 0,
+		clutchTorque: 0,
+		converterCoupling: 0,
 	};
 	readonly powertrain: Powertrain;
 
 	private readonly config: VehicleDrivingConfig;
-	private readonly drivenWheelCount: number;
 	private readonly powertrainRequest: PowertrainRequest = { throttle: 0, reverse: false, boost: false };
 
 	constructor(
@@ -47,17 +43,24 @@ export default class VehicleControl {
 		private readonly state: VehicleState,
 	) {
 		this.config = definition.configs;
-		this.drivenWheelCount = this.config.tractionDisplacement === "all" ? 4 : 2;
 		this.powertrain = new Powertrain(definition.powertrain, definition.physics.wheelRadius, state);
 	}
 
 	/**
 	 * @param forwardSpeed velocidade ao longo da frente do chassi (m/s)
 	 * @param dt passo de física (s)
-	 * @param drivelineSpeed velocidade média da banda de rodagem das rodas motrizes ω·r (m/s), para a rotação do motor
+	 * @param drivelineSpeed velocidade da saída do câmbio em unidades de banda de rodagem ω·r (m/s), para a embreagem
+	 * @param engineRpm rotação do motor no início do passo (rpm), do trem de força
 	 */
-	step(input: InputFrame, forwardSpeed: number, dt: number, drivelineSpeed: number = forwardSpeed): VehicleCommands {
+	step(
+		input: InputFrame,
+		forwardSpeed: number,
+		dt: number,
+		drivelineSpeed: number = forwardSpeed,
+		engineRpm: number = this.state.engineRpm,
+	): VehicleCommands {
 		this.state.forwardSpeed = forwardSpeed;
+		this.state.engineRpm = engineRpm;
 		this.updateSteering(input, dt);
 		this.updateDriving(input, dt, drivelineSpeed);
 		return this.commands;
@@ -139,13 +142,10 @@ export default class VehicleControl {
 			rearBrakeTorque = config.rollingResistanceTorque;
 		}
 
-		const wheelTorque = this.powertrain.step(request, this.state.forwardSpeed, dt, drivelineSpeed);
+		this.powertrain.step(request, this.state.forwardSpeed, dt, drivelineSpeed, this.commands);
 
-		this.commands.driveTorque = wheelTorque / this.drivenWheelCount;
 		this.commands.frontBrakeTorque = frontBrakeTorque;
 		this.commands.rearBrakeTorque = rearBrakeTorque;
 		this.commands.handbrakeTorque = handbrakeTorque;
-		const clutchEngaged = request.throttle > 0 && this.state.shiftTimeRemaining === 0;
-		this.commands.drivelineInertia = clutchEngaged ? this.powertrain.reflectedInertia() / this.drivenWheelCount : 0;
 	}
 }

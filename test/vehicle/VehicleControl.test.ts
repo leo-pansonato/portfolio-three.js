@@ -3,7 +3,7 @@ import { getVehicleDefinition } from "../../src/data/vehicles";
 import { VehicleDefinition, VehicleDrivingConfig } from "../../src/data/vehicles/types";
 import { createInputFrame, InputFrame } from "../../src/input/InputFrame";
 import VehicleControl from "../../src/vehicle/VehicleControl";
-import { createVehicleState, REVERSE_GEAR } from "../../src/vehicle/VehicleState";
+import { createVehicleState, NEUTRAL_GEAR, REVERSE_GEAR } from "../../src/vehicle/VehicleState";
 
 const DT = 1 / 60; // s
 
@@ -68,19 +68,19 @@ describe("VehicleControl — volante", () => {
 });
 
 describe("VehicleControl — motor e freio", () => {
-	it("acelerador proporcional; boost multiplica o torque e volta a 1 ao soltar", () => {
+	it("acelerador proporcional ao motor; boost multiplica o torque e volta a 1 ao soltar", () => {
 		const control = new VehicleControl(DEFINITION, createVehicleState(POWERTRAIN.idleRpm));
 		const speed = 10; // m/s, 1ª marcha
 		const rpm = (speed / WHEEL_RADIUS) * control.powertrain.overallRatio(1) * (60 / (2 * Math.PI));
-		const ratio = control.powertrain.overallRatio(1);
-		const fullTorque = (control.powertrain.torqueAt(rpm) * ratio * POWERTRAIN.efficiency) / 2;
 
-		expect(control.step(inputOf({ throttle: 0.5 }), speed, DT).driveTorque).toBeCloseTo(fullTorque / 2, 6);
-		expect(control.step(inputOf({ throttle: 1, boost: true }), speed, DT).driveTorque).toBeCloseTo(
-			fullTorque * POWERTRAIN.boostTorqueMultiplier,
-			6,
+		const half = control.step(inputOf({ throttle: 0.5 }), speed, DT, speed, rpm);
+		expect(half.throttle).toBe(0.5);
+		expect(half.gearRatio).toBe(control.powertrain.overallRatio(1));
+		expect(half.torqueMultiplier).toBe(1);
+		expect(control.step(inputOf({ throttle: 1, boost: true }), speed, DT, speed, rpm).torqueMultiplier).toBe(
+			POWERTRAIN.boostTorqueMultiplier,
 		);
-		expect(control.step(inputOf({ throttle: 1 }), speed, DT).driveTorque).toBeCloseTo(fullTorque, 6);
+		expect(control.step(inputOf({ throttle: 1 }), speed, DT, speed, rpm).torqueMultiplier).toBe(1);
 	});
 
 	it("freio quase parado e sem acelerador engata a ré", () => {
@@ -89,16 +89,18 @@ describe("VehicleControl — motor e freio", () => {
 
 		const stopped = control.step(inputOf({ brake: 1 }), 1.9, DT);
 		expect(state.gear).toBe(REVERSE_GEAR);
-		expect(stopped.driveTorque).toBeLessThan(0);
+		expect(stopped.gearRatio).toBeLessThan(0);
+		expect(stopped.throttle).toBe(1);
 		expect(stopped.frontBrakeTorque).toBe(0);
 		expect(stopped.rearBrakeTorque).toBe(0);
 
 		// já em ré (velocidade negativa) continua acelerando para trás, proporcional ao pedal
-		const full = control.step(inputOf({ brake: 1 }), -5, DT).driveTorque;
-		expect(control.step(inputOf({ brake: 0.5 }), -5, DT).driveTorque).toBeCloseTo(full * 0.5, 6);
+		expect(control.step(inputOf({ brake: 0.5 }), -5, DT, -5).throttle).toBe(0.5);
 
 		// acelerador volta para a 1ª
-		expect(control.step(inputOf({ throttle: 1 }), -1, DT).driveTorque).toBeGreaterThan(0);
+		const forward = control.step(inputOf({ throttle: 1 }), -1, DT, -1);
+		expect(forward.gearRatio).toBeGreaterThan(0);
+		expect(forward.throttle).toBe(1);
 		expect(state.gear).toBe(1);
 	});
 
@@ -106,13 +108,15 @@ describe("VehicleControl — motor e freio", () => {
 		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const moving = control.step(inputOf({ brake: 1 }), 2, DT);
-		expect(moving.driveTorque).toBe(0);
+		expect(moving.throttle).toBe(0);
+		expect(moving.gearRatio).toBeGreaterThan(0);
 		expect(moving.frontBrakeTorque).toBe(CONFIG.brakeTorque.front);
 		expect(moving.rearBrakeTorque).toBe(CONFIG.brakeTorque.rear);
 
 		// acelerador junto com freio também não engata a ré
 		const both = control.step(inputOf({ throttle: 1, brake: 1 }), 0, DT);
-		expect(both.driveTorque).toBeGreaterThan(0);
+		expect(both.throttle).toBe(1);
+		expect(both.gearRatio).toBeGreaterThan(0);
 		expect(both.frontBrakeTorque).toBe(CONFIG.brakeTorque.front);
 	});
 
@@ -120,7 +124,7 @@ describe("VehicleControl — motor e freio", () => {
 		const control = new VehicleControl(DEFINITION, createVehicleState());
 
 		const idle = control.step(createInputFrame(), 15, DT);
-		expect(idle.driveTorque).toBe(0);
+		expect(idle.throttle).toBe(0);
 		expect(idle.frontBrakeTorque).toBe(CONFIG.rollingResistanceTorque);
 		expect(idle.rearBrakeTorque).toBe(CONFIG.rollingResistanceTorque);
 		expect(idle.handbrakeTorque).toBe(0);
@@ -135,16 +139,54 @@ describe("VehicleControl — motor e freio", () => {
 		expect(handbrake.rearBrakeTorque).toBe(0);
 	});
 
-	it("inércia do motor refletida nas rodas motrizes só com acelerador e fora de troca", () => {
+	it("embreagem: aberta parada sem acelerador, fecha com a rotação do motor na arrancada e com a da entrada rodando", () => {
 		const state = createVehicleState(POWERTRAIN.idleRpm);
 		const control = new VehicleControl(DEFINITION, state);
-		const reflected = control.powertrain.reflectedInertia() / 2;
+		const clutch = POWERTRAIN.clutch;
+		const speedAtInputRpm = (rpm: number) =>
+			((rpm / (60 / (2 * Math.PI))) * WHEEL_RADIUS) / control.powertrain.overallRatio(1);
 
-		expect(control.step(inputOf({ throttle: 1 }), 5, DT).drivelineInertia).toBeCloseTo(reflected, 9);
-		expect(control.step(inputOf({ brake: 1 }), 5, DT).drivelineInertia).toBe(0);
-		expect(control.step(createInputFrame(), 5, DT).drivelineInertia).toBe(0);
-		state.shiftTimeRemaining = 0.05;
-		expect(control.step(inputOf({ throttle: 1 }), 5, DT).drivelineInertia).toBe(0);
+		expect(control.step(createInputFrame(), 0, DT, 0, POWERTRAIN.idleRpm).clutchTorque).toBe(0);
+		const middleRpm = (clutch.engagementStartRpm + clutch.engagementRpm) / 2;
+		expect(control.step(inputOf({ throttle: 1 }), 0, DT, 0, middleRpm).clutchTorque).toBeCloseTo(
+			clutch.maxTorque / 2,
+			6,
+		);
+		const rolling = speedAtInputRpm(clutch.engagementRpm);
+		expect(control.step(createInputFrame(), rolling, DT, rolling, POWERTRAIN.idleRpm).clutchTorque).toBeCloseTo(
+			clutch.maxTorque,
+			6,
+		);
+	});
+
+	it("troca de marcha: embreagem volta a fechar ao longo da troca; acelerador cortado com o motor acima da rotação nova", () => {
+		const state = createVehicleState(POWERTRAIN.idleRpm);
+		const control = new VehicleControl(DEFINITION, state);
+		const rpmPerSpeed = (gear: number) =>
+			(control.powertrain.overallRatio(gear) * (60 / (2 * Math.PI))) / WHEEL_RADIUS;
+		const speed = (POWERTRAIN.upshiftRpm + 10) / rpmPerSpeed(1);
+
+		const start = control.step(inputOf({ throttle: 1 }), speed, DT, speed, POWERTRAIN.upshiftRpm + 10);
+		expect(state.gear).toBe(2);
+		expect(start.clutchTorque).toBe(0);
+		expect(start.throttle).toBe(0);
+		const synchronized = control.step(inputOf({ throttle: 1 }), speed, DT, speed, speed * rpmPerSpeed(2) - 1);
+		expect(synchronized.throttle).toBe(1);
+		expect(synchronized.clutchTorque).toBeGreaterThan(0);
+		expect(synchronized.clutchTorque).toBeLessThan(POWERTRAIN.clutch.maxTorque);
+	});
+
+	it("ponto morto: relação 0 e embreagem aberta até acelerar", () => {
+		const state = createVehicleState(POWERTRAIN.idleRpm);
+		const control = new VehicleControl(DEFINITION, state);
+		state.gear = NEUTRAL_GEAR;
+
+		const neutral = control.step(createInputFrame(), 20, DT, 20, 3000);
+		expect(neutral.gearRatio).toBe(0);
+		expect(neutral.clutchTorque).toBe(0);
+		expect(state.gear).toBe(NEUTRAL_GEAR);
+		control.step(inputOf({ throttle: 1 }), 20, DT, 20, 3000);
+		expect(state.gear).toBeGreaterThan(1);
 	});
 });
 

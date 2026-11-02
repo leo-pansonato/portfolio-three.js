@@ -4,7 +4,7 @@ import { PhysicsWorld } from "../../src/physics/PhysicsWorld";
 import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import VehicleControl from "../../src/vehicle/VehicleControl";
 import VehiclePhysics from "../../src/vehicle/VehiclePhysics";
-import { createVehicleState } from "../../src/vehicle/VehicleState";
+import { createVehicleState, VehicleState } from "../../src/vehicle/VehicleState";
 import { DriveInput, ScriptedInput, SimHandle, VehicleSnapshot } from "./sim";
 
 /**
@@ -15,6 +15,9 @@ export interface VehicleRig extends SimHandle {
 	readonly input: DriveInput;
 	readonly physics: VehiclePhysics;
 	readonly physicsWorld: PhysicsWorld;
+	/** Estado do controle (marcha, troca); o teste pode escrever nele entre passos */
+	readonly state: VehicleState;
+	readonly control: VehicleControl;
 	/** Avança `steps` passos fixos, chamando `onStep` depois de cada um */
 	steps(count: number, onStep?: () => void): void;
 	dispose(): void;
@@ -36,7 +39,10 @@ export async function createVehicleRig(
 	physicsWorld.addPreStepCallback((dt) => {
 		physics.updateTelemetry(dt, state);
 		physics.savePreviousWheelStates();
-		physics.applyCommands(control.step(scripted, physics.forwardSpeed(), dt, physics.drivenWheelSpeed()), dt);
+		physics.applyCommands(
+			control.step(scripted, physics.forwardSpeed(), dt, physics.drivenWheelSpeed(), physics.engineRpm()),
+			dt,
+		);
 		physics.updateVehicle(dt);
 	});
 
@@ -45,6 +51,8 @@ export async function createVehicleRig(
 		analog: scripted.analog,
 		physics,
 		physicsWorld,
+		state,
+		control,
 		frame(deltaTime: number): void {
 			physicsWorld.update(deltaTime);
 		},

@@ -97,7 +97,67 @@ export interface TorqueCurvePoint {
 	torque: number;
 }
 
-/** Trem de força: motor, câmbio automático e diferencial (ADR-0003, etapa 1) */
+/** Atrito interno e bombeamento do motor sem acelerador (freio-motor), interpolado linearmente na rotação */
+export interface EngineFrictionConfig {
+	/** Torque de arrasto na marcha lenta (N·m, ≥ 0) */
+	idleTorque: number;
+	/** Torque de arrasto no corte de giro (N·m, ≥ 0) */
+	revLimitTorque: number;
+}
+
+/**
+ * Embreagem de atrito entre o motor e o câmbio (ADR-0003, etapa 4): a de partida do câmbio de dupla embreagem
+ * ou a de travamento do conversor. Trava quando o torque que iguala as rotações cabe na capacidade.
+ */
+export interface VehicleClutchConfig {
+	/** Capacidade com a embreagem fechada (N·m no virabrequim) */
+	maxTorque: number;
+	/**
+	 * Começa a fechar nesta rotação e fecha de todo em `engagementRpm` (rpm): pela entrada do câmbio rodando e, sem
+	 * conversor, também pelo motor com acelerador (arrancada)
+	 */
+	engagementStartRpm: number;
+	/** Rotação em que a embreagem fica toda fechada (rpm) */
+	engagementRpm: number;
+}
+
+/** Conversor de torque hidrodinâmico (ADR-0003, etapa 4) */
+export interface TorqueConverterConfig {
+	/** Rotação de estol (rpm): com a turbina parada, o motor a plena carga para nela; define a capacidade */
+	stallRpm: number;
+	/** Multiplicação de torque com a turbina parada (adimensional, ≥ 1) */
+	stallTorqueRatio: number;
+	/** Relação turbina/bomba em que a multiplicação acaba (ponto de acoplamento, 0–1) */
+	couplingSpeedRatio: number;
+}
+
+/**
+ * Diferencial com embreagem de bloqueio (ADR-0003, etapa 4). Saídas A (dianteira no central, esquerda no de eixo)
+ * e B; τ é o torque transferido de A para B, limitado em |τ| ≤ pré-carga + bloqueio × |torque de entrada|.
+ * Com bloqueio, pré-carga e acoplamento viscoso nulos é um diferencial aberto.
+ */
+export interface DifferentialConfig {
+	/** Fração do torque de entrada para a saída A com o diferencial livre (0–1; 0,5 nos de eixo) */
+	torqueSplit: number;
+	/** τ máximo sem torque de entrada (N·m) */
+	preloadTorque: number;
+	/** Bloqueio por torque tracionando: τ máximo por |torque de entrada| (adimensional) */
+	powerLocking: number;
+	/** Bloqueio por torque em desaceleração (freio-motor) (adimensional) */
+	coastLocking: number;
+	/** Bloqueio por diferença de velocidade: τ = c·(ωA − ωB) (N·m·s/rad) */
+	viscousCoupling: number;
+}
+
+/** Diferenciais usados conforme a tração: eixo traseiro e/ou dianteiro e, na integral, o central */
+export interface VehicleDifferentialsConfig {
+	front?: DifferentialConfig;
+	rear?: DifferentialConfig;
+	/** Saída A = eixo dianteiro, B = traseiro */
+	center?: DifferentialConfig;
+}
+
+/** Trem de força: motor, embreagem ou conversor, câmbio automático e diferenciais (ADR-0003, etapas 1 e 4) */
 export interface VehiclePowertrainConfig {
 	/** Curva de torque a plena carga, em rpm crescente; interpolação linear */
 	torqueCurve: TorqueCurvePoint[];
@@ -125,6 +185,13 @@ export interface VehiclePowertrainConfig {
 	topSpeed: number;
 	/** Multiplicador do torque com boost (adimensional, 1–1,5) */
 	boostTorqueMultiplier: number;
+	/** Freio-motor */
+	friction: EngineFrictionConfig;
+	/** Embreagem de partida ou de travamento do conversor */
+	clutch: VehicleClutchConfig;
+	/** Conversor de torque; ausente no câmbio de dupla embreagem */
+	torqueConverter?: TorqueConverterConfig;
+	differentials: VehicleDifferentialsConfig;
 }
 
 /** Aerodinâmica: arrasto 0,5·ρ·Cd·A·v² oposto à velocidade */

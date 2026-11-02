@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { getVehicleDefinition } from "../../src/data/vehicles";
 import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { AIR_DENSITY, aerodynamicDragForce, aerodynamicDragImpulse } from "../../src/vehicle/aerodynamics";
-import { REVERSE_GEAR } from "../../src/vehicle/VehicleState";
+import { NEUTRAL_GEAR, REVERSE_GEAR } from "../../src/vehicle/VehicleState";
 import { createRapierSim, RapierSimHandle } from "../support/rapierSim";
 import { SETTLE_TIME, zeroToHundredScenario } from "../support/scenarios";
+import { createVehicleRig } from "../support/vehicleRig";
 
 vi.mock("../../src/loaders/ModelLoader", () => ({
 	default: class {
@@ -40,6 +41,8 @@ const LIMITS: Record<string, { zeroToHundred: [number, number]; topSpeedKmh: [nu
 interface FullThrottleRun {
 	gears: number[];
 	minRpm: number;
+	/** Rotação a cada quadro nos últimos 10 s (rpm) */
+	finalRpm: number[];
 	maxRpm: number;
 	/** Velocidade do HUD a cada 10 s (km/h) */
 	speedEvery10s: number[];
@@ -51,7 +54,13 @@ function settle(sim: RapierSimHandle): void {
 
 /** Acelerador pleno por `seconds`, registrando a marcha e a rotação de cada quadro */
 function fullThrottle(sim: RapierSimHandle, seconds: number): FullThrottleRun {
-	const run: FullThrottleRun = { gears: [], minRpm: Infinity, maxRpm: -Infinity, speedEvery10s: [] };
+	const run: FullThrottleRun = {
+		gears: [],
+		minRpm: Infinity,
+		maxRpm: -Infinity,
+		finalRpm: [],
+		speedEvery10s: [],
+	};
 	sim.input.throttle = true;
 	const frames = Math.round(seconds / FRAME_DT);
 	for (let i = 1; i <= frames; i++) {
@@ -60,6 +69,7 @@ function fullThrottle(sim: RapierSimHandle, seconds: number): FullThrottleRun {
 		run.gears.push(telemetry.gear);
 		run.minRpm = Math.min(run.minRpm, telemetry.engineRpm);
 		run.maxRpm = Math.max(run.maxRpm, telemetry.engineRpm);
+		if (i > frames - Math.round(10 / FRAME_DT)) run.finalRpm.push(telemetry.engineRpm);
 		if (i % Math.round(10 / FRAME_DT) === 0) run.speedEvery10s.push(sim.player.getCurrentSpeed());
 	}
 	sim.input.throttle = false;
@@ -98,6 +108,10 @@ describe.each(Object.keys(LIMITS))("veículo %s — trem de força", (vehicleId)
 
 		expect(run.minRpm).toBeGreaterThanOrEqual(powertrain.idleRpm);
 		expect(run.maxRpm).toBeLessThanOrEqual(powertrain.revLimitRpm);
+		// em regime na velocidade máxima a rotação fica parada: sem oscilação de passo a passo
+		const steps = run.finalRpm.slice(1).map((rpm, i) => rpm - run.finalRpm[i]);
+		expect(Math.max(...run.finalRpm) - Math.min(...run.finalRpm)).toBeLessThan(15);
+		expect(Math.max(...steps.map(Math.abs))).toBeLessThan(1);
 	});
 
 	it("rotação entre a lenta e o corte também freando até parar e em ré", async () => {
@@ -167,18 +181,19 @@ describe("arrasto aerodinâmico", () => {
 		world.dispose();
 	});
 
-	it("no veículo: sem acelerador, a diferença de desaceleração entre 60 e 180 km/h é a do arrasto", async () => {
-		const sim = await createRapierSim("mercedes_g63", undefined, LONG_GROUND);
-		settle(sim);
+	it("no veículo em ponto morto: a diferença de desaceleração entre 60 e 180 km/h é a do arrasto", async () => {
 		const definition = getVehicleDefinition("mercedes_g63")!;
+		const rig = await createVehicleRig(definition, FRAME_DT, LONG_GROUND);
+		rig.steps(Math.round(SETTLE_TIME / FRAME_DT));
 		const decelerationAt = (targetKmh: number): { speed: number; decel: number } => {
-			sim.input.throttle = true;
-			while (sim.player.getCurrentSpeed() < targetKmh) sim.frame(FRAME_DT);
-			sim.input.throttle = false;
-			for (let i = 0; i < Math.round(1 / FRAME_DT); i++) sim.frame(FRAME_DT);
-			const before = sim.player.getTelemetry().forwardSpeed;
-			for (let i = 0; i < Math.round(1 / FRAME_DT); i++) sim.frame(FRAME_DT);
-			const after = sim.player.getTelemetry().forwardSpeed;
+			rig.input.throttle = true;
+			while (rig.physics.forwardSpeed() * 3.6 < targetKmh) rig.steps(1);
+			rig.input.throttle = false;
+			rig.state.gear = NEUTRAL_GEAR;
+			rig.steps(Math.round(1 / FRAME_DT));
+			const before = rig.physics.forwardSpeed();
+			rig.steps(Math.round(1 / FRAME_DT));
+			const after = rig.physics.forwardSpeed();
 			return { speed: (before + after) / 2, decel: before - after };
 		};
 		const slow = decelerationAt(60);
@@ -190,5 +205,6 @@ describe("arrasto aerodinâmico", () => {
 		const dampingDifference = CHASSIS_LINEAR_DAMPING * (fast.speed - slow.speed);
 
 		expect(fast.decel - slow.decel).toBeCloseTo(dragDifference + dampingDifference, 1);
+		rig.dispose();
 	});
 });

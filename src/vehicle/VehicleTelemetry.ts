@@ -26,6 +26,8 @@ export interface WheelTelemetry {
 	longitudinalForce: number;
 	/** Força lateral do pneu (N; positiva para a direita da roda) */
 	lateralForce: number;
+	/** Torque do trem de força na roda (N·m; 0 nas não motrizes) */
+	driveTorque: number;
 }
 
 export interface VehicleTelemetry {
@@ -45,8 +47,12 @@ export interface VehicleTelemetry {
 	steeringAngle: number;
 	/** Rotação do motor (rpm) */
 	engineRpm: number;
-	/** Marcha engatada: 1…n à frente, −1 ré */
+	/** Marcha engatada: 1…n à frente, 0 ponto morto, −1 ré */
 	gear: number;
+	/** Rotação do motor menos a da entrada do câmbio (rpm) */
+	clutchSlipRpm: number;
+	/** Embreagem (ou travamento do conversor) travada no último passo */
+	clutchLocked: boolean;
 	wheels: WheelTelemetry[];
 }
 
@@ -63,6 +69,8 @@ export function createVehicleTelemetry(): VehicleTelemetry {
 		steeringAngle: 0,
 		engineRpm: 0,
 		gear: 1,
+		clutchSlipRpm: 0,
+		clutchLocked: false,
 		wheels: [],
 	};
 }
@@ -81,5 +89,6 @@ export function createWheelTelemetry(suspensionRestLength: number): WheelTelemet
 		slipAngle: 0,
 		longitudinalForce: 0,
 		lateralForce: 0,
+		driveTorque: 0,
 	};
 }

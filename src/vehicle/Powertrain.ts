@@ -1,16 +1,27 @@
 import { VehiclePowertrainConfig } from "../data/vehicles/types";
-import { REVERSE_GEAR, VehicleState } from "./VehicleState";
+import { DrivelineCommands } from "./Driveline";
+import { RAD_PER_SECOND_TO_RPM } from "./Engine";
+import { NEUTRAL_GEAR, REVERSE_GEAR, VehicleState } from "./VehicleState";
 
-const RAD_PER_SECOND_TO_RPM = 60 / (2 * Math.PI);
 /** Resto de arredondamento ao descontar passos do tempo de troca (s) */
 const SHIFT_TIME_EPSILON = 1e-9;
-/** Faixa abaixo do corte em que o torque cai linearmente a zero (rpm) */
-const REV_LIMITER_RAMP_RPM = 200;
-/** Faixa abaixo da velocidade máxima em que o torque cai linearmente a zero (m/s) */
+/** Faixa abaixo da velocidade máxima em que o acelerador cai linearmente a zero (m/s) */
 const SPEED_LIMITER_RAMP = 1;
+/**
+ * Na troca, o acelerador fecha de todo com o motor esta rotação acima da entrada do câmbio e abre de todo com ele
+ * esta rotação abaixo (rpm)
+ */
+const REV_MATCH_BAND_RPM = 500;
 
 function ramp(value: number): number {
 	return Math.min(1, Math.max(0, value));
+}
+
+/** Relação total da caixa com o diferencial na marcha dada (adimensional; negativa em ré, 0 em ponto morto) */
+export function gearRatio(config: Readonly<VehiclePowertrainConfig>, gear: number): number {
+	if (gear === NEUTRAL_GEAR) return 0;
+	if (gear === REVERSE_GEAR) return -config.reverseRatio * config.finalDriveRatio;
+	return config.gearRatios[gear - 1] * config.finalDriveRatio;
 }
 
 /** Pedido de tração para um passo */
@@ -23,10 +34,12 @@ export interface PowertrainRequest {
 }
 
 /**
- * Motor (curva de torque, marcha lenta, corte de giro), câmbio automático com histerese e diferencial.
- * Sem embreagem nem conversor (ADR-0003, etapa 4): a rotação vem da velocidade das rodas motrizes,
- * limitada por baixo pela marcha lenta; a inércia do motor é refletida nas rodas (reflectedInertia).
- * O câmbio decide pela velocidade do veículo (como a central do câmbio), para não caçar marcha com a roda patinando.
+ * Central do motor e do câmbio automático (ADR-0003, etapas 1 e 4): escolhe a marcha pela velocidade do veículo,
+ * com histerese, e comanda acelerador, embreagem e conversor para o trem de força (Driveline), que é dono da rotação
+ * do motor. Embreagem: fecha com a rotação da entrada do câmbio (rodando) e, sem conversor, também com a do motor
+ * quando há acelerador (arrancada). Na troca, embreagem e conversor abrem e voltam a acoplar ao longo do tempo de
+ * troca, e o acelerador leva o motor à rotação nova (corta com o motor acima dela, abre com ele abaixo). Com conversor,
+ * ele desacopla o motor parado sem acelerador. Ponto morto (marcha 0) só sai com acelerador ou ré.
  * Altera só o VehicleState recebido; sem alocação por passo.
  */
 export default class Powertrain {
@@ -38,17 +51,18 @@ export default class Powertrain {
 	) {}
 
 	/**
-	 * Avança um passo de física e devolve o torque total nas rodas motrizes (N·m; negativo em ré)
+	 * Avança um passo de física e escreve os comandos do trem de força em `out`
 	 * @param forwardSpeed velocidade ao longo de +X local do chassi (m/s): troca de marcha e limitador de velocidade
 	 * @param dt passo de física (s)
-	 * @param drivelineSpeed velocidade média da banda de rodagem das rodas motrizes ω·r (m/s): rotação do motor
+	 * @param drivelineSpeed velocidade da saída do câmbio em unidades de banda de rodagem, ω·r (m/s)
 	 */
 	step(
 		request: Readonly<PowertrainRequest>,
 		forwardSpeed: number,
 		dt: number,
-		drivelineSpeed: number = forwardSpeed,
-	): number {
+		drivelineSpeed: number,
+		out: DrivelineCommands,
+	): void {
 		const config = this.config;
 		const state = this.state;
 
@@ -57,67 +71,83 @@ export default class Powertrain {
 		if (request.reverse !== (state.gear === REVERSE_GEAR)) {
 			state.gear = request.reverse ? REVERSE_GEAR : 1;
 			state.shiftTimeRemaining = 0;
-		} else if (state.gear !== REVERSE_GEAR && state.shiftTimeRemaining === 0) {
+		}
+		if (state.gear === NEUTRAL_GEAR && request.throttle > 0) {
+			state.gear = this.gearForSpeed(forwardSpeed);
+			state.shiftTimeRemaining = 0;
+		} else if (state.gear > 0 && state.shiftTimeRemaining === 0) {
 			this.selectForwardGear(forwardSpeed);
 		}
 
 		const ratio = this.overallRatio(state.gear);
-		state.engineRpm = Math.max(config.idleRpm, this.drivelineRpm(drivelineSpeed, ratio));
 		state.boostMultiplier = request.boost ? config.boostTorqueMultiplier : 1;
+		out.gearRatio = ratio;
+		out.torqueMultiplier = state.boostMultiplier;
 
-		if (request.throttle <= 0 || state.shiftTimeRemaining > 0 || state.engineRpm >= config.revLimitRpm) return 0;
-
-		let torque = this.torqueAt(state.engineRpm) * request.throttle * state.boostMultiplier;
-		torque *= ramp((config.revLimitRpm - state.engineRpm) / REV_LIMITER_RAMP_RPM);
-		if (state.gear !== REVERSE_GEAR) {
-			torque *= ramp((config.topSpeed - forwardSpeed) / SPEED_LIMITER_RAMP);
+		let throttle = request.throttle;
+		if (state.gear > 0) throttle *= ramp((config.topSpeed - forwardSpeed) / SPEED_LIMITER_RAMP);
+		if (ratio === 0) {
+			out.throttle = throttle;
+			out.clutchTorque = 0;
+			out.converterCoupling = 0;
+			return;
 		}
-		const wheelTorque = torque * ratio * config.efficiency;
-		return state.gear === REVERSE_GEAR ? -wheelTorque : wheelTorque;
+
+		const inputRpm = (drivelineSpeed / this.wheelRadius) * ratio * RAD_PER_SECOND_TO_RPM;
+		const idle = config.idleRpm;
+		const clutch = config.clutch;
+		const engagementBand = clutch.engagementRpm - clutch.engagementStartRpm;
+		let engagement = ramp((inputRpm - clutch.engagementStartRpm) / engagementBand);
+		if (!config.torqueConverter && throttle > 0) {
+			engagement = Math.max(engagement, ramp((state.engineRpm - clutch.engagementStartRpm) / engagementBand));
+		}
+		let coupling = config.torqueConverter ? Math.max(throttle > 0 ? 1 : 0, ramp((inputRpm - idle) / idle)) : 0;
+		if (state.shiftTimeRemaining > 0) {
+			const progress = 1 - state.shiftTimeRemaining / config.shiftTime;
+			engagement *= progress;
+			coupling *= progress;
+			const excessRpm = state.engineRpm - inputRpm;
+			throttle =
+				excessRpm >= 0
+					? throttle * ramp(1 - excessRpm / REV_MATCH_BAND_RPM)
+					: Math.max(throttle, ramp(-excessRpm / REV_MATCH_BAND_RPM));
+		}
+		out.throttle = throttle;
+		out.clutchTorque = engagement * clutch.maxTorque;
+		out.converterCoupling = coupling;
 	}
 
-	/** Torque a plena carga na rotação dada (N·m), interpolado na curva */
-	torqueAt(rpm: number): number {
-		const curve = this.config.torqueCurve;
-		if (rpm <= curve[0].rpm) return curve[0].torque;
-		for (let i = 1; i < curve.length; i++) {
-			const next = curve[i];
-			if (rpm <= next.rpm) {
-				const previous = curve[i - 1];
-				const t = (rpm - previous.rpm) / (next.rpm - previous.rpm);
-				return previous.torque + (next.torque - previous.torque) * t;
-			}
-		}
-		return curve[curve.length - 1].torque;
-	}
-
-	/** Relação total da caixa com o diferencial na marcha dada (adimensional) */
+	/** Relação total da caixa com o diferencial na marcha dada (adimensional; negativa em ré, 0 em ponto morto) */
 	overallRatio(gear: number): number {
-		const config = this.config;
-		const gearbox = gear === REVERSE_GEAR ? config.reverseRatio : config.gearRatios[gear - 1];
-		return gearbox * config.finalDriveRatio;
+		return gearRatio(this.config, gear);
 	}
 
-	/** Inércia do motor refletida no conjunto das rodas motrizes na marcha engatada (kg·m²): J·G²·η */
-	reflectedInertia(): number {
-		const ratio = this.overallRatio(this.state.gear);
-		return this.config.engineInertia * ratio * ratio * this.config.efficiency;
+	/** Rotação da entrada do câmbio na marcha dada com o veículo na velocidade dada (rpm) */
+	private drivelineRpm(vehicleSpeed: number, gear: number): number {
+		return (Math.abs(vehicleSpeed) / this.wheelRadius) * Math.abs(this.overallRatio(gear)) * RAD_PER_SECOND_TO_RPM;
 	}
 
-	/** Rotação do motor ditada pelas rodas (rpm) */
-	private drivelineRpm(drivelineSpeed: number, overallRatio: number): number {
-		return (Math.abs(drivelineSpeed) / this.wheelRadius) * overallRatio * RAD_PER_SECOND_TO_RPM;
+	/** Menor marcha à frente em que a rotação fica abaixo do giro de troca */
+	private gearForSpeed(vehicleSpeed: number): number {
+		let gear = 1;
+		while (
+			gear < this.config.gearRatios.length &&
+			this.drivelineRpm(vehicleSpeed, gear) >= this.config.upshiftRpm
+		) {
+			gear++;
+		}
+		return gear;
 	}
 
 	private selectForwardGear(vehicleSpeed: number): void {
 		const config = this.config;
 		const state = this.state;
-		const rpm = this.drivelineRpm(vehicleSpeed, this.overallRatio(state.gear));
+		const rpm = this.drivelineRpm(vehicleSpeed, state.gear);
 		if (state.gear < config.gearRatios.length && rpm >= config.upshiftRpm) {
 			state.gear++;
 			state.shiftTimeRemaining = config.shiftTime;
 		} else if (state.gear > 1 && rpm < config.downshiftRpm) {
-			const lowerRpm = this.drivelineRpm(vehicleSpeed, this.overallRatio(state.gear - 1));
+			const lowerRpm = this.drivelineRpm(vehicleSpeed, state.gear - 1);
 			if (lowerRpm < config.upshiftRpm) {
 				state.gear--;
 				state.shiftTimeRemaining = config.shiftTime;
