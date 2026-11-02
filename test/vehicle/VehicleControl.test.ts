@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { VehicleDrivingConfig } from "../../src/data/vehicles/types";
-import VehicleControl, { createDriverInput, DriverInput } from "../../src/vehicle/VehicleControl";
+import { createInputFrame, InputFrame } from "../../src/input/InputFrame";
+import VehicleControl from "../../src/vehicle/VehicleControl";
 import { createVehicleState } from "../../src/vehicle/VehicleState";
 
 const DT = 1 / 60; // s
@@ -21,7 +22,7 @@ const CONFIG: VehicleDrivingConfig = Object.freeze({
 function setup() {
 	const state = createVehicleState();
 	const control = new VehicleControl(CONFIG, state);
-	const input = createDriverInput();
+	const input = createInputFrame();
 	const run = (steps: number, forwardSpeed = 0) => {
 		for (let i = 0; i < steps; i++) control.step(input, forwardSpeed, DT);
 		return control.commands;
@@ -29,8 +30,8 @@ function setup() {
 	return { state, control, input, run };
 }
 
-function inputOf(values: Partial<DriverInput>): DriverInput {
-	return Object.assign(createDriverInput(), values);
+function inputOf(values: Partial<InputFrame>): InputFrame {
+	return Object.assign(createInputFrame(), values);
 }
 
 describe("VehicleControl — volante", () => {
@@ -100,7 +101,7 @@ describe("VehicleControl — motor e freio", () => {
 	it("sem acelerador nem freio aplica a resistência ao rolamento", () => {
 		const control = new VehicleControl(CONFIG, createVehicleState());
 
-		const idle = control.step(createDriverInput(), 15, DT);
+		const idle = control.step(createInputFrame(), 15, DT);
 		expect(idle.engineForce).toBe(0);
 		expect(idle.brakeForce).toBe(CONFIG.rollingResistance);
 		expect(idle.handbrakeForce).toBe(0);
@@ -124,6 +125,6 @@ describe("VehicleControl — estado por instância", () => {
 
 		expect(a.state.steeringAngle).toBeGreaterThan(0);
 		expect(a.state.forwardSpeed).toBe(12);
-		expect(b.step(createDriverInput(), 0, DT).steeringAngle).toBe(0);
+		expect(b.step(createInputFrame(), 0, DT).steeringAngle).toBe(0);
 	});
 });

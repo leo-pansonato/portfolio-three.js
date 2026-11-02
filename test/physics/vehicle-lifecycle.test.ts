@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
 import { VEHICLE_DEFINITIONS } from "../../src/data/vehicles";
-import InputManager from "../../src/input/InputManager";
 import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { ScriptedInput } from "../support/sim";
 
@@ -24,7 +23,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function createPlayer() {
 	const scene = new THREE.Scene();
 	const physics = await RapierPhysicsWorld.create(scene);
-	const player = new Player(scene, new ScriptedInput() as unknown as InputManager, physics);
+	const player = new Player(scene, new ScriptedInput(), physics);
 	return { scene, physics, player };
 }
 
@@ -75,7 +74,7 @@ describe("estado de runtime do veículo", () => {
 		const scene = new THREE.Scene();
 		const physics = await RapierPhysicsWorld.create(scene);
 		const input = new ScriptedInput();
-		const player = new Player(scene, input as unknown as InputManager, physics);
+		const player = new Player(scene, input, physics);
 		await wait(5);
 
 		input.state.left = true;

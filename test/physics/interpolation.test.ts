@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
-import InputManager from "../../src/input/InputManager";
 import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { ScriptedInput } from "../support/sim";
 
@@ -54,7 +53,7 @@ describe("interpolação visual entre passos", () => {
 		const groundBody = physics.createRigidBody({ type: "static", position: { x: 0, y: 0, z: 0 } });
 		physics.createGroundCollider(groundBody, 0.8, 1000);
 		const input = new ScriptedInput();
-		const player = new Player(scene, input as unknown as InputManager, physics);
+		const player = new Player(scene, input, physics);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		const frame = () => {

@@ -1,5 +1,6 @@
 import GameComponent from "../components/GameComponent";
 import { devMode } from "../managers/DevModeManager";
+import { createInputFrame, createLookInput, InputFrame, LookInput } from "./InputFrame";
 
 export default class InputManager extends GameComponent {
 	private static readonly GAMEPAD_BUTTONS: ReadonlyArray<readonly [string, number]> = [
@@ -11,6 +12,11 @@ export default class InputManager extends GameComponent {
 		["SELECT_VEHICLE_2", 15], // D-Pad Right
 	];
 	private static readonly GAMEPAD_BUTTON_BY_ACTION = new Map(InputManager.GAMEPAD_BUTTONS);
+
+	/** Comandos do motorista deste quadro (reescritos em update) */
+	readonly frame: InputFrame = createInputFrame();
+	/** Olhar livre do mouse deste quadro (reescrito em update) */
+	readonly look: LookInput = createLookInput();
 
 	private game: any;
 	private keys: { [key: string]: boolean } = {};
@@ -152,6 +158,21 @@ export default class InputManager extends GameComponent {
 
 		// Teclado sobrescreve gamepad
 		this.processKeyboard();
+
+		const frame = this.frame;
+		frame.throttle = this.getThrottle();
+		frame.brake = this.getBrake();
+		frame.steer = this.getSteer();
+		frame.handbrake = this.isActionActive("VEHICLE_HANDBRAKE");
+		frame.boost = this.isActionActive("VEHICLE_BOOST");
+
+		const look = this.look;
+		look.deltaX = this.mouse.delta.x;
+		look.deltaY = this.mouse.delta.y;
+		look.pointerLocked = this.mouse.isLocked;
+		look.secondsSinceMove = this.getTimeSinceLastInput();
+		this.mouse.delta.x = 0;
+		this.mouse.delta.y = 0;
 	}
 
 	private processGamepad(gamepad: Gamepad): void {

@@ -1,13 +1,13 @@
 import * as THREE from "three";
-import InputManager from "../input/InputManager";
 import { CameraConfig, CameraMode } from "../data/vehicles";
+import { LookInput } from "../input/InputFrame";
 import GameComponent from "./GameComponent";
 import Player from "./Player";
 
 export default class CameraController extends GameComponent {
 	private camera: THREE.PerspectiveCamera;
 	private target: Player | null;
-	private inputManager: InputManager;
+	private readonly look: Readonly<LookInput>;
 
 	private lastTargetPosition: THREE.Vector3 = new THREE.Vector3();
 
@@ -24,11 +24,11 @@ export default class CameraController extends GameComponent {
 	private _lookAtPos = new THREE.Vector3();
 	private _offset = new THREE.Vector3();
 
-	constructor(camera: THREE.PerspectiveCamera, target: Player, inputManager: InputManager) {
+	constructor(camera: THREE.PerspectiveCamera, target: Player, look: Readonly<LookInput>) {
 		super();
 		this.camera = camera;
 		this.target = target;
-		this.inputManager = inputManager;
+		this.look = look;
 
 		if (this.target) {
 			this.lastTargetPosition.copy(this.target.getPosition());
@@ -78,16 +78,15 @@ export default class CameraController extends GameComponent {
 		// const carRotation = this.target!.getRotation();
 
 		// Input Mouse
-		const mouseDelta = this.inputManager.getAndResetMouseDelta();
-		if (this.inputManager.isPointerLocked()) {
-			this.targetAngles.yaw -= mouseDelta.x * this.MOUSE_SENSITIVITY;
-			this.targetAngles.pitch += mouseDelta.y * this.MOUSE_SENSITIVITY;
+		if (this.look.pointerLocked) {
+			this.targetAngles.yaw -= this.look.deltaX * this.MOUSE_SENSITIVITY;
+			this.targetAngles.pitch += this.look.deltaY * this.MOUSE_SENSITIVITY;
 			this.targetAngles.pitch = Math.max(-0.3, Math.min(1.5, this.targetAngles.pitch));
 		}
 
 		// --- AUTO CENTER ---
 		/*
-        if (this.inputManager.getTimeSinceLastInput() > this.AUTO_CENTER_DELAY) {
+        if (this.look.secondsSinceMove > this.AUTO_CENTER_DELAY) {
             const idealYaw = carRotation.y; 
             const t = 1.0 - Math.pow(0.01, deltaTime * this.AUTO_CENTER_SPEED);
             this.targetAngles.yaw = this.lerpAngle(this.targetAngles.yaw, idealYaw, t);
@@ -144,10 +143,9 @@ export default class CameraController extends GameComponent {
 		this.camera.position.copy(targetPos).add(this._offset);
 
 		// input do mouse
-		const mouseDelta = this.inputManager.getAndResetMouseDelta();
-		if (this.inputManager.isPointerLocked()) {
-			this.targetAngles.yaw -= mouseDelta.x * this.MOUSE_SENSITIVITY;
-			this.targetAngles.pitch -= mouseDelta.y * this.MOUSE_SENSITIVITY;
+		if (this.look.pointerLocked) {
+			this.targetAngles.yaw -= this.look.deltaX * this.MOUSE_SENSITIVITY;
+			this.targetAngles.pitch -= this.look.deltaY * this.MOUSE_SENSITIVITY;
 		}
 
 		// limites de rotação
@@ -155,7 +153,7 @@ export default class CameraController extends GameComponent {
 		this.targetAngles.yaw = Math.max(-2.0, Math.min(2.0, this.targetAngles.yaw));
 
 		// auto center
-		if (this.inputManager.getTimeSinceLastInput() > 0.6) {
+		if (this.look.secondsSinceMove > 0.6) {
 			const t = deltaTime * this.AUTO_CENTER_SPEED;
 			this.targetAngles.yaw = THREE.MathUtils.lerp(this.targetAngles.yaw, 0, t);
 			this.targetAngles.pitch = THREE.MathUtils.lerp(this.targetAngles.pitch, 0, t);

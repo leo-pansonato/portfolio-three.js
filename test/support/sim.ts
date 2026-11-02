@@ -1,3 +1,5 @@
+import { InputFrame } from "../../src/input/InputFrame";
+
 /**
  * Contrato entre os cenários de referência e uma implementação de física.
  * Os cenários só conhecem esta interface; cada motor tem seu adaptador
@@ -36,43 +38,29 @@ export function idleInput(): DriveInput {
 }
 
 /**
- * Substitui o InputManager: responde às consultas do Player a partir de um estado roteirizado.
- * Implementa a API binária (master) e a analógica (refact/rapier3d).
+ * Substitui o InputManager: expõe o roteiro como InputFrame (lido pelo Player a cada passo).
+ * Teclado digital: cada controle vale 0 ou 1.
  */
-export class ScriptedInput {
+export class ScriptedInput implements Readonly<InputFrame> {
 	public state: DriveInput = idleInput();
 
-	isActionActive(action: string): boolean {
-		switch (action) {
-			case "VEHICLE_THROTTLE":
-				return this.state.throttle;
-			case "VEHICLE_BRAKE":
-				return this.state.brake;
-			case "VEHICLE_LEFT":
-				return this.state.left;
-			case "VEHICLE_RIGHT":
-				return this.state.right;
-			case "VEHICLE_HANDBRAKE":
-				return this.state.handbrake;
-			case "VEHICLE_BOOST":
-				return this.state.boost;
-			default:
-				return false;
-		}
-	}
-
-	getThrottle(): number {
+	get throttle(): number {
 		return this.state.throttle ? 1 : 0;
 	}
 
-	getBrake(): number {
+	get brake(): number {
 		return this.state.brake ? 1 : 0;
 	}
 
-	/** -1 = esquerda, +1 = direita */
-	getSteer(): number {
+	get steer(): number {
 		return (this.state.right ? 1 : 0) - (this.state.left ? 1 : 0);
 	}
 
-	update(): void {}
+	get handbrake(): boolean {
+		return this.state.handbrake;
+	}
+
+	get boost(): boolean {
+		return this.state.boost;
+	}
 }

@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import Player from "../../src/components/Player";
-import InputManager from "../../src/input/InputManager";
 import { PhysicsWorld } from "../../src/physics/PhysicsWorld";
 import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { ScriptedInput, SimHandle, VehicleSnapshot } from "./sim";
@@ -21,7 +20,7 @@ export async function createRapierSim(vehicleId: string, fixedTimeStep?: number)
 	physicsWorld.createGroundCollider(groundBody, 0.8, 1000);
 
 	const scripted = new ScriptedInput();
-	const player = new Player(scene, scripted as unknown as InputManager, physicsWorld);
+	const player = new Player(scene, scripted, physicsWorld);
 
 	if (vehicleId !== "bmw_f82") {
 		await player.changeVehicle(vehicleId);

@@ -96,8 +96,8 @@ class Game {
 		this.inputManager = new InputManager(this);
 		this.environment = new Environment(this.scene, this.physicsManager);
 		this.lightingManager = new LightingManager(this.scene, this.camera);
-		this.player = new Player(this.scene, this.inputManager, this.physicsManager);
-		this.cameraController = new CameraController(this.camera, this.player, this.inputManager);
+		this.player = new Player(this.scene, this.inputManager.frame, this.physicsManager);
+		this.cameraController = new CameraController(this.camera, this.player, this.inputManager.look);
 
 		// Configurar materiais existentes para usar CSM
 		this.lightingManager.setupCSMMaterials();

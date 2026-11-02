@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import InputManager from "../input/InputManager";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
+import { InputFrame } from "../input/InputFrame";
 import VehicleView from "../render/VehicleView";
-import VehicleControl, { createDriverInput } from "../vehicle/VehicleControl";
+import VehicleControl from "../vehicle/VehicleControl";
 import VehiclePhysics from "../vehicle/VehiclePhysics";
 import { createVehicleState, VehicleState } from "../vehicle/VehicleState";
 import Entity from "./Entity";
@@ -12,14 +12,13 @@ import Entity from "./Entity";
  * Veículo do jogador: liga input, controle (VehicleControl), física (VehiclePhysics) e visual (VehicleView)
  */
 export default class Player extends Entity {
-	private inputManager: InputManager;
+	private readonly input: Readonly<InputFrame>;
 	private physicsManager: PhysicsWorld;
 
 	private currentVehicleId: string;
 	private vehicleData!: VehicleDefinition;
 	private state!: VehicleState;
 	private control!: VehicleControl;
-	private readonly driverInput = createDriverInput();
 
 	public physics!: VehiclePhysics;
 	private readonly view: VehicleView;
@@ -29,9 +28,9 @@ export default class Player extends Entity {
 	// Callback para atualização do veículo no step da física
 	private physicsPreStepCallback: ((dt: number) => void) | null = null;
 
-	constructor(scene: THREE.Scene, inputManager: InputManager, physicsManager: PhysicsWorld) {
+	constructor(scene: THREE.Scene, input: Readonly<InputFrame>, physicsManager: PhysicsWorld) {
 		super(scene);
-		this.inputManager = inputManager;
+		this.input = input;
 		this.physicsManager = physicsManager;
 		this.view = new VehicleView(scene, physicsManager);
 
@@ -53,7 +52,7 @@ export default class Player extends Entity {
 		this.control = new VehicleControl(definition.configs, this.state);
 		this.physics = new VehiclePhysics(this.physicsManager, definition);
 
-		// controle por passo: input mais recente → volante e forças → controlador
+		// controle por passo: InputFrame do quadro → volante e forças → controlador
 		this.physicsPreStepCallback = (dt: number) => {
 			this.physics.savePreviousWheelStates();
 			this.updateControl(dt);
@@ -74,14 +73,7 @@ export default class Player extends Entity {
 	 * Controle do veículo a cada passo de física (dt fixo, s)
 	 */
 	private updateControl(dt: number): void {
-		const input = this.driverInput;
-		input.throttle = this.inputManager.getThrottle();
-		input.brake = this.inputManager.getBrake();
-		input.steer = this.inputManager.getSteer();
-		input.handbrake = this.inputManager.isActionActive("VEHICLE_HANDBRAKE");
-		input.boost = this.inputManager.isActionActive("VEHICLE_BOOST");
-
-		const commands = this.control.step(input, this.physics.forwardSpeed(), dt);
+		const commands = this.control.step(this.input, this.physics.forwardSpeed(), dt);
 		this.physics.applyCommands(commands, dt);
 	}
 

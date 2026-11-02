@@ -1,17 +1,6 @@
 import { VehicleDrivingConfig } from "../data/vehicles/types";
+import { InputFrame } from "../input/InputFrame";
 import { VehicleState } from "./VehicleState";
-
-/** Comandos do motorista lidos uma vez por passo de física */
-export interface DriverInput {
-	/** Acelerador (0–1) */
-	throttle: number;
-	/** Freio / ré (0–1) */
-	brake: number;
-	/** Volante (−1 esquerda, +1 direita) */
-	steer: number;
-	handbrake: boolean;
-	boost: boolean;
-}
 
 /** Saída do controle para a física do veículo */
 export interface VehicleCommands {
@@ -25,12 +14,8 @@ export interface VehicleCommands {
 	handbrakeForce: number;
 }
 
-export function createDriverInput(): DriverInput {
-	return { throttle: 0, brake: 0, steer: 0, handbrake: false, boost: false };
-}
-
 /**
- * Converte o input do motorista em comandos, a cada passo de física (dt fixo):
+ * Converte o InputFrame em comandos, a cada passo de física (dt fixo):
  * rampa e retorno do volante, motor, freio, ré, freio de mão, boost e resistência ao rolamento.
  * Altera apenas o VehicleState recebido; sem THREE nem DOM.
  */
@@ -46,14 +31,14 @@ export default class VehicleControl {
 	 * @param forwardSpeed velocidade ao longo da frente do chassi (m/s)
 	 * @param dt passo de física (s)
 	 */
-	step(input: DriverInput, forwardSpeed: number, dt: number): VehicleCommands {
+	step(input: InputFrame, forwardSpeed: number, dt: number): VehicleCommands {
 		this.state.forwardSpeed = forwardSpeed;
 		this.updateSteering(input, dt);
 		this.updateDriving(input);
 		return this.commands;
 	}
 
-	private updateSteering(input: DriverInput, timeStep: number): void {
+	private updateSteering(input: InputFrame, timeStep: number): void {
 		const config = this.config;
 		const state = this.state;
 		// no controlador, ângulo positivo (em torno de +Y) vira à esquerda
@@ -91,7 +76,7 @@ export default class VehicleControl {
 		this.commands.steeringAngle = state.steeringAngle;
 	}
 
-	private updateDriving(input: DriverInput): void {
+	private updateDriving(input: InputFrame): void {
 		const config = this.config;
 		const isAlmostStopped = this.state.forwardSpeed < 2.0;
 
