@@ -4,7 +4,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Estado (2026-11-02)
 
-- `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI) e P2-7 concluídos.
+- `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI) e P2-7 e P2-9 concluídos.
 - Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 166 testes (cenários, trem de força, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.

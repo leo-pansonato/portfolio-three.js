@@ -90,7 +90,7 @@ Inicialização assíncrona: `Game.initialize()` aguarda `RapierPhysicsWorld.cre
 ### 3.1 Física — `src/physics/` [Implementado]
 
 - Contrato `PhysicsWorld` (`physics/PhysicsWorld.ts`): `PhysicsBody` (pose, velocidades, leituras em `out`, impulso no centro de massa e em ponto, velocidade em ponto), criação/remoção de corpos e colisores (caixa com centro de massa deslocado, `ColliderConfig.centerOfMass`), pré-passo, `update` em passo fixo, interpolação, `castRay` (distância ou null), `castRayWithNormal` (distância, ponto, normal e corpo atingido, com corpo excluído, em `out`; vê os colisores do fim do último passo), `countObjects`. SI e eixos do ADR-0002 documentados nos tipos.
-- Adaptador `RapierPhysicsWorld` (+ `RapierBody`, `RapierVehicle`, `PhysicsDebugRenderer`): único lugar que importa `@dimforge/rapier3d-compat`. `main.ts` e os testes criam o adaptador; `VehiclePhysics`, `Environment`, `VehicleView`, `Player` e o harness só conhecem a interface.
+- Adaptador `RapierPhysicsWorld` (+ `RapierBody`, `PhysicsDebugRenderer`): único lugar que importa `@dimforge/rapier3d-compat`. `main.ts` e os testes criam o adaptador; `VehiclePhysics`, `Environment`, `VehicleView`, `Player` e o harness só conhecem a interface.
 
 - `RAPIER.World` (`@dimforge/rapier3d-compat` 0.19.3, WASM embutido no bundle), gravidade −9,82, criado por `RapierPhysicsWorld.create()` (assíncrono).
 - Passo fixo por acumulador (`world.timestep` igual), 1/60 s por padrão, configurável em `RapierPhysicsWorld.create(scene, fixedTimeStep)`; *pre-step callbacks* para lógica que precisa rodar a cada passo.

@@ -10,7 +10,7 @@ Antes de qualquer coisa, leia `CLAUDE.md`, `AGENTS.md` e as seções de física/
 Contexto obrigatório:
 - ADR-0001 (`docs/decisions/ADR-0001-motor-de-fisica.md`, aceito) escolheu a Rapier por integração curada (ROADMAP P0-5). Nunca faça merge direto da `refact/rapier3d`, e não inicie a migração antes de P0-3 e P0-4 estarem concluídos.
 - Unidades SI e eixos conforme ADR-0002. Não altere parâmetros de veículo sem que a tarefa peça; os testes de plausibilidade definem as faixas aceitas.
-- Os controladores de veículo embutidos (cannon-es `RaycastVehicle`, Rapier `DynamicRayCastVehicleController`) são modelos simplificados; a meta é um modelo próprio (ROADMAP P2-1).
+- Os controladores de veículo embutidos (cannon-es `RaycastVehicle`, Rapier `DynamicRayCastVehicleController`) eram modelos simplificados; desde o P2-1 etapa 3 o veículo usa suspensão, pneu e roda próprios em `src/vehicle` e nenhum controlador embutido.
 
 Regras de trabalho:
 - Física roda em passo fixo; nada de lógica física dependente do `dt` de quadro.
