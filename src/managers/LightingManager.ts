@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CSM, CSMParameters } from "three/addons/csm/CSM.js";
 import { CSMHelper } from "three/addons/csm/CSMHelper.js";
 import GameComponent from "../components/GameComponent";
+import { disposeObjects } from "../render/disposeObjects";
 import { devMode } from "./DevModeManager";
 
 interface CSMConfig extends CSMParameters {
@@ -157,11 +158,10 @@ export default class LightingManager extends GameComponent {
 	 * Habilita helper visual
 	 */
 	private enableHelper(enabled: boolean): void {
-      if (this.csmHelper) {
-         this.scene.remove(this.csmHelper);
-         this.csmHelper.dispose();
-         this.csmHelper = null;
-      }
+		if (this.csmHelper) {
+			disposeObjects([this.csmHelper]);
+			this.csmHelper = null;
+		}
 
 		if (enabled && this.csm) {
 			this.csmHelper = new CSMHelper(this.csm);
@@ -185,15 +185,17 @@ export default class LightingManager extends GameComponent {
 	}
 
 	/**
-	 * Remove todas as luzes e limpa recursos
+	 * Remove luzes e helper da cena, libera shadow maps e desfaz o CSM dos materiais
 	 */
 	dispose(): void {
 		devMode.unsubscribe("lighting-manager");
 		this.scene.removeEventListener("childadded", this.onChildAdded);
 		this.scene.removeEventListener("childremoved", this.onChildRemoved);
-      this.enableHelper(false);
+		this.enableHelper(false);
 
 		if (this.csm) {
+			this.csm.remove();
+			for (const light of this.csm.lights) light.dispose();
 			this.csm.dispose();
 			this.csm = null;
 		}
