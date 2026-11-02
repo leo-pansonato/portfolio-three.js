@@ -179,7 +179,7 @@ export default class VehiclePhysics {
 
 	/**
 	 * Mede cada roda com um raio da fixação ao longo da suspensão (ignorando o chassi), calcula as forças e as aplica
-	 * como impulso (N·s) ao longo da normal, no ponto de contato (como o controlador); a carga vai ao controlador para o atrito.
+	 * como impulso (N·s) ao longo da normal de contato, no ponto de fixação; a carga vai ao controlador para o atrito.
 	 * Velocidade de compressão pela variação do comprimento no último passo (roda sem contato conta como estendida):
 	 * a velocidade do corpo ao fim do passo não é a média do passo (subpassos do motor) e daria força de amortecimento
 	 * em repouso. Logo após escrever o estado do chassi, vem da velocidade do corpo.
@@ -219,7 +219,8 @@ export default class VehiclePhysics {
 			const normal = hit.normal;
 			const impulse = wheel.force * dt;
 			this.tempImpulse.set(normal.x * impulse, normal.y * impulse, normal.z * impulse);
-			chassis.applyImpulseAtPoint(this.tempImpulse, hit.point);
+			const hardPoint = this.tempHardPoint.copy(this.connectionPoints[i]).applyQuaternion(rotation).add(position);
+			chassis.applyImpulseAtPoint(this.tempImpulse, hardPoint);
 			const normalDotDirection = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
 			this.controller.setWheelTireLoad(i, wheel.force, wheel.length, normalDotDirection);
 		}

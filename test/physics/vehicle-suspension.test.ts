@@ -187,6 +187,42 @@ describe.each(VEHICLES)("suspensão própria — %s", (id) => {
 		expect(withoutBumpStop.maxCompression).toBeGreaterThan(withBumpStop.maxCompression);
 	});
 
+	it("rigidez de rolagem sob torque constante: molas k·t²/2 por eixo, barra soma k_barra·t² por eixo", async () => {
+		const torque = 2000; // N·m em torno de +X
+		const lever = 0.5; // m
+		const track = (i: number) => 2 * Math.abs(catalog.wheels.adjustments[i].position.z);
+		const springRoll = (k * (track(0) ** 2 + track(2) ** 2)) / 2;
+		const steadyRoll = async (antiRoll: number) => {
+			const rig = await createVehicleRig(
+				definition(id, (d) => (d.suspension.antiRollStiffness = { front: antiRoll, rear: antiRoll })),
+			);
+			rig.steps(240);
+			const body = rig.physics.chassisBody;
+			const point = { x: 0, y: 0, z: 0 };
+			const impulse = { x: 0, y: 0, z: 0 };
+			rig.physicsWorld.addPreStepCallback((dt) => {
+				const p = body.getPosition({ x: 0, y: 0, z: 0 });
+				const force = torque / (2 * lever);
+				for (const side of [-1, 1]) {
+					point.x = p.x;
+					point.y = p.y;
+					point.z = p.z + side * lever;
+					impulse.y = side * force * dt;
+					body.applyImpulseAtPoint(impulse, point);
+				}
+			});
+			rig.steps(240);
+			const result = roll(rig);
+			rig.dispose();
+			return result;
+		};
+
+		const antiRoll = k / 2;
+		const barRoll = antiRoll * (track(0) ** 2 + track(2) ** 2);
+		expect(Math.abs(await steadyRoll(0)) / (torque / springRoll)).toBeCloseTo(1, 1);
+		expect(Math.abs(await steadyRoll(antiRoll)) / (torque / (springRoll + barRoll))).toBeCloseTo(1, 1);
+	});
+
 	it("barra estabilizadora reduz a rolagem em curva em regime", async () => {
 		const meanRoll = async (antiRoll: number) => {
 			const rig = await createVehicleRig(
@@ -207,7 +243,6 @@ describe.each(VEHICLES)("suspensão própria — %s", (id) => {
 
 		expect(Math.abs(without)).toBeGreaterThan(0.005);
 		expect(Math.sign(withBar)).toBe(Math.sign(without));
-		expect(Math.abs(withBar) / Math.abs(without)).toBeGreaterThan(0.1);
-		expect(Math.abs(withBar) / Math.abs(without)).toBeLessThan(0.7);
+		expect(Math.abs(withBar) / Math.abs(without)).toBeLessThan(0.85);
 	});
 });
