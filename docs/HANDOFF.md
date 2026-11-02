@@ -11,7 +11,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
-- P1-4 (input desacoplado): branch `refact/input-frame` no worktree `.claude/worktrees/agent-abd4adaad3071d956`; o subagente está refazendo o rebase sobre a `master` (P1-3 integrado). Ao terminar: conferir build/testes, ff na `master`, push, remover worktree e branches.
+- Nada. P1-1 a P1-4 integrados (input em `src/input`, `InputFrame`, ações tipadas no `main.ts`; física atrás de `PhysicsWorld`).
 
 ## Próximos itens (ordem)
 
