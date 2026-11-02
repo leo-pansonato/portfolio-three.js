@@ -52,6 +52,8 @@ export default class VehiclePhysics {
 	private readonly hits: RaycastHit[] = [];
 	/** Forças de suspensão do último passo valem para o estado atual (falso após escrever o estado do chassi) */
 	private wheelLoadsValid = false;
+	/** Comprimentos da suspensão do último passo valem para o estado atual (falso após escrever o estado do chassi) */
+	private suspensionLengthsValid = false;
 	private tempVector3 = new THREE.Vector3();
 	private tempVelocity = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
@@ -178,8 +180,9 @@ export default class VehiclePhysics {
 	/**
 	 * Mede cada roda com um raio da fixação ao longo da suspensão (ignorando o chassi), calcula as forças e as aplica
 	 * como impulso (N·s) ao longo da normal, no ponto de contato (como o controlador); a carga vai ao controlador para o atrito.
-	 * Velocidade de compressão = velocidade relativa ao longo da normal / cos(normal, suspensão): deslizar sobre o chão
-	 * não comprime; com a suspensão quase paralela ao chão (cos > −0,1) é zero.
+	 * Velocidade de compressão pela variação do comprimento no último passo (roda sem contato conta como estendida):
+	 * a velocidade do corpo ao fim do passo não é a média do passo (subpassos do motor) e daria força de amortecimento
+	 * em repouso. Logo após escrever o estado do chassi, vem da velocidade do corpo.
 	 */
 	private updateSuspension(dt: number): void {
 		const chassis = this.chassisBody;
@@ -193,20 +196,16 @@ export default class VehiclePhysics {
 			const hardPoint = this.tempHardPoint.copy(this.connectionPoints[i]).applyQuaternion(rotation).add(position);
 			const hit = this.hits[i];
 			if (this.physicsWorld.castRayWithNormal(hardPoint, direction, rayLength, hit, chassis)) {
-				const velocity = chassis.getVelocityAtPoint(hardPoint, this.tempPointVelocity);
-				if (hit.body) {
-					const ground = hit.body.getVelocityAtPoint(hit.point, this.tempGroundVelocity);
-					velocity.sub(ground);
-				}
-				const normal = hit.normal;
-				const normalDotDirection = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
-				const normalSpeed = normal.x * velocity.x + normal.y * velocity.y + normal.z * velocity.z;
-				const compressionRate = normalDotDirection < -0.1 ? normalSpeed / normalDotDirection : 0;
-				this.suspension.setContact(i, true, hit.distance - radius, compressionRate);
+				const length = Math.min(this.suspensionRestLength, Math.max(0, hit.distance - radius));
+				const compressionRate = this.suspensionLengthsValid
+					? (this.suspension.wheels[i].length - length) / dt
+					: this.compressionRateFromVelocity(hardPoint, direction, hit);
+				this.suspension.setContact(i, true, length, compressionRate);
 			} else {
 				this.suspension.setContact(i, false, this.suspensionRestLength, 0);
 			}
 		}
+		this.suspensionLengthsValid = true;
 
 		this.suspension.computeForces();
 
@@ -224,6 +223,19 @@ export default class VehiclePhysics {
 			const normalDotDirection = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
 			this.controller.setWheelTireLoad(i, wheel.force, wheel.length, normalDotDirection);
 		}
+	}
+
+	/**
+	 * Velocidade de compressão (m/s) pela velocidade relativa ao longo da normal / cos(normal, suspensão):
+	 * deslizar sobre o chão não comprime; com a suspensão quase paralela ao chão (cos > −0,1) é zero
+	 */
+	private compressionRateFromVelocity(hardPoint: THREE.Vector3, direction: THREE.Vector3, hit: RaycastHit): number {
+		const velocity = this.chassisBody.getVelocityAtPoint(hardPoint, this.tempPointVelocity);
+		if (hit.body) velocity.sub(hit.body.getVelocityAtPoint(hit.point, this.tempGroundVelocity));
+		const normal = hit.normal;
+		const normalDotDirection = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
+		const normalSpeed = normal.x * velocity.x + normal.y * velocity.y + normal.z * velocity.z;
+		return normalDotDirection < -0.1 ? normalSpeed / normalDotDirection : 0;
 	}
 
 	/** Força do motor por roda motriz (N) conforme a tração */
@@ -344,6 +356,7 @@ export default class VehiclePhysics {
 		this.physicsWorld.resetInterpolation(this.chassisBody);
 		this.hasPreviousVelocity = false;
 		this.wheelLoadsValid = false;
+		this.suspensionLengthsValid = false;
 	}
 
 	captureChassisState<T extends ChassisState>(out: T): T {
@@ -361,6 +374,7 @@ export default class VehiclePhysics {
 		this.chassisBody.setLinearVelocity(state.linearVelocity);
 		this.chassisBody.setAngularVelocity(state.angularVelocity);
 		this.wheelLoadsValid = false;
+		this.suspensionLengthsValid = false;
 	}
 
 	/** Teleporta o chassi para o estado dado, sem interpolar a partir da pose anterior */
