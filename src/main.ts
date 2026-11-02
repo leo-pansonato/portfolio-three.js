@@ -5,6 +5,7 @@ import Environment from "./components/Environment";
 import GameComponent from "./components/GameComponent";
 import Player from "./components/Player";
 import InputManager from "./input/InputManager";
+import { devMode } from "./managers/DevModeManager";
 import LightingManager from "./managers/LightingManager";
 import PerformanceManager from "./managers/PerformanceManager";
 import { PhysicsWorld } from "./physics/PhysicsWorld";
@@ -93,11 +94,12 @@ class Game {
 
 		// criando componentes do jogo
 		this.ui = new UIManager();
-		this.inputManager = new InputManager(this);
+		this.inputManager = new InputManager();
 		this.environment = new Environment(this.scene, this.physicsManager);
 		this.lightingManager = new LightingManager(this.scene, this.camera);
 		this.player = new Player(this.scene, this.inputManager.frame, this.physicsManager);
 		this.cameraController = new CameraController(this.camera, this.player, this.inputManager.look);
+		this.bindInputActions();
 
 		// Configurar materiais existentes para usar CSM
 		this.lightingManager.setupCSMMaterials();
@@ -110,6 +112,16 @@ class Game {
 
 		// inicia o loop do jogo
 		this.gameLoopBound(performance.now());
+	}
+
+	/** Ações discretas do input tratadas por quem é dono de cada uma */
+	private bindInputActions(): void {
+		const input = this.inputManager;
+		input.on("toggleDevMode", () => devMode.toggle());
+		input.on("cycleCamera", () => this.cameraController.cycleCameraMode());
+		input.on("selectVehicle1", () => this.player.changeVehicle("bmw_f82"));
+		input.on("selectVehicle2", () => this.player.changeVehicle("mercedes_g63"));
+		input.on("resetVehicle", () => this.player.resetCar());
 	}
 
 	handleResize(): void {

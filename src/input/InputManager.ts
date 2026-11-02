@@ -1,87 +1,73 @@
-import GameComponent from "../components/GameComponent";
-import { devMode } from "../managers/DevModeManager";
+import { DEFAULT_INPUT_BINDINGS, DrivingControl, INPUT_ACTIONS, InputAction, InputBindings } from "./InputBindings";
 import { createInputFrame, createLookInput, InputFrame, LookInput } from "./InputFrame";
 
-export default class InputManager extends GameComponent {
-	private static readonly GAMEPAD_BUTTONS: ReadonlyArray<readonly [string, number]> = [
-		["VEHICLE_HANDBRAKE", 0], // A / X
-		["VEHICLE_BOOST", 5], // RB / R1
-		["CYCLE_CAMERA_MODE", 3], // Y / Triangle
-		["RESET_CAR", 8], // Back / Share
-		["SELECT_VEHICLE_1", 14], // D-Pad Left
-		["SELECT_VEHICLE_2", 15], // D-Pad Right
-	];
-	private static readonly GAMEPAD_BUTTON_BY_ACTION = new Map(InputManager.GAMEPAD_BUTTONS);
+type ActionHandler = () => void;
 
+/**
+ * Lê teclado, mouse e gamepad. Produz um InputFrame e um LookInput por quadro (update)
+ * e emite ações discretas para quem as assinou com on(); não conhece quem as trata.
+ */
+export default class InputManager {
 	/** Comandos do motorista deste quadro (reescritos em update) */
 	readonly frame: InputFrame = createInputFrame();
 	/** Olhar livre do mouse deste quadro (reescrito em update) */
 	readonly look: LookInput = createLookInput();
 
-	private game: any;
-	private keys: { [key: string]: boolean } = {};
+	private readonly bindings: InputBindings;
+	private readonly handlers = new Map<InputAction, ActionHandler[]>();
+	private readonly actionByKey = new Map<string, InputAction>();
+	private readonly gamepadActions: ReadonlyArray<readonly [InputAction, number]>;
+	private readonly heldKeys = new Set<string>();
 
-	private mouse = {
-		position: { x: 0, y: 0 },
-		delta: { x: 0, y: 0 },
-		isLeftDown: false,
-		isRightDown: false,
-		isLocked: false,
-		lastInputTime: Date.now(),
-	};
+	private mouseDeltaX = 0; // px acumulados desde o último update
+	private mouseDeltaY = 0;
+	private pointerLocked = false;
+	private lastMoveTime = Date.now(); // ms
 
-	// Gamepad
-	private gamepadIndex: number = -1;
-	private gamepadDeadzone: number = 0.15;
+	private gamepadIndex = -1;
 	private gamepadPrevButtons: boolean[] = [];
 
-	// Valores analógicos (0 a 1)
-	private analogValues = {
-		VEHICLE_THROTTLE: 0,
-		VEHICLE_BRAKE: 0,
-		VEHICLE_LEFT: 0,
-		VEHICLE_RIGHT: 0,
-	};
+	// valores analógicos 0–1 do quadro
+	private throttle = 0;
+	private brake = 0;
+	private left = 0;
+	private right = 0;
 
-	private keyBindings: { [action: string]: string[] };
-	private actions: { [action: string]: () => void };
-	private keyMap: { [key: string]: string } = {};
+	constructor(bindings: InputBindings = DEFAULT_INPUT_BINDINGS) {
+		this.bindings = bindings;
 
-	constructor(game: any) {
-		super();
-		this.game = game;
+		for (const action of INPUT_ACTIONS) {
+			this.handlers.set(action, []);
+			for (const key of bindings.keys[action]) {
+				this.actionByKey.set(key.toLowerCase(), action);
+			}
+		}
 
-		this.keyBindings = {
-			TOGGLE_DEV_MODE: ["f2"],
-			CYCLE_CAMERA_MODE: ["c", "v"],
-			SELECT_VEHICLE_1: ["1"],
-			SELECT_VEHICLE_2: ["2"],
-			RESET_CAR: ["r"],
-			VEHICLE_THROTTLE: ["arrowup", "w"],
-			VEHICLE_BRAKE: ["arrowdown", "s"],
-			VEHICLE_LEFT: ["arrowleft", "a"],
-			VEHICLE_RIGHT: ["arrowright", "d"],
-			VEHICLE_HANDBRAKE: [" "],
-			VEHICLE_BOOST: ["shift"],
-		};
+		const gamepadActions: [InputAction, number][] = [];
+		for (const [name, button] of Object.entries(bindings.gamepadButtons)) {
+			if (button !== undefined && this.handlers.has(name as InputAction)) {
+				gamepadActions.push([name as InputAction, button]);
+			}
+		}
+		this.gamepadActions = gamepadActions;
 
-		this.actions = {
-			TOGGLE_DEV_MODE: () => devMode.toggle(),
-			CYCLE_CAMERA_MODE: () => this.game.cameraController.cycleCameraMode(),
-			SELECT_VEHICLE_1: () => this.game.player.changeVehicle("bmw_f82"),
-			SELECT_VEHICLE_2: () => this.game.player.changeVehicle("mercedes_g63"),
-			RESET_CAR: () => this.game.player.resetCar(),
-		};
-
-		this.generateKeyMap();
 		this.setupEventListeners();
 	}
 
-	setupEventListeners(): void {
+	/** Assina uma ação discreta; o handler roda uma vez por pressionamento */
+	on(action: InputAction, handler: ActionHandler): void {
+		this.handlers.get(action)!.push(handler);
+	}
+
+	private emit(action: InputAction): void {
+		for (const handler of this.handlers.get(action)!) {
+			handler();
+		}
+	}
+
+	private setupEventListeners(): void {
 		document.addEventListener("keydown", (e) => this.handleKeyDown(e));
-		document.addEventListener("keyup", (e) => this.handleKeyUp(e));
-		document.addEventListener("mousedown", (e) => this.handleMouseDown(e));
-		document.addEventListener("mouseup", (e) => this.handleMouseUp(e));
+		document.addEventListener("keyup", (e) => this.heldKeys.delete(e.key.toLowerCase()));
 		document.addEventListener("mousemove", (e) => this.handleMouseMove(e));
 		document.addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -94,10 +80,9 @@ export default class InputManager extends GameComponent {
 		});
 
 		document.addEventListener("pointerlockchange", () => {
-			this.mouse.isLocked = document.pointerLockElement === document.body;
+			this.pointerLocked = document.pointerLockElement === document.body;
 		});
 
-		// Gamepad events (para quando conectar/desconectar)
 		window.addEventListener("gamepadconnected", (e: GamepadEvent) => {
 			console.log(`[Gamepad] Conectado: ${e.gamepad.id}`);
 			this.gamepadIndex = e.gamepad.index;
@@ -114,253 +99,146 @@ export default class InputManager extends GameComponent {
 	}
 
 	/**
-	 * Retorna o gamepad atual (com polling para detectar gamepads já conectados)
+	 * Gamepad atual; o polling acha controles já conectados antes do carregamento da página
 	 */
 	private getGamepad(): Gamepad | null {
 		const gamepads = navigator.getGamepads();
-		
-		// Se já temos um gamepad, retorna ele
+
 		if (this.gamepadIndex >= 0 && gamepads[this.gamepadIndex]) {
 			return gamepads[this.gamepadIndex];
 		}
-		
-		// Procura por qualquer gamepad conectado (resolve o problema do F5)
+
 		for (let i = 0; i < gamepads.length; i++) {
-			if (gamepads[i]) {
+			const gamepad = gamepads[i];
+			if (gamepad) {
 				if (this.gamepadIndex !== i) {
-					console.log(`[Gamepad] Detectado via polling: ${gamepads[i]!.id}`);
+					console.log(`[Gamepad] Detectado via polling: ${gamepad.id}`);
 					this.gamepadIndex = i;
-					this.gamepadPrevButtons = new Array(gamepads[i]!.buttons.length).fill(false);
+					this.gamepadPrevButtons = new Array(gamepad.buttons.length).fill(false);
 				}
-				return gamepads[i];
+				return gamepad;
 			}
 		}
-		
+
 		return null;
 	}
 
 	/**
-	 * Atualiza todos os inputs - deve ser chamado a cada frame
+	 * Lê os dispositivos e reescreve frame e look; chamar uma vez por quadro, antes da física
 	 */
 	update(): void {
-		const gamepad = this.getGamepad();
-		
-		// Reset dos valores analógicos
-		this.analogValues.VEHICLE_THROTTLE = 0;
-		this.analogValues.VEHICLE_BRAKE = 0;
-		this.analogValues.VEHICLE_LEFT = 0;
-		this.analogValues.VEHICLE_RIGHT = 0;
+		this.throttle = 0;
+		this.brake = 0;
+		this.left = 0;
+		this.right = 0;
 
-		// Processa gamepad (se conectado)
+		const gamepad = this.getGamepad();
 		if (gamepad) {
 			this.processGamepad(gamepad);
 		}
 
-		// Teclado sobrescreve gamepad
+		// teclado sobrescreve o gamepad
 		this.processKeyboard();
 
 		const frame = this.frame;
-		frame.throttle = this.getThrottle();
-		frame.brake = this.getBrake();
-		frame.steer = this.getSteer();
-		frame.handbrake = this.isActionActive("VEHICLE_HANDBRAKE");
-		frame.boost = this.isActionActive("VEHICLE_BOOST");
+		frame.throttle = this.throttle;
+		frame.brake = this.brake;
+		frame.steer = this.right - this.left;
+		frame.handbrake = this.isControlHeld("handbrake");
+		frame.boost = this.isControlHeld("boost");
 
 		const look = this.look;
-		look.deltaX = this.mouse.delta.x;
-		look.deltaY = this.mouse.delta.y;
-		look.pointerLocked = this.mouse.isLocked;
-		look.secondsSinceMove = this.getTimeSinceLastInput();
-		this.mouse.delta.x = 0;
-		this.mouse.delta.y = 0;
+		look.deltaX = this.mouseDeltaX;
+		look.deltaY = this.mouseDeltaY;
+		look.pointerLocked = this.pointerLocked;
+		look.secondsSinceMove = (Date.now() - this.lastMoveTime) / 1000;
+		this.mouseDeltaX = 0;
+		this.mouseDeltaY = 0;
 	}
 
 	private processGamepad(gamepad: Gamepad): void {
 		const buttons = gamepad.buttons;
 		const axes = gamepad.axes;
+		const config = this.bindings.gamepad;
 
-		// === BOTÕES (ações instantâneas) ===
-		for (const [action, btnIndex] of InputManager.GAMEPAD_BUTTONS) {
-			if (btnIndex >= buttons.length) continue;
-			
-			const isPressed = buttons[btnIndex].pressed;
-			const wasPressed = this.gamepadPrevButtons[btnIndex] || false;
-			
-			// Edge detection - dispara ação apenas no momento do clique
-			if (isPressed && !wasPressed && this.actions[action]) {
-				this.actions[action]();
+		// ações discretas na borda de subida
+		for (const [action, button] of this.gamepadActions) {
+			if (button >= buttons.length) continue;
+			if (buttons[button].pressed && !this.gamepadPrevButtons[button]) {
+				this.emit(action);
 			}
 		}
 
-		// Atualiza estado anterior dos botões
 		for (let i = 0; i < buttons.length; i++) {
 			this.gamepadPrevButtons[i] = buttons[i].pressed;
 		}
 
-		// === EIXOS ANALÓGICOS ===
-		
-		// Direção (eixo 0 = analógico esquerdo horizontal)
-		if (axes.length > 0) {
-			const steer = this.applyDeadzone(axes[0]);
+		if (axes.length > config.steerAxis) {
+			const steer = this.applyDeadzone(axes[config.steerAxis]);
 			if (steer < 0) {
-				this.analogValues.VEHICLE_LEFT = Math.abs(steer);
+				this.left = -steer;
 			} else if (steer > 0) {
-				this.analogValues.VEHICLE_RIGHT = steer;
+				this.right = steer;
 			}
 		}
 
-		// Gatilhos (RT = acelerar, LT = frear)
-		if (buttons.length > 7) {
-			const rt = buttons[7].value; // RT
-			const lt = buttons[6].value; // LT
-			
-			if (rt > this.gamepadDeadzone) {
-				this.analogValues.VEHICLE_THROTTLE = rt;
-			}
-			if (lt > this.gamepadDeadzone) {
-				this.analogValues.VEHICLE_BRAKE = lt;
-			}
+		if (buttons.length > Math.max(config.throttleButton, config.brakeButton)) {
+			const throttle = buttons[config.throttleButton].value;
+			const brake = buttons[config.brakeButton].value;
+			if (throttle > config.deadzone) this.throttle = throttle;
+			if (brake > config.deadzone) this.brake = brake;
 		}
 	}
 
 	private processKeyboard(): void {
-		// Teclado sobrescreve com valor 1 (binário)
-		if (this.isKeyboardAction("VEHICLE_THROTTLE")) {
-			this.analogValues.VEHICLE_THROTTLE = 1;
+		if (this.isKeyHeld("throttle")) this.throttle = 1;
+		if (this.isKeyHeld("brake")) this.brake = 1;
+		if (this.isKeyHeld("left")) {
+			this.left = 1;
+			this.right = 0;
 		}
-		if (this.isKeyboardAction("VEHICLE_BRAKE")) {
-			this.analogValues.VEHICLE_BRAKE = 1;
-		}
-		if (this.isKeyboardAction("VEHICLE_LEFT")) {
-			this.analogValues.VEHICLE_LEFT = 1;
-			this.analogValues.VEHICLE_RIGHT = 0;
-		}
-		if (this.isKeyboardAction("VEHICLE_RIGHT")) {
-			this.analogValues.VEHICLE_RIGHT = 1;
-			this.analogValues.VEHICLE_LEFT = 0;
+		if (this.isKeyHeld("right")) {
+			this.right = 1;
+			this.left = 0;
 		}
 	}
 
-	private isKeyboardAction(action: string): boolean {
-		const keys = this.keyBindings[action];
-		return keys ? keys.some(k => this.keys[k]) : false;
+	private isKeyHeld(control: DrivingControl): boolean {
+		const keys = this.bindings.keys[control];
+		for (let i = 0; i < keys.length; i++) {
+			if (this.heldKeys.has(keys[i])) return true;
+		}
+		return false;
+	}
+
+	/** Tecla segurada ou botão do gamepad pressionado no último update */
+	private isControlHeld(control: "handbrake" | "boost"): boolean {
+		if (this.isKeyHeld(control)) return true;
+		const button = this.bindings.gamepadButtons[control];
+		return button !== undefined && this.gamepadPrevButtons[button] === true;
 	}
 
 	private applyDeadzone(value: number): number {
-		if (Math.abs(value) < this.gamepadDeadzone) return 0;
+		const deadzone = this.bindings.gamepad.deadzone;
+		if (Math.abs(value) < deadzone) return 0;
 		const sign = value > 0 ? 1 : -1;
-		return sign * (Math.abs(value) - this.gamepadDeadzone) / (1 - this.gamepadDeadzone);
+		return (sign * (Math.abs(value) - deadzone)) / (1 - deadzone);
 	}
 
-	// === GETTERS PARA O PLAYER ===
-
-	/** Valor de aceleração (0 a 1) */
-	getThrottle(): number {
-		return this.analogValues.VEHICLE_THROTTLE;
-	}
-
-	/** Valor de freio (0 a 1) */
-	getBrake(): number {
-		return this.analogValues.VEHICLE_BRAKE;
-	}
-
-	/** Valor de direção (-1 = esquerda, 0 = centro, +1 = direita) */
-	getSteer(): number {
-		return this.analogValues.VEHICLE_RIGHT - this.analogValues.VEHICLE_LEFT;
-	}
-
-	/** Verifica se uma ação está ativa (botão/tecla pressionado) */
-	isActionActive(action: string): boolean {
-		// Teclado
-		const keys = this.keyBindings[action];
-		if (keys && keys.some(k => this.keys[k])) return true;
-
-		// Gamepad: estado lido em update() neste quadro
-		const btnIndex = InputManager.GAMEPAD_BUTTON_BY_ACTION.get(action);
-		return btnIndex !== undefined && this.gamepadPrevButtons[btnIndex] === true;
-	}
-
-	/** Verifica se há gamepad conectado */
-	isGamepadConnected(): boolean {
-		return this.getGamepad() !== null;
-	}
-
-	// === MÉTODOS DE TECLADO ===
-
-	generateKeyMap(): void {
-		this.keyMap = {};
-		for (const [action, keys] of Object.entries(this.keyBindings)) {
-			for (const key of keys) {
-				this.keyMap[key.toLowerCase()] = action;
-			}
-		}
-	}
-
-	handleKeyDown(e: KeyboardEvent): void {
+	private handleKeyDown(e: KeyboardEvent): void {
 		const key = e.key.toLowerCase();
-		if (this.keys[key]) return;
-		this.keys[key] = true;
+		if (this.heldKeys.has(key)) return;
+		this.heldKeys.add(key);
 
-		const action = this.keyMap[key];
-		if (action && this.actions[action]) {
-			this.actions[action]();
+		const action = this.actionByKey.get(key);
+		if (action) this.emit(action);
+	}
+
+	private handleMouseMove(e: MouseEvent): void {
+		this.mouseDeltaX += e.movementX;
+		this.mouseDeltaY += e.movementY;
+		if (this.pointerLocked) {
+			this.lastMoveTime = Date.now();
 		}
-	}
-
-	handleKeyUp(e: KeyboardEvent): void {
-		this.keys[e.key.toLowerCase()] = false;
-	}
-
-	isKeyPressed(key: string): boolean {
-		return this.keys[key] === true;
-	}
-
-	// === MÉTODOS DE MOUSE ===
-
-	handleMouseDown(e: MouseEvent): void {
-		if (e.button === 0) this.mouse.isLeftDown = true;
-		if (e.button === 2) this.mouse.isRightDown = true;
-		this.mouse.position.x = e.clientX;
-		this.mouse.position.y = e.clientY;
-	}
-
-	handleMouseUp(e: MouseEvent): void {
-		if (e.button === 0) this.mouse.isLeftDown = false;
-		if (e.button === 2) this.mouse.isRightDown = false;
-		this.mouse.position.x = e.clientX;
-		this.mouse.position.y = e.clientY;
-	}
-
-	handleMouseMove(e: MouseEvent): void {
-		this.mouse.position.x = e.clientX;
-		this.mouse.position.y = e.clientY;
-		this.mouse.delta.x += e.movementX;
-		this.mouse.delta.y += e.movementY;
-		if (this.isPointerLocked()) {
-			this.mouse.lastInputTime = Date.now();
-		}
-	}
-
-	isPointerLocked(): boolean {
-		return this.mouse.isLocked;
-	}
-
-	getAndResetMouseDelta(): { x: number; y: number } {
-		const delta = { ...this.mouse.delta };
-		this.mouse.delta.x = 0;
-		this.mouse.delta.y = 0;
-		return delta;
-	}
-
-	getTimeSinceLastInput(): number {
-		return (Date.now() - this.mouse.lastInputTime) / 1000;
-	}
-
-	isLeftMouseDown(): boolean {
-		return this.mouse.isLeftDown;
-	}
-
-	isRightMouseDown(): boolean {
-		return this.mouse.isRightDown;
 	}
 }
