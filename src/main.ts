@@ -100,6 +100,7 @@ class Game {
 		this.player = new Player(this.scene, this.inputManager.frame, this.physicsManager);
 		this.cameraController = new CameraController(this.camera, this.player, this.inputManager.look);
 		this.bindInputActions();
+		this.ui.bindReplayControls(this.player);
 
 		// Configurar materiais existentes para usar CSM
 		this.lightingManager.setupCSMMaterials();

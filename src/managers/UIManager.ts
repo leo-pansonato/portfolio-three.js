@@ -1,5 +1,6 @@
 import GameComponent from "../components/GameComponent";
 import Player from "../components/Player";
+import { Replay } from "../replay/Replay";
 import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
 import { devMode } from "./DevModeManager";
 
@@ -22,6 +23,10 @@ export default class UIManager extends GameComponent {
 	private accelerationCounter: HTMLElement | null;
 	private wheelCells: Record<WheelColumn, HTMLElement>[] = [];
 	private hudTimer = UIManager.DEV_HUD_INTERVAL;
+	private recordButton: HTMLButtonElement | null;
+	private playButton: HTMLButtonElement | null;
+	private replayStatus: HTMLElement | null;
+	private lastReplay: Replay | null = null;
 
 	public ui: {
 		overlays: { dev: HTMLElement | null };
@@ -37,6 +42,9 @@ export default class UIManager extends GameComponent {
 		this.wheelAngleCounter = document.getElementById("wheel-angle");
 		this.accelerationCounter = document.getElementById("acceleration");
 		this.createWheelTable(document.getElementById("telemetry-wheels"));
+		this.recordButton = document.getElementById("replay-record") as HTMLButtonElement | null;
+		this.playButton = document.getElementById("replay-play") as HTMLButtonElement | null;
+		this.replayStatus = document.getElementById("replay-status");
 
 		this.ui = {
 			overlays: {
@@ -68,6 +76,42 @@ export default class UIManager extends GameComponent {
 			this.wheelCells.push(cells);
 			body.appendChild(row);
 		}
+	}
+
+	/** Liga os botões de gravar/reproduzir do HUD de dev ao veículo do jogador */
+	bindReplayControls(player: Player): void {
+		this.bindButton(this.recordButton, () => {
+			if (player.isRecording) {
+				this.lastReplay = player.stopRecording();
+			} else {
+				player.startRecording();
+			}
+			this.updateReplayStatus(player);
+		});
+		this.bindButton(this.playButton, () => {
+			if (!this.lastReplay) return;
+			player.playReplay(this.lastReplay);
+			this.updateReplayStatus(player);
+		});
+	}
+
+	private bindButton(button: HTMLButtonElement | null, handler: () => void): void {
+		if (!button) return;
+		button.addEventListener("click", (event) => {
+			event.stopPropagation();
+			button.blur();
+			handler();
+		});
+	}
+
+	private updateReplayStatus(player: Player): void {
+		if (this.recordButton) this.recordButton.textContent = player.isRecording ? "parar" : "gravar";
+		if (this.playButton) this.playButton.disabled = !this.lastReplay || player.isRecording;
+		if (!this.replayStatus) return;
+		if (player.isRecording) this.replayStatus.textContent = `gravando ${player.recordedSteps} passos`;
+		else if (player.isReplaying) this.replayStatus.textContent = "reproduzindo";
+		else if (this.lastReplay) this.replayStatus.textContent = `${this.lastReplay.stepCount} passos`;
+		else this.replayStatus.textContent = "";
 	}
 
 	onChangeDevMode(enabled: boolean): void {
@@ -103,6 +147,7 @@ export default class UIManager extends GameComponent {
 		if (this.wheelAngleCounter) this.wheelAngleCounter.textContent = wheelAngle.toFixed(2) + "°";
 
 		this.updateTelemetry(player.getTelemetry());
+		this.updateReplayStatus(player);
 	}
 
 	private updateTelemetry(telemetry: Readonly<VehicleTelemetry>): void {
