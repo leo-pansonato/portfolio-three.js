@@ -55,6 +55,22 @@ body {
 	align-items: center;
 }
 
+.telemetry {
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+}
+
+.telemetry th,
+.telemetry td {
+	padding: 0 6px;
+	text-align: right;
+	font-weight: 400;
+}
+
+.telemetry thead th {
+	font-weight: 500;
+}
+
 .ctrl {
    width: 70px;
 	height: 45px;
