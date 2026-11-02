@@ -22,6 +22,8 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Pendências conhecidas
 
+- `computeBoundingSphere(): Computed radius is NaN` (geometria indexada) só ao carregar com modo dev ligado; não ocorre ao ligar F2 depois. Não reproduz em Node (CSMHelper, poses iniciais sem NaN). Criar o helper do CSM depois do primeiro `update` piorou (2 erros); revertido. Investigar no navegador.
+
 - CG no centro do collider (margem de capotamento ~1 g, perto da aderência lateral).
 - Sem arrasto/câmbio: velocidade sem teto; `configs.maxSpeed` sem uso; boost ×3 chega a ~2 g.
 - CSM `maxFar 50` e intensidade das luzes não revistos para escala real/AgX.

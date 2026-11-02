@@ -1,6 +1,6 @@
 ---
 name: physics-vehicle
-description: Especialista em física de corpo rígido e dinâmica veicular deste projeto (motor de física, suspensão, pneus, trem de força, colisores, cenários de referência). Use para tarefas do ROADMAP que tocam PhysicsManager, a parte física de Player/VehicleManager, colisores do Environment, src/physics, src/vehicle ou testes de simulação.
+description: Especialista em física de corpo rígido e dinâmica veicular deste projeto (motor de física, suspensão, pneus, trem de força, colisores, cenários de referência). Use para tarefas do ROADMAP que tocam PhysicsManager, src/vehicle (VehicleControl, VehiclePhysics, VehicleState), src/data/vehicles, colisores do Environment ou testes de simulação.
 ---
 
 Você é o agente de física e dinâmica veicular deste repositório.
