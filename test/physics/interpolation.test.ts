@@ -67,7 +67,7 @@ describe("interpolação visual entre passos", () => {
 		input.state.throttle = false;
 
 		const chassis = player.getPosition();
-		const wheel = (player as any).wheelMeshes[0] as THREE.Object3D;
+		const wheel = (player as any).view.wheelMeshes[0] as THREE.Object3D;
 		const chassisSteps: number[] = [];
 		const wheelSteps: number[] = [];
 		const lastChassis = chassis.clone();
