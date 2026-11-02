@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { VehicleTireConfig } from "../../src/data/vehicles/types";
 import Tire, { magicFormula } from "../../src/vehicle/Tire";
-import WheelDynamics, { createWheelState, WheelState, WheelStepInput } from "../../src/vehicle/WheelDynamics";
+import WheelDynamics, {
+	createWheelState,
+	createWheelStep,
+	WheelState,
+	WheelStepInput,
+} from "../../src/vehicle/WheelDynamics";
 
 const DT = 1 / 60; // s
 const RADIUS = 0.33; // m
@@ -171,6 +176,44 @@ describe("WheelDynamics — estabilidade no quarto de carro", () => {
 
 		expect(Math.abs(v60 / expected - 1)).toBeLessThan(0.03);
 		expect(Math.abs(v60 / v240 - 1)).toBeLessThan(0.01);
+	});
+
+	it("prepare + solve: mesma solução que step, sem alterar a roda; dω/dT igual à diferença finita", () => {
+		const cases: Partial<WheelStepInput>[] = [
+			{ longitudinalSpeed: 20, lateralSpeed: 0.5, driveTorque: 600 },
+			{ longitudinalSpeed: 3, driveTorque: 2500 },
+			{ longitudinalSpeed: 15, lateralSpeed: -1, driveTorque: -300, brakeTorque: 200 },
+			{ longitudinalSpeed: 0, normalLoad: 0, driveTorque: 100 },
+		];
+		for (const values of cases) {
+			const stepInput = input({ longitudinalContactMass: MASS, lateralContactMass: MASS, ...values });
+			const wheel = createWheelState();
+			wheel.angularVelocity = (stepInput.longitudinalSpeed * 1.02) / RADIUS;
+			const reference = { ...wheel };
+			dynamics.step(reference, stepInput, DT);
+
+			const step = createWheelStep();
+			dynamics.prepare(wheel, stepInput, DT, step);
+			dynamics.solve(step, stepInput.driveTorque + 50, true);
+			dynamics.solve(step, stepInput.driveTorque, true);
+			expect(wheel.angularVelocity).toBe((stepInput.longitudinalSpeed * 1.02) / RADIUS);
+			expect(step.angularVelocity).toBe(reference.angularVelocity);
+			expect(step.longitudinalForce).toBe(reference.longitudinalForce);
+			expect(step.lateralForce).toBe(reference.lateralForce);
+
+			const response = step.torqueResponse;
+			const delta = 0.5; // N·m
+			dynamics.solve(step, stepInput.driveTorque + delta, false);
+			const above = step.angularVelocity;
+			dynamics.solve(step, stepInput.driveTorque - delta, false);
+			const below = step.angularVelocity;
+			expect(response).toBeGreaterThan(0);
+			expect(response).toBeCloseTo((above - below) / (2 * delta), 6);
+
+			dynamics.solve(step, stepInput.driveTorque, false);
+			dynamics.commit(wheel, step);
+			expect(wheel).toEqual(reference);
+		}
 	});
 
 	it("frenagem até parar: para sem inverter o sentido e sem tremer parado", () => {
