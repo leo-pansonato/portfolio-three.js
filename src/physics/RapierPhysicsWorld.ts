@@ -9,12 +9,10 @@ import {
 	PhysicsWorld,
 	PoseTarget,
 	RaycastHit,
-	RaycastVehicle,
 	RigidBodyConfig,
 	Vec3Like,
 } from "./PhysicsWorld";
 import RapierBody from "./RapierBody";
-import RapierVehicle from "./RapierVehicle";
 
 /**
  * Corpo registrado para interpolação, com a pose do passo anterior
@@ -29,11 +27,6 @@ interface PhysicsEntity {
 function rapierBody(body: PhysicsBody): RapierBody {
 	if (!(body instanceof RapierBody)) throw new Error("Corpo não pertence a um RapierPhysicsWorld");
 	return body;
-}
-
-function rapierVehicle(vehicle: RaycastVehicle): RapierVehicle {
-	if (!(vehicle instanceof RapierVehicle)) throw new Error("Veículo não pertence a um RapierPhysicsWorld");
-	return vehicle;
 }
 
 /**
@@ -317,14 +310,6 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		this.debugRenderer?.invalidate();
 	}
 
-	createVehicleController(chassis: PhysicsBody): RaycastVehicle {
-		return new RapierVehicle(this.world.createVehicleController(rapierBody(chassis).raw));
-	}
-
-	removeVehicleController(vehicle: RaycastVehicle): void {
-		this.world.removeVehicleController(rapierVehicle(vehicle).raw);
-	}
-
 	addEntity(body: PhysicsBody, target: PoseTarget): void {
 		const entity = {
 			body: rapierBody(body),
@@ -439,7 +424,6 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		return {
 			bodies: this.world.bodies.len(),
 			colliders: this.world.colliders.len(),
-			vehicleControllers: this.world.vehicleControllers.size,
 		};
 	}
 

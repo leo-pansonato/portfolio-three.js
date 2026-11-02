@@ -20,9 +20,6 @@ export const bmwF82: VehicleDefinition = {
 		wheelRadius: 0.33,
 		wheelInertia: 1.3,
 		suspensionRestLength: 0.52,
-		frictionSlip: 2.0,
-		sideFrictionStiffness: 1.0,
-		tractionFriction: 1.0,
 	},
 	suspension: {
 		springRate: 46500,

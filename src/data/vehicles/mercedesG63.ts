@@ -20,9 +20,6 @@ export const mercedesG63: VehicleDefinition = {
 		wheelRadius: 0.38,
 		wheelInertia: 2.3,
 		suspensionRestLength: 0.8,
-		frictionSlip: 1.4,
-		sideFrictionStiffness: 1.0,
-		tractionFriction: 1.0,
 	},
 	suspension: {
 		springRate: 62500,

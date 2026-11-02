@@ -46,7 +46,6 @@ describe("ciclo de vida do veículo", () => {
 		}
 
 		expect(counts()).toEqual(initial);
-		expect(initial.vehicleControllers).toBe(0);
 		// cada troca descarta o placeholder e o modelo anterior (chassi + rodas)
 		expect(disposeSpy.mock.calls.length).toBeGreaterThanOrEqual(20 * 2);
 		disposeSpy.mockRestore();

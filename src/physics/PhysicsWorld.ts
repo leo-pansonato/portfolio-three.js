@@ -94,60 +94,6 @@ export function createRaycastHit(): RaycastHit {
 	return { distance: 0, point: { x: 0, y: 0, z: 0 }, normal: { x: 0, y: 1, z: 0 }, body: null };
 }
 
-/** Roda do controlador de veículo; vetores em eixos locais do chassi (frente +X, cima +Y, direita +Z) */
-export interface RaycastWheelConfig {
-	/** Ponto de fixação da suspensão (m) */
-	connectionPoint: Vec3Like;
-	/** Direção da suspensão (unitária) */
-	direction: Vec3Like;
-	/** Eixo da roda (unitário) */
-	axle: Vec3Like;
-	/** Comprimento livre da suspensão, também a extensão máxima (m) */
-	suspensionRestLength: number;
-	/** Raio da roda (m) */
-	radius: number;
-	/** Limite de atrito longitudinal (adimensional) */
-	frictionSlip: number;
-	/** Rigidez lateral (adimensional) */
-	sideFrictionStiffness: number;
-}
-
-/**
- * Controlador de veículo por raycast (modelo Bullet) só para pneus: esterço, motor, freio e atrito.
- * A suspensão é externa (ADR-0003, etapa 2): o controlador não aplica força de suspensão e usa,
- * no limite de atrito, a carga normal informada por setWheelTireLoad. Frente do chassi em +X local.
- * Leituras devolvem null se a roda não existe.
- */
-export interface RaycastVehicle {
-	addWheel(config: RaycastWheelConfig): void;
-	/** Esterço (rad; positivo vira à esquerda) */
-	setWheelSteering(index: number, angle: number): void;
-	/** Força do motor na roda (N) */
-	setWheelEngineForce(index: number, force: number): void;
-	/** Impulso máximo de freio por passo (N·s) */
-	setWheelBrake(index: number, impulse: number): void;
-	/**
-	 * Carga normal do pneu para o próximo updateVehicle, medida no estado atual do chassi
-	 * @param load carga normal (N, ≥ 0)
-	 * @param suspensionLength comprimento da suspensão (m) do raio externo, igual ao raio do controlador
-	 * @param contactNormalDotDirection produto escalar entre a normal de contato e a direção da suspensão (≤ 0)
-	 */
-	setWheelTireLoad(index: number, load: number, suspensionLength: number, contactNormalDotDirection: number): void;
-	/** Atualiza o controlador; chamar no pré-passo (dt em s) */
-	updateVehicle(dt: number): void;
-	/** Esterço atual (rad) */
-	wheelSteering(index: number): number | null;
-	/** Giro acumulado (rad) */
-	wheelRotation(index: number): number | null;
-	wheelIsInContact(index: number): boolean | null;
-	/** Carga normal usada no último updateVehicle (N) */
-	wheelSuspensionForce(index: number): number | null;
-	/** Impulso longitudinal do pneu no último updateVehicle (N·s; sinal do motor) */
-	wheelForwardImpulse(index: number): number | null;
-	/** Impulso lateral do pneu no último updateVehicle (N·s; sinal do motor) */
-	wheelSideImpulse(index: number): number | null;
-}
-
 /** Alvo da pose interpolada (ex.: THREE.Object3D) */
 export interface PoseTarget {
 	position: THREE.Vector3;
@@ -157,7 +103,6 @@ export interface PoseTarget {
 export interface PhysicsObjectCounts {
 	bodies: number;
 	colliders: number;
-	vehicleControllers: number;
 }
 
 /**
@@ -179,9 +124,6 @@ export interface PhysicsWorld {
 	createCollider(config: ColliderConfig, body: PhysicsBody): void;
 	/** Chão: cuboid fino com a superfície em y = 0, de −halfSize a +halfSize (m) em X e Z */
 	createGroundCollider(body: PhysicsBody, friction?: number, halfSize?: number): void;
-
-	createVehicleController(chassis: PhysicsBody): RaycastVehicle;
-	removeVehicleController(vehicle: RaycastVehicle): void;
 
 	/** Registra o corpo para interpolação; corpos não estáticos têm a pose aplicada ao alvo a cada update */
 	addEntity(body: PhysicsBody, target: PoseTarget): void;

@@ -25,9 +25,7 @@ export interface Vec3 {
 	z: number;
 }
 
-/**
- * Chassi, rodas e pneus; os pneus ainda são do DynamicRayCastVehicleController da Rapier (ADR-0003)
- */
+/** Chassi e rodas (ADR-0003); pneus em VehicleTireConfig */
 export interface VehiclePhysicsConfig {
 	/** Massa do chassi (kg) */
 	mass: number;
@@ -41,15 +39,6 @@ export interface VehiclePhysicsConfig {
 	wheelInertia: number;
 	/** Comprimento livre da suspensão, da fixação ao centro da roda; também a extensão máxima (m) */
 	suspensionRestLength: number;
-	/** Limite de atrito do pneu (adimensional, multiplica a carga normal) */
-	frictionSlip: number;
-	/** Multiplicador do impulso lateral (adimensional) */
-	sideFrictionStiffness: number;
-	/**
-	 * Atrito longitudinal que limita a força do motor por roda (adimensional, multiplica a carga normal).
-	 * Em linha reta o controlador da Rapier não aplica frictionSlip ao motor (ADR-0003)
-	 */
-	tractionFriction: number;
 }
 
 /**
@@ -168,8 +157,6 @@ export interface WheelDefinition {
 	position: Vec3;
 	/** Ajuste de rotação do modelo visual (rad) */
 	rotation: Vec3;
-	frictionSlip?: number;
-	sideFrictionStiffness?: number;
 }
 
 export interface VehicleDefinition {
