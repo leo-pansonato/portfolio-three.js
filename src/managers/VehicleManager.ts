@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles";
 import ModelLoader from "../loaders/ModelLoader";
+import { disposeObjects } from "../render/disposeObjects";
 
 export interface LoadedVehicle {
 	body: THREE.Object3D | THREE.Mesh;
@@ -8,15 +9,20 @@ export interface LoadedVehicle {
 }
 
 /**
- * Carrega os modelos de um veículo a partir da definição, com fallback para primitivas
+ * Carrega os modelos de um veículo a partir da definição, com fallback para primitivas.
+ * Os objetos devolvidos ficam fora da cena e voltam por `releaseObjects`.
  */
 export default class VehicleManager {
-	private scene: THREE.Scene;
 	private modelLoader: ModelLoader;
 
-	constructor(scene: THREE.Scene) {
-		this.scene = scene;
-		this.modelLoader = new ModelLoader();
+	constructor(modelLoader: ModelLoader = new ModelLoader()) {
+		this.modelLoader = modelLoader;
+	}
+
+	/** Remove os objetos da cena, libera seus recursos próprios e devolve ao cache os modelos carregados */
+	releaseObjects(objects: THREE.Object3D[]): void {
+		disposeObjects(objects, (resource) => this.modelLoader.isCached(resource));
+		for (const object of objects) this.modelLoader.releaseModel(object);
 	}
 
 	/**
@@ -85,51 +91,32 @@ export default class VehicleManager {
 		wheelCount: number,
 		vehicleConfig: VehicleDefinition
 	): Promise<THREE.Object3D[]> {
-		try {
-			// Tentar carregar o modelo da roda
-			const wheelModel = await this.loadModel(modelPath, scale);
+		const loaded = await Promise.all(Array.from({ length: wheelCount }, () => this.loadModel(modelPath, scale)));
+		const wheelMeshes = loaded.filter((wheel): wheel is THREE.Group => wheel !== null);
 
-			if (!wheelModel) {
-				throw new Error("Falha ao carregar modelo da roda");
-			}
-
-			// Criar as rodas
-			const adjustments = vehicleConfig.wheels.adjustments;
-			const wheelMeshes: THREE.Object3D[] = [];
-
-			for (let i = 0; i < wheelCount; i++) {
-				// Clonar o modelo base
-				const wheelInstance = wheelModel.clone();
-				wheelInstance.castShadow = true;
-				wheelInstance.receiveShadow = true;
-
-				// Ajustar materiais
-				wheelInstance.traverse((child: any) => {
-					if (child.isMesh) {
-						child.castShadow = true;
-						child.receiveShadow = true;
-					}
-				});
-
-				// Posição inicial baseada nos ajustes (será atualizada pelo Player)
-				if (adjustments[i]) {
-					wheelInstance.position.set(
-						adjustments[i].position.x,
-						adjustments[i].position.y,
-						adjustments[i].position.z
-					);
-				}
-
-				// Adicionar à cena e ao array
-				this.scene.add(wheelInstance);
-				wheelMeshes.push(wheelInstance);
-			}
-
-			return wheelMeshes;
-		} catch (error) {
-			console.error("Erro ao criar rodas:", error);
+		if (wheelMeshes.length < wheelCount) {
+			console.error("Erro ao criar rodas: falha ao carregar modelo da roda");
+			this.releaseObjects(wheelMeshes);
 			return this.createFallbackWheels(wheelCount, vehicleConfig);
 		}
+
+		const adjustments = vehicleConfig.wheels.adjustments;
+		wheelMeshes.forEach((wheelInstance, i) => {
+			wheelInstance.castShadow = true;
+			wheelInstance.receiveShadow = true;
+			wheelInstance.traverse((child: any) => {
+				if (child.isMesh) {
+					child.castShadow = true;
+					child.receiveShadow = true;
+				}
+			});
+
+			if (adjustments[i]) {
+				wheelInstance.position.set(adjustments[i].position.x, adjustments[i].position.y, adjustments[i].position.z);
+			}
+		});
+
+		return wheelMeshes;
 	}
 
 	createFallbackVehicle(wheelCount: number, vehicleConfig: VehicleDefinition): LoadedVehicle {
@@ -170,7 +157,6 @@ export default class VehicleManager {
 				);
 			}
 
-			this.scene.add(wheelMesh);
 			wheelMeshes.push(wheelMesh);
 		}
 

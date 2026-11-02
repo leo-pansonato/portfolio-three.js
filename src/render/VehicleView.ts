@@ -36,6 +36,7 @@ export default class VehicleView {
 	private definition!: VehicleDefinition;
 	private physics!: VehiclePhysics;
 	private loadRequestId = 0;
+	private retiredObjects: THREE.Object3D[] = [];
 
 	private tempVector3 = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
@@ -49,14 +50,14 @@ export default class VehicleView {
 	constructor(
 		private readonly scene: THREE.Scene,
 		private readonly physicsWorld: PhysicsWorld,
-		private readonly vehicleManager: VehicleManager = new VehicleManager(scene)
+		private readonly vehicleManager: VehicleManager = new VehicleManager()
 	) {}
 
 	/**
-	 * Libera as meshes atuais e cria placeholders (chassi fora da cena, rodas na cena) para o veículo
+	 * Tira as meshes atuais da cena (liberadas no próximo `load`) e cria placeholders (chassi fora da cena, rodas na cena) para o veículo
 	 */
 	setVehicle(definition: VehicleDefinition, physics: VehiclePhysics): void {
-		if (this.mesh) this.releaseObjects([this.mesh, ...this.wheelMeshes]);
+		if (this.mesh) this.retireObjects([this.mesh, ...this.wheelMeshes]);
 
 		this.definition = definition;
 		this.physics = physics;
@@ -95,13 +96,18 @@ export default class VehicleView {
 	}
 
 	/**
-	 * Carrega o modelo do veículo atual; um carregamento superado por outro é descartado
+	 * Carrega o modelo do veículo atual; um carregamento superado por outro é descartado.
+	 * As meshes anteriores são liberadas depois de o novo carregamento reservar seus modelos,
+	 * para que modelos comuns aos dois veículos continuem na GPU.
 	 */
 	async load(): Promise<void> {
 		const definition = this.definition;
 		try {
 			const requestId = ++this.loadRequestId;
-			const vehicleModels = await this.vehicleManager.loadVehicle(definition, VehicleView.WHEEL_COUNT);
+			const loading = this.vehicleManager.loadVehicle(definition, VehicleView.WHEEL_COUNT);
+			this.releaseObjects(this.retiredObjects);
+			this.retiredObjects = [];
+			const vehicleModels = await loading;
 
 			if (requestId !== this.loadRequestId) {
 				this.releaseObjects([vehicleModels.body, ...vehicleModels.wheels]);
@@ -117,6 +123,7 @@ export default class VehicleView {
 
 			if (vehicleModels.wheels) {
 				this.wheelMeshes = vehicleModels.wheels;
+				for (const wheel of this.wheelMeshes) this.scene.add(wheel);
 			}
 		} catch (error) {
 			console.error(`Erro ao carregar veículo ${definition.body.modelPath}:`, error);
@@ -210,17 +217,15 @@ export default class VehicleView {
 		}
 	}
 
-	/** Remove objetos da cena e libera geometrias e materiais na GPU */
-	private releaseObjects(objects: THREE.Object3D[]): void {
+	private retireObjects(objects: THREE.Object3D[]): void {
 		for (const object of objects) {
 			object.removeFromParent();
-			object.traverse((child) => {
-				if (child instanceof THREE.Mesh) {
-					child.geometry.dispose();
-					const materials = Array.isArray(child.material) ? child.material : [child.material];
-					materials.forEach((material) => material.dispose());
-				}
-			});
+			this.retiredObjects.push(object);
 		}
+	}
+
+	/** Remove objetos da cena e libera geometrias, materiais e texturas que não pertencem ao cache de modelos */
+	private releaseObjects(objects: THREE.Object3D[]): void {
+		this.vehicleManager.releaseObjects(objects);
 	}
 }

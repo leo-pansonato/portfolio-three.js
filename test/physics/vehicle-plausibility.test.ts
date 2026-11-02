@@ -7,6 +7,10 @@ vi.mock("../../src/loaders/ModelLoader", () => ({
 		async loadModel(): Promise<null> {
 			return null;
 		}
+		releaseModel(): void {}
+		isCached(): boolean {
+			return false;
+		}
 		clearCache(): void {}
 	},
 }));

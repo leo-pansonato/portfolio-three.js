@@ -14,6 +14,10 @@ vi.mock("../../src/loaders/ModelLoader", () => ({
 			await new Promise((resolve) => setTimeout(resolve, delay));
 			return null;
 		}
+		releaseModel(): void {}
+		isCached(): boolean {
+			return false;
+		}
 		clearCache(): void {}
 	},
 }));
