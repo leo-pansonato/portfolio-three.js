@@ -35,6 +35,9 @@ flowchart LR
     P16 --> P21[P2-1 Dinâmica veicular própria]
     P13 --> P23[P2-3 Mundo e superfícies]
     P27[P2-7 Pipeline de cor] --> P24[P2-4 Renderização]
+    P11 --> P29[P2-9 Debug sincronizado]
+    P29 --> P210[P2-10 Simulação em worker]
+    P31[P3-1 Orçamentos] --> P210
 ```
 
 ---
@@ -208,6 +211,70 @@ flowchart LR
 ### [ ] P2-8 — Áudio
 
 - Não existe. Motor (por RPM/carga), pneus (por escorregamento), impactos, ambiente. Depende de P2-1 para os sinais.
+
+### [ ] P2-9 — Debug físico sincronizado com a pose interpolada
+
+- **Problema:** desde o P1-1 as meshes são interpoladas e ficam até 1 passo atrás da física, mas o `PhysicsDebugRenderer` desenha `world.debugRender()` cru, sem interpolar. A diferença chega a v·dt (0,93 m a 200 km/h com passo de 1/60 s). Em telas acima de 60 Hz as linhas só se movem nos quadros que tiveram passo, e o resultado é um “salto” que aumenta com a velocidade. Além disso, `update()` cria um `BufferAttribute` novo por quadro, o que gera lixo para o GC. Não é custo de cálculo: o passo de um carro leva bem menos de 1 ms.
+- **Entregas:**
+  - linhas de debug geradas uma vez por passo, no pós-passo, e não por quadro;
+  - buffer de posições reaproveitado (cresce só quando falta espaço, com `setDrawRange`);
+  - colisores de corpos dinâmicos registrados desenhados na pose interpolada, aplicando a transformação delta interpolada × atual⁻¹ por corpo. Os estáticos não precisam disso.
+- **Conclusão:**
+  - wireframe do chassi coincide com a mesh a 250 km/h em 60 e 144 Hz (screenshot);
+  - nenhuma alocação por quadro no modo dev.
+- **Esforço:** P.
+
+### [ ] P2-10 — Simulação em Web Worker (ADR-0005)
+
+**Objetivo:** tirar a simulação (Rapier, `VehicleControl`, trem de força, replay) da thread principal. Assim um passo lento (vários carros de IA, colisores de mundo grande, P2-3) não derruba o FPS, e a thread principal fica com input, renderização, áudio e UI.
+
+**Diagnóstico de partida:**
+- Hoje o gargalo não é a física. O que já existe:
+  - passo fixo de 1/60 s com acumulador;
+  - interpolação por `alpha` (P1-1);
+  - `PhysicsWorld` como fronteira única (P1-3).
+- O item só se paga quando o tempo do passo medido (P3-1) passar de ~2 ms, ou quando houver mais de um veículo simulado. A preparação (W1) vale antes disso, porque separa simulação e apresentação (ARCHITECTURE §5).
+
+**Desenho**, adaptado de propostas genéricas (postMessage por quadro, Comlink, *client-side prediction*) para um jogo local de um jogador:
+
+| Tema | Decisão | Por quê |
+|---|---|---|
+| Comunicação de estado | `SharedArrayBuffer` com **3 snapshots** (tripla bufferização) de layout fixo em `Float64Array`. Cada snapshot leva tempo de simulação, número do passo, pose de cada corpo registrado e estado visual das rodas. O índice do snapshot pronto é publicado com `Atomics.store`. | Leitura sem cópia nem lixo; o worker nunca escreve no snapshot que a thread principal está lendo. |
+| Suavidade | **Interpolação** entre os dois últimos snapshots pelo relógio de simulação, como no P1-1. | *Client-side prediction* serve para latência de rede; num jogo local, extrapolar causaria erro visual sem ganho. |
+| Input | `InputFrame` escrito em uma região do mesmo SAB (`Atomics.store` por campo, contador de sequência), lido pelo worker no pré-passo. | Latência ≤ 1 passo, igual à de hoje. |
+| Relógio | A thread principal publica no SAB o tempo-alvo de cada quadro e chama `Atomics.notify`; o worker espera com `Atomics.wait` e avança passos fixos até o alvo. | A simulação do quadro N roda enquanto o quadro N−1 é renderizado. Sem `setInterval` com *jitter*. |
+| Eventos raros | `postMessage` para troca de veículo, reset, gravar/reproduzir replay, telemetria do HUD (~10 Hz) e debug (sob demanda, com `Float32Array` transferível). | Baixa frequência, sem custo relevante. |
+| Dependências | Nenhuma: sem Comlink. A API de mensagens fica restrita a poucos comandos tipados. | Princípio 8 do CLAUDE.md; bundle igual. |
+| Fallback | Implementação local (a atual) com o mesmo contrato. É usada quando `crossOriginIsolated` é falso e nos testes em Node. | SAB exige COOP/COEP; GitHub Pages não envia esses cabeçalhos. |
+| Determinismo | Os mesmos módulos de simulação rodam no worker e em Node. Replay e cenários de referência continuam testáveis sem navegador. | Mantém a rede de proteção dos P0-3/P0-4. |
+
+**Etapas** (cada uma integrada e verde antes da próxima):
+- **W0 — Medir:** tempo de passo, tempo de quadro e GC no modo dev (P3-1). Registrar a linha de base e definir a meta.
+- **W1 — Contrato de snapshot, sem worker:** `SimulationSnapshot` (layout no SAB ou em `ArrayBuffer` comum) e `SimulationHost` com `LocalSimulation`. `VehicleView`, `CameraController`, `UIManager` e debug passam a ler só do snapshot, não de `PhysicsBody` nem de `VehiclePhysics`. Refatoração sem mudança de comportamento, coberta por teste de igualdade snapshot × leitura direta.
+- **W2 — COOP/COEP:** cabeçalhos no `vite.config` (dev e preview) e documentação de hospedagem. Se o destino não permitir esses cabeçalhos, decidir no ADR-0005 entre aceitar o fallback e usar um service worker de isolamento.
+- **W3 — `WorkerSimulation` atrás de `?sim=worker`:**
+  - Rapier e o loop de passo dentro do worker;
+  - input e relógio pelo SAB;
+  - comandos por mensagem;
+  - assets e física de colisores enviados como descrição serializável (dimensões, massas), nunca objetos Three.js.
+- **W4 — Padrão:** worker ligado quando `crossOriginIsolated` é verdadeiro, local caso contrário; dev mode mostra qual backend está ativo.
+
+**Conclusão:**
+- quadro sem passo de física na thread principal (perfil do navegador);
+- carro e debug sem saltos em 60/144/240 Hz;
+- latência de input ≤ 1 passo + 1 quadro, medida com input sintético no worker × local;
+- passo lento artificial (5 ms) não altera o FPS;
+- todos os testes verdes com `LocalSimulation`;
+- tamanho do bundle registrado.
+
+**Dependências:** P2-9 (debug por passo), P3-1 (medição). W1 pode começar depois da etapa 2 do P2-1, para não conflitar com `VehiclePhysics`.
+
+**Riscos:**
+- W1 toca `Player`, `VehicleView` e `CameraController`, que são pontos de conflito: precisa de escopo exclusivo;
+- WASM da Rapier instanciado no worker (verificar o `rapier3d-compat` com Vite `worker.format: "es"`);
+- depuração mais difícil.
+
+**Esforço:** L.
 
 ---
 
