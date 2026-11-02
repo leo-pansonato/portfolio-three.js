@@ -1,6 +1,6 @@
 # ADR-0003 — Dinâmica veicular própria, em etapas
 
-- **Status:** Proposta
+- **Status:** Aceita (2026-11-02)
 - **Data:** 2026-11-02
 - **Escopo:** como substituir o `DynamicRayCastVehicleController` da Rapier por um modelo de veículo próprio sobre o corpo rígido (ROADMAP P2-1).
 

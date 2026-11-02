@@ -11,7 +11,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
-- P2-1 etapa 1 integrada (9b42cb7); ADR-0003 `Proposta` aguarda aceite do usuário antes da etapa 2 (suspensão própria; antes `castShape` e força em ponto no `PhysicsWorld`). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
+- P2-1 etapa 1 integrada (9b42cb7); ADR-0003 aceito; etapa 2 em andamento (suspensão própria; antes `castShape` e força em ponto no `PhysicsWorld`). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
 
