@@ -35,6 +35,8 @@ export interface VehiclePhysicsConfig {
 	size: Vec3;
 	/** Raio das rodas (m) */
 	wheelRadius: number;
+	/** Inércia de cada roda com pneu, disco e cubo, em torno do eixo (kg·m²) */
+	wheelInertia: number;
 	/** Comprimento livre da suspensão, da fixação ao centro da roda; também a extensão máxima (m) */
 	suspensionRestLength: number;
 	/** Limite de atrito do pneu (adimensional, multiplica a carga normal) */
