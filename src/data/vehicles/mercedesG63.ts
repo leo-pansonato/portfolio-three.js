@@ -90,7 +90,7 @@ export const mercedesG63: VehicleDefinition = {
 		},
 	},
 	configs: {
-		brakeTorque: 2166,
+		brakeTorque: { front: 2166, rear: 2166 },
 		rollingResistanceTorque: 28.5,
 		handbrakeTorque: 1482,
 		maxSteerVal: 0.5,

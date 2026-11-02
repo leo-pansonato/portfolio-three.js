@@ -166,12 +166,12 @@ export default class VehiclePhysics {
 	 * @param dt passo de física (s): o arrasto vira impulso por passo (N·s)
 	 */
 	applyCommands(commands: VehicleCommands, dt: number): void {
-		const rearBrake = commands.handbrakeTorque > 0 ? commands.handbrakeTorque : commands.brakeTorque;
+		const rearBrake = commands.handbrakeTorque > 0 ? commands.handbrakeTorque : commands.rearBrakeTorque;
 		for (let i = 0; i < this.steering.length; i++) {
 			const front = i < 2;
 			this.steering[i] = front ? commands.steeringAngle : 0;
 			this.driveTorques[i] = this.driven[i] ? commands.driveTorque : 0;
-			this.brakeTorques[i] = front ? commands.brakeTorque : rearBrake;
+			this.brakeTorques[i] = front ? commands.frontBrakeTorque : rearBrake;
 		}
 		this.drivelineInertia = commands.drivelineInertia;
 		this.applyAerodynamicDrag(dt);

@@ -9,8 +9,10 @@ export interface VehicleCommands {
 	steeringAngle: number;
 	/** Torque do motor por roda motriz (N·m; negativo em ré) */
 	driveTorque: number;
-	/** Torque de freio por roda (N·m) */
-	brakeTorque: number;
+	/** Torque de freio por roda dianteira (N·m) */
+	frontBrakeTorque: number;
+	/** Torque de freio por roda traseira (N·m) */
+	rearBrakeTorque: number;
 	/** Torque do freio de mão por roda traseira (N·m) */
 	handbrakeTorque: number;
 	/** Inércia do motor refletida em cada roda motriz na marcha engatada (kg·m²) */
@@ -26,7 +28,8 @@ export default class VehicleControl {
 	readonly commands: VehicleCommands = {
 		steeringAngle: 0,
 		driveTorque: 0,
-		brakeTorque: 0,
+		frontBrakeTorque: 0,
+		rearBrakeTorque: 0,
 		handbrakeTorque: 0,
 		drivelineInertia: 0,
 	};
@@ -102,7 +105,8 @@ export default class VehicleControl {
 		const brakeValue = input.brake;
 		const request = this.powertrainRequest;
 
-		let brakeTorque = 0;
+		let frontBrakeTorque = 0;
+		let rearBrakeTorque = 0;
 		let handbrakeTorque = 0;
 
 		const reversing = brakeValue > 0 && isAlmostStopped && throttleValue === 0;
@@ -119,7 +123,8 @@ export default class VehicleControl {
 		}
 
 		if (brakeValue > 0 && !reversing) {
-			brakeTorque = config.brakeTorque * brakeValue;
+			frontBrakeTorque = config.brakeTorque.front * brakeValue;
+			rearBrakeTorque = config.brakeTorque.rear * brakeValue;
 		}
 
 		if (input.handbrake) {
@@ -127,13 +132,15 @@ export default class VehicleControl {
 		}
 
 		if (throttleValue === 0 && brakeValue === 0) {
-			brakeTorque = config.rollingResistanceTorque;
+			frontBrakeTorque = config.rollingResistanceTorque;
+			rearBrakeTorque = config.rollingResistanceTorque;
 		}
 
 		const wheelTorque = this.powertrain.step(request, this.state.forwardSpeed, dt, drivelineSpeed);
 
 		this.commands.driveTorque = wheelTorque / this.drivenWheelCount;
-		this.commands.brakeTorque = brakeTorque;
+		this.commands.frontBrakeTorque = frontBrakeTorque;
+		this.commands.rearBrakeTorque = rearBrakeTorque;
 		this.commands.handbrakeTorque = handbrakeTorque;
 		this.commands.drivelineInertia = this.powertrain.reflectedInertia() / this.drivenWheelCount;
 	}

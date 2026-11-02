@@ -148,8 +148,8 @@ export interface VehicleAerodynamicsConfig {
 
 /** Parâmetros de condução */
 export interface VehicleDrivingConfig {
-	/** Torque de freio por roda (N·m) */
-	brakeTorque: number;
+	/** Torque de freio por roda com o pedal no fundo, por eixo (N·m) */
+	brakeTorque: { front: number; rear: number };
 	/** Torque de freio sem acelerador nem freio, por roda (N·m) */
 	rollingResistanceTorque: number;
 	/** Torque do freio de mão por roda traseira (N·m) */
