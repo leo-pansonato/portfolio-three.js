@@ -2,7 +2,7 @@
 
 Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar ao fim de cada bloco de trabalho.
 
-## Estado (2026-11-01)
+## Estado (2026-11-02)
 
 - `master` = `origin/master`. P0 completo (P0-1…P0-6), P1-8 (CI) e P2-7 (pipeline de cor) concluídos.
 - Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 27 testes (cenários, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
@@ -12,11 +12,11 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 ## Em andamento (pausado pelo usuário)
 
 - P1-1, P2-7 e ajuste do CSM (cascatas SI, materiais carregados) já estão na `master`.
-- P1-2 (decompor `Player`) interrompido: branch local `refact/vehicle-decomposition` no worktree `.claude/worktrees/agent-a20261f0087ff6476`, 3 de 5 commits feitos (dados+VehicleState, VehicleControl, VehiclePhysics). Faltam: `VehicleView` (meshes, interpolação, releaseObjects, loadRequestId), `Player` fino, testes unitários de `VehicleControl`, docs (ARCHITECTURE §1/§3.2/§5, R3/R6, ROADMAP, AGENTS §2). Retomar no worktree: conferir `npm run build`/`npm test` (linha de base não pode mudar), rebase sobre a `master`, concluir.
+- P1-2 (decompor `Player`) concluído na branch local `refact/vehicle-decomposition` (worktree `.claude/worktrees/agent-a20261f0087ff6476`), rebaseada sobre a `master`, aguardando revisão/integração pelo coordenador: dados+VehicleState, VehicleControl, VehiclePhysics, VehicleView, docs. Linha de base inalterada; 37 testes.
 
 ## Próximos itens (ordem)
 
-1. P1-2 decompor `Player` (AGENTS.md §4), P1-3 `PhysicsWorld`, P1-4 input desacoplado, P1-5 ciclo de vida (texturas, cache do ModelLoader, CSM em materiais carregados).
+1. Integrar P1-2; P1-3 `PhysicsWorld`, P1-4 input desacoplado, P1-5 ciclo de vida (texturas, cache do ModelLoader, CSM em materiais carregados).
 2. P1-6 telemetria/replay, P1-7 lint.
 3. P2: dinâmica própria (P2-1: arrasto, câmbio, pneu, CG baixo), renderização (P2-4), câmeras (P2-5), mundo (P2-3).
 
@@ -31,8 +31,9 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 - `RigidBody.linvel()` do chassi apoiado no controlador Rapier ≈ g·dt em repouso; medir movimento por deslocamento.
 - O controlador Rapier recebe freio como impulso por passo; `configs.brakeForce`/`eBrakeForce`/`rollingResistance` estão em N e o `Player` multiplica por `dt`.
-- Controle do veículo roda no pré-passo (`Player.updateControl`); `Player.update` é só visual. Meshes ficam até 1 passo atrás (interpolação); `PhysicsManager.resetInterpolation` após teleporte.
+- Controle do veículo roda no pré-passo (`Player.updateControl` → `VehicleControl.step` → `VehiclePhysics.applyCommands`); `Player.update` só chama `VehicleView.update`. Meshes ficam até 1 passo atrás (interpolação); `PhysicsManager.resetInterpolation` após teleporte.
 - Passo de 1/120 s avaliado e não adotado: curva do G63 −3% de velocidade/+3,5% de guinada, resto < 1% (ARCHITECTURE §3.1).
 - `linearDamping` do chassi afeta muito a aceleração (0,2 → −35%).
 - Rigidez/amortecimento da suspensão do controlador são por unidade de massa do chassi (modelo Bullet).
 - Testes: harness em `test/support/` (`rapierSim.ts`, `scenarios.ts`, `baseline.ts`); `UPDATE_BASELINE=1 npm test` regrava `test/baselines/rapier.json`.
+- Console no modo dev: `computeBoundingSphere(): Computed radius is NaN` ao carregar a página, já presente antes do P1-2 (provável `PhysicsDebugRenderer` no primeiro quadro); não investigado.

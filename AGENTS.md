@@ -6,13 +6,14 @@ Guia para dividir o desenvolvimento entre agentes do Claude Code sem conflitos e
 
 ## 1. Realidade atual: pouco paralelismo seguro
 
-O código tem ~2,4 mil linhas e três arquivos que quase toda mudança relevante toca: `src/main.ts`, `src/components/Player.ts`, `src/managers/VehicleManager.ts`. Enquanto o ROADMAP P1-2 não decompuser o `Player`, trabalho paralelo em física, input e câmera **vai** gerar conflito.
+O código tem ~3,2 mil linhas. Depois do P1-2, controle, física e visual do veículo vivem em arquivos próprios (`src/vehicle/`, `src/render/VehicleView.ts`, `src/data/vehicles/`) e `Player.ts` só os liga. `src/main.ts` continua tocado por quase toda mudança de fluxo, e input/câmera ainda dependem de `Game`/`Player` (P1-4).
 
 Paralelizar agora apenas:
 
 - investigações somente leitura (itens **[Investigar]** de ARCHITECTURE.md §7);
 - testes novos em arquivos novos;
-- renderização que não toque `main.ts` nem `Player.ts` (ex.: `LightingManager`, `Environment` visual);
+- renderização que não toque `main.ts` (ex.: `LightingManager`, `Environment` visual, `render/VehicleView`);
+- física/controle do veículo em `src/vehicle/` em paralelo com renderização, se nenhum dos dois precisar mudar `Player.ts`;
 - documentação.
 
 Os critérios para liberar paralelismo amplo estão no fim do [ROADMAP.md](ROADMAP.md).
@@ -24,8 +25,8 @@ Os papéis existem porque há trabalho real em cada área. Não crie novos sem u
 | Papel | Onde | Escopo de arquivos (hoje → alvo) | Não pode |
 |---|---|---|---|
 | **Coordenador** | sessão principal | todos; dono exclusivo de `main.ts`, `package.json`, `tsconfig.json`, docs raiz e ADRs | delegar decisões de arquitetura |
-| **physics-vehicle** | `.claude/agents/physics-vehicle.md` | `PhysicsManager.ts`, partes físicas de `Player.ts`/`VehicleManager.ts`, `Environment.ts` (colisores) → `src/physics/`, `src/vehicle/`, `src/data/vehicles/` | tocar renderização, câmera, UI |
-| **rendering** | `.claude/agents/rendering.md` | `LightingManager.ts`, parte visual de `Environment.ts`, materiais, `ModelLoader.ts` → `src/render/`, `src/world/` (visual) | alterar física ou ordem do loop |
+| **physics-vehicle** | `.claude/agents/physics-vehicle.md` | `PhysicsManager.ts`, `src/vehicle/*` (`VehicleControl`, `VehiclePhysics`, `VehicleState`), `src/data/vehicles/*`, `Environment.ts` (colisores), `test/physics/`, `test/vehicle/`, `test/support/` → `src/physics/` | tocar renderização, câmera, UI |
+| **rendering** | `.claude/agents/rendering.md` | `LightingManager.ts`, parte visual de `Environment.ts`, materiais, `ModelLoader.ts`, `VehicleManager.ts` (carregamento), `src/render/*` (inclui `VehicleView`) → `src/world/` (visual) | alterar física ou ordem do loop |
 | **architecture-reviewer** | `.claude/agents/architecture-reviewer.md` | somente leitura | editar arquivos |
 | **Agente de propósito geral** | `general-purpose` com escopo definido | input/câmera/UI (`InputManager.ts`, `CameraController.ts`, `UIManager.ts`), testes, tooling | sair do escopo dado |
 
@@ -65,7 +66,7 @@ Exemplo — P1-2 (decompor `Player`):
 - Antes de delegar, o coordenador registra no pedido os arquivos que o agente pode editar. Fora da lista, o agente só lê.
 - Dois agentes de escrita simultâneos usam `isolation: "worktree"`; cada um entrega em sua branch.
 - Arquivos de propriedade do coordenador: `src/main.ts`, `package.json`, `package-lock.json`, `tsconfig.json`, `vite-env.d.ts`, `README.md`, `CLAUDE.md`, `ARCHITECTURE.md`, `AGENTS.md`, `ROADMAP.md`, `docs/decisions/*`.
-- Arquivos de alto conflito (`Player.ts`, `VehicleManager.ts`): um agente por vez, sempre.
+- Arquivos de alto conflito (`Player.ts`, que liga controle, física e visual do veículo): um agente por vez, sempre.
 - Nunca reformate, renomeie ou mova arquivos fora do escopo — isso gera conflito com todos os outros.
 
 ## 6. Contratos entre agentes

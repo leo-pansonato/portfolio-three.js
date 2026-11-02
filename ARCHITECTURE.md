@@ -16,7 +16,7 @@ Aplicação de navegador, sem servidor. Um único bundle Vite carrega `src/main.
 
 Não há ECS, injeção de dependência, barramento de eventos nem estado serializável. Os subsistemas recebem referências diretas uns dos outros pelo construtor. O único mecanismo de publicação/assinatura é `DevModeManager` (singleton `devMode`).
 
-Tamanho: ~2,4 mil linhas de TypeScript em 15 arquivos de jogo. Testes: Vitest em Node (`test/`), com cenários de referência do veículo (§3.8).
+Tamanho: ~3,2 mil linhas de TypeScript em 24 arquivos de jogo. Testes: Vitest em Node (`test/`), com cenários de referência do veículo (§3.8).
 
 ```mermaid
 flowchart TD
@@ -27,20 +27,31 @@ flowchart TD
         LM["LightingManager<br/>(CSM)"]
         UI["UIManager<br/>(DOM)"]
         PerfM["PerformanceManager<br/>(Stats)"]
-        VM["VehicleManager<br/>(catálogo + carregamento)"]
+        VM["VehicleManager<br/>(carregamento)"]
         DM(["devMode<br/>(singleton pub/sub)"])
     end
     subgraph components
-        P["Player<br/>(veículo)"]
+        P["Player<br/>(orquestra o veículo)"]
         CC["CameraController"]
         Env["Environment"]
     end
+    subgraph vehicle ["vehicle/ + data/"]
+        VC["VehicleControl<br/>(input → comandos)"]
+        VP["VehiclePhysics<br/>(chassi + controlador Rapier)"]
+        VS[("VehicleState")]
+        VD[("data/vehicles<br/>(catálogo imutável)")]
+    end
+    VV["render/VehicleView<br/>(meshes, interpolação)"]
     ML["ModelLoader<br/>(GLTFLoader + cache)"]
 
     main --> PM & IM & LM & UI & PerfM & Env & P & CC
-    P --> PM
     P --> IM
-    P --> VM --> ML
+    P --> VC --> VS
+    P --> VP --> PM
+    P --> VV --> VM --> ML
+    VV -. lê .-> VP
+    VV --> PM
+    P -. lê .-> VD
     CC --> P
     CC --> IM
     Env --> PM
@@ -58,9 +69,9 @@ flowchart TD
 
 1. `deltaTime` = tempo real desde o último quadro, limitado a 0,1 s.
 2. `inputManager.update()` lê teclado e gamepad.
-3. `physicsManager.update(dt)` → acumulador com passo fixo de 1/60 s. A cada passo: guarda a pose anterior das entidades, roda os *pre-step callbacks* (no `Player`: lê o input mais recente, integra o volante, define motor/freio e chama `vehicleController.updateVehicle`) e `world.step()`. Depois, `alpha = acumulador / passo` e os meshes registrados recebem a pose interpolada entre os dois últimos passos; atualiza o debug renderer (sem interpolação).
+3. `physicsManager.update(dt)` → acumulador com passo fixo de 1/60 s. A cada passo: guarda a pose anterior das entidades, roda os *pre-step callbacks* (no `Player`: lê o input mais recente, `VehicleControl.step` integra o volante e gera motor/freio, `VehiclePhysics` aplica os comandos e chama `vehicleController.updateVehicle`) e `world.step()`. Depois, `alpha = acumulador / passo` e os meshes registrados recebem a pose interpolada entre os dois últimos passos; atualiza o debug renderer (sem interpolação).
 4. `update(dt)` em `[environment, lightingManager, player, cameraController, performanceManager]`:
-   - `Player.update`: só visual — chassi e rodas (suspensão, esterço, giro) interpolados pelo mesmo `alpha`.
+   - `Player.update` → `VehicleView.update`: só visual — chassi e rodas (suspensão, esterço, giro) interpolados pelo mesmo `alpha`.
    - `CameraController.update`: posiciona a câmera conforme o modo, a partir da pose interpolada do mesh do chassi.
    - `LightingManager.update`: `csm.update()`.
 5. `ui.updatePlayerInfo` (só no modo dev).
@@ -89,27 +100,23 @@ Inicialização assíncrona: `Game.initialize()` aguarda `PhysicsManager.create(
 
 Unidades e eixos ([ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md)): **SI**, 1 unidade = 1 m; mundo com +Y para cima. Modelos em escala 1, chassi 4,6 × 1,2 × 1,8 m, massas 1.550 kg (BMW) e 2.500 kg (G63); o HUD mostra km/h reais. A plataforma de 200 m do `Environment` é pequena para essas velocidades (o harness usa um chão de 1 km).
 
-### 3.2 Veículo — `src/components/Player.ts`, `src/managers/VehicleManager.ts` [Implementado]
+### 3.2 Veículo — `src/components/Player.ts`, `src/vehicle/`, `src/render/VehicleView.ts`, `src/data/vehicles/` [Implementado]
 
-`Player` concentra:
+- `data/vehicles` (`types.ts`, um arquivo por veículo, `index.ts`): contrato `VehicleDefinition` e catálogo (`bmw_f82`, `mercedes_g63`) congelado; modelo, escala, física, câmeras, condução e rodas.
+- `vehicle/VehicleState`: estado de runtime por instância (esterço, velocidade à frente, multiplicador de boost).
+- `vehicle/VehicleControl`: `DriverInput` → `VehicleCommands` a cada passo — rampa e retorno do volante (reduzidos com a velocidade), motor, freio, ré quando quase parado, freio de mão, boost, resistência ao rolamento sem acelerador nem freio. Sem THREE nem DOM; testes unitários em `test/vehicle/`.
+- `vehicle/VehiclePhysics`: dono do chassi (corpo dinâmico + cuboid) e do `DynamicRayCastVehicleController` com 4 rodas; aplica os comandos (tração `rear`/`front`/`all`, freio em N → impulso por passo), guarda os valores das rodas do passo anterior, *reset* e `destroy()`. Usa THREE só para matemática.
+- `render/VehicleView`: placeholders, carregamento do modelo via `VehicleManager` (ignora carregamentos obsoletos com `loadRequestId`), pose interpolada do chassi e das rodas com os ajustes de alinhamento, liberação de geometrias e materiais (`releaseObjects`).
+- `Player`: orquestra as peças — registra o pré-passo (input → `VehicleControl` → `VehiclePhysics`), troca de veículo, *reset* e consultas para câmera e UI (`mesh`, `getPosition`, `getQuaternion`, `getRotation`, `getCameraConfig`, `getCurrentSpeed`, `getWheelAngle`).
+- `VehicleManager`: só carrega os glTF, com *fallback* para primitivas.
 
-- criação do chassi (corpo dinâmico + cuboid) e do `DynamicRayCastVehicleController` com 4 rodas;
-- leitura do input analógico (`getThrottle/getBrake/getSteer`);
-- modelo de direção (rampa do volante, retorno ao centro, redução com a velocidade);
-- motor/freio/freio de mão/boost, tração `rear`/`front`/`all`, resistência ao rolamento (`configs.rollingResistance`) sem acelerador nem freio;
-- sincronização visual do chassi e das rodas (com ajustes de alinhamento por roda);
-- troca de veículo, *reset*, consultas para câmera e UI.
+Limitações:
 
-`VehicleManager` contém o **catálogo em código** (`bmw_f82`, `mercedes_g63`): modelo, escala, física, câmeras, parâmetros de condução e posições das rodas; e carrega os glTF com *fallback* para primitivas.
-
-Problemas estruturais:
-
-- **Estado de runtime dentro do catálogo**: `configs.currentSteering`, `currentSpeed` e `boostForce` são gravados no objeto de configuração compartilhado.
-- Eixos locais do chassi: frente +X, cima +Y, direita +Z (`Player.LOCAL_FORWARD` etc.); ângulo de esterço positivo vira à esquerda.
+- Eixos locais do chassi: frente +X, cima +Y, direita +Z (`VehiclePhysics.LOCAL_FORWARD` etc.); ângulo de esterço positivo vira à esquerda.
 - Índices de roda fixos (0/1 dianteiras esquerda/direita, 2/3 traseiras; ímpares espelhadas) sem tipo que os represente.
-- Recursos GPU: trocar de veículo libera geometrias e materiais (`Player.releaseObjects`); texturas e o cache do `ModelLoader` não são liberados.
-- `loadVehicle` ignora resultados de carregamentos obsoletos (`loadRequestId`).
+- Recursos GPU: trocar de veículo libera geometrias e materiais; texturas e o cache do `ModelLoader` não são liberados (P1-5).
 - O mesh de *placeholder* continua registrado no `PhysicsManager` depois que o modelo real é carregado.
+- `Player` ainda lê o `InputManager` diretamente (P1-4) e `VehiclePhysics` importa o Rapier (P1-3).
 
 Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento (rigidez e amortecimento por kg de chassi), atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`), freio configurado em N e convertido no impulso por passo que o controlador espera (`força × dt`); unidades em `VehiclePhysicsConfig` e no ADR-0002. Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
 
@@ -169,10 +176,10 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 |---|---|---|---|
 | R1 | Testes cobrem só o veículo em plano; sem lint | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
 | R2 | ~~Escala ~0,5 e massas arbitrárias~~ Resolvido no P0-6 (ADR-0002). Restam: sem arrasto nem câmbio (velocidade sem teto), centro de massa no centro do collider, plano de 200 m | Faixas plausíveis, mas não um carro real | trabalhar em dinâmica veicular (P2-1) |
-| R3 | `Player` com 5 responsabilidades; `main.ts` cria tudo | Dois agentes não conseguem trabalhar em física e input/câmera sem editar o mesmo arquivo | paralelizar trabalho |
+| R3 | ~~`Player` com 5 responsabilidades~~ — decomposto no P1-2 (§3.2). Resta: `main.ts` cria tudo | Dois agentes não conseguem trabalhar em física e input/câmera sem editar o mesmo arquivo | paralelizar trabalho |
 | R4 | ~~Input e controle por quadro, sem interpolação~~ — resolvido em P1-1 (§2). Resta: ordem do loop espalhada (sem `GameLoop`), visual 1 passo atrás | — | — |
 | R5 | Controlador de veículo embutido (raycast, caixa-preta em WASM) | Teto de qualidade da direção | P2-1 (dinâmica própria) |
-| R6 | Estado no catálogo de configuração | Bugs ao trocar/instanciar veículos | múltiplos veículos |
+| R6 | ~~Estado no catálogo de configuração~~ — resolvido no P1-2 (`VehicleState`, catálogo congelado) | — | — |
 | R7 | Sem ciclo de vida de recursos | Vazamento de GPU/WASM ao trocar veículo | streaming de mundo |
 | R8 | ~~Renderizador sem pipeline de cor/tone mapping definidos~~ — resolvido em P2-7 (§3.5) | — | — |
 
@@ -215,6 +222,8 @@ Contratos-chave (a definir no P1, ver ROADMAP):
 - `InputFrame`: valores normalizados por passo de simulação (`throttle`, `brake`, `steer`, `handbrake`, …), independentes de dispositivo.
 - `SimulationSnapshot` legível pela apresentação: transformações atual e anterior para interpolação, telemetria por roda.
 - Unidades SI (metro, quilograma, segundo, radiano, newton) e convenção de eixos única, documentadas no código.
+
+Estado da migração: **[Implementado]** `data/vehicles` (`VehicleDefinition`), `vehicle/VehicleState`, `vehicle/VehicleControl` (recebe `DriverInput`, precursor do `InputFrame`), `vehicle/VehiclePhysics` (ainda sobre o controlador Rapier, sem `PhysicsWorld`) e `render/VehicleView`. O resto continua **[Planejado]**.
 
 Organização de diretórios proposta (por domínio, não por “manager/component”): `src/core`, `src/physics`, `src/vehicle`, `src/world`, `src/render`, `src/camera`, `src/input`, `src/ui`, `src/data`, `src/debug`. A migração deve ser incremental — mover um subsistema por vez, sem reescrever o que já funciona.
 
