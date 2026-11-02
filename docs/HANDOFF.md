@@ -11,7 +11,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
-- P1-7 (lint) — subagente em worktree; roda sozinho porque toca todos os arquivos.
+- P1-7 (lint) feito na branch `chore/lint`: ESLint + Prettier, formatação em commit `style` isolado. Integrar antes de outras branches (toca todos os arquivos); branches abertas precisam de rebase + `npm run format`.
 
 ## Próximos itens (ordem)
 
@@ -30,6 +30,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - Sem arrasto/câmbio: velocidade sem teto; `configs.maxSpeed` sem uso; boost ×3 chega a ~2 g.
 - CSM `maxFar 50` e intensidade das luzes não revistos para escala real/AgX.
 - Pasta `.claude/worktrees/` pode sobrar no disco (ignorada pelo Git).
+- Lint: 4 avisos de `no-explicit-any` em `src/` (`GameComponent.update`, `PerformanceManager.update`, `traverse` em `VehicleManager`); promover a erro quando corrigidos.
 
 ## Fatos técnicos que não estão óbvios no código
 

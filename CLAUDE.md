@@ -25,11 +25,13 @@ Documentos de referência — consulte o relevante em vez de deduzir:
 npm ci                # instalar (refazer ao trocar de branch: dependências diferem)
 npm run dev           # Vite em http://localhost:5173
 npm run typecheck     # tsc --noEmit
+npm run lint          # ESLint (typescript-eslint, regras com tipo)
+npm run format        # Prettier: formata; npm run format:check só verifica
 npm run build         # tsc + vite build
 npm test              # Vitest em Node: cenários de referência da física (test/)
 ```
 
-`UPDATE_BASELINE=1 npm test` regrava `test/baselines/*.json`. Só faça isso quando a mudança de comportamento for intencional, e diga no commit quais números mudaram e por quê. CI (`.github/workflows/ci.yml`) roda typecheck, testes e build em push na `master` e em PRs. Ainda não há lint (ROADMAP P1-7).
+`UPDATE_BASELINE=1 npm test` regrava `test/baselines/*.json`. Só faça isso quando a mudança de comportamento for intencional, e diga no commit quais números mudaram e por quê. CI (`.github/workflows/ci.yml`) roda typecheck, lint, verificação de formatação, testes e build em push na `master` e em PRs. Configuração em `eslint.config.mjs` e `.prettierrc.json`; `no-explicit-any` é aviso em `src/` e livre em `test/`.
 
 ## Princípios obrigatórios
 
@@ -46,8 +48,8 @@ npm test              # Vitest em Node: cenários de referência da física (tes
 
 - TypeScript `strict` com `noUnusedLocals`/`noUnusedParameters`; parâmetro intencionalmente não usado leva prefixo `_`.
 - Uma classe por arquivo, `export default class`, arquivo em PascalCase igual à classe. Tipos auxiliares exportados nomeados.
-- Indentação com tabs (alguns arquivos ainda têm espaços — não reformate arquivos inteiros fora de um commit de formatação).
-- Aspas duplas, ponto e vírgula, `import * as THREE from "three"`.
+- Formatação pelo Prettier (tabs, aspas duplas, ponto e vírgula, vírgula final, largura 120): rode `npm run format` antes do commit, não formate à mão.
+- `import * as THREE from "three"`; promessa não aguardada de propósito leva `void`.
 - Comentários e mensagens de log em português; JSDoc `/** */` curto acima de classes e métodos públicos.
 - Campos privados com `private`; inicialização tardia com `!` só quando a ordem do construtor garante.
 - Vetores temporários reutilizados como campos (`private _offset = new THREE.Vector3()`) em código executado por quadro — não aloque dentro de `update`.
@@ -71,7 +73,7 @@ npm test              # Vitest em Node: cenários de referência da física (tes
 
 Antes de declarar uma tarefa concluída:
 
-1. `npm run build` sem erros (inclui `tsc`, que também verifica `test/`).
+1. `npm run build` sem erros (inclui `tsc`, que também verifica `test/`), `npm run lint` sem erros e `npm run format:check` verde.
 2. `npm test` verde; testes novos para comportamento novo de simulação. Teste de física monta o mundo pelo harness de `test/support/`, não pela classe `Game`.
 3. Mudança que afeta física, veículo, câmera ou input: rodar o jogo (`npm run dev`), dirigir — acelerar, frear, ré, curvar, freio de mão, trocar veículo (1/2), trocar câmera (C), reset (R), modo dev (F2) — e verificar o console sem erros novos.
 4. Mudança de renderização: comparar visualmente antes/depois (screenshot) nos três modos de câmera.

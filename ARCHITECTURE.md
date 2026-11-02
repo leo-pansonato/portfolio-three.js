@@ -191,7 +191,7 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 
 | # | Problema | Consequência | Antes de… |
 |---|---|---|---|
-| R1 | Testes cobrem só o veículo em plano; sem lint | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
+| R1 | Testes cobrem só o veículo em plano | Regressões de câmera, render e input só aparecem jogando | refatorar esses subsistemas |
 | R2 | ~~Escala ~0,5 e massas arbitrárias~~ Resolvido no P0-6 (ADR-0002). Restam: sem arrasto nem câmbio (velocidade sem teto), centro de massa no centro do collider, plano de 200 m | Faixas plausíveis, mas não um carro real | trabalhar em dinâmica veicular (P2-1) |
 | R3 | ~~`Player` com 5 responsabilidades~~ — decomposto no P1-2 (§3.2). Resta: `main.ts` cria tudo | Dois agentes não conseguem trabalhar em física e input/câmera sem editar o mesmo arquivo | paralelizar trabalho |
 | R4 | ~~Input e controle por quadro, sem interpolação~~ — resolvido em P1-1 (§2). Resta: ordem do loop espalhada (sem `GameLoop`), visual 1 passo atrás | — | — |

@@ -150,10 +150,11 @@ flowchart LR
 - **Conclusão:** um replay gravado reproduz a mesma trajetória (tolerância definida) em Node.
 - **Resultado:** `VehicleTelemetry` por passo em `VehiclePhysics` (HUD F2 a 10 Hz); `src/replay/` (gravação por passo em buffers pré-alocados, estado inicial do chassi). `test/replay/`: trajetória igual bit a bit (tolerância zero) em mundo novo, com taxas de quadro diferentes na gravação e na reprodução.
 
-### [ ] P1-7 — Lint e formatação
+### [x] P1-7 — Lint e formatação
 
 - **Motivo:** o código mistura tabs e espaços e estilos de declaração. Adicionar ESLint (typescript-eslint) e formatação só com regras que o código atual consiga cumprir, aplicadas em um commit isolado.
 - **Conclusão:** `npm run lint` verde e incluído na validação.
+- **Resultado:** ESLint 10 + typescript-eslint (`recommended` + `no-floating-promises`, `no-misused-promises`, `await-thenable`, `eqeqeq`, `prefer-const`) em `eslint.config.mjs`; Prettier (tabs, largura 120) aplicado em um commit `style`; `lint` e `format:check` no CI. Restam 4 avisos de `no-explicit-any` em `src/`.
 
 ### [x] P1-8 — CI
 
