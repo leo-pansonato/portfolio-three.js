@@ -35,7 +35,7 @@ const LONG_GROUND = 8000;
 
 const LIMITS: Record<string, { zeroToHundred: [number, number]; topSpeedKmh: [number, number] }> = {
 	bmw_f82: { zeroToHundred: [3.8, 5], topSpeedKmh: [250, 300] },
-	mercedes_g63: { zeroToHundred: [4.3, 6], topSpeedKmh: [210, 240] },
+	mercedes_g63: { zeroToHundred: [4.0, 6], topSpeedKmh: [210, 240] },
 };
 
 interface FullThrottleRun {

@@ -28,7 +28,7 @@ const G = 9.82; // m/s², igual ao mundo (RapierPhysicsWorld)
 /** 0–100 km/h (s): referências de fábrica M4 F82 ~4,1 s, G63 W463A ~4,5 s */
 const ZERO_TO_HUNDRED: Record<string, [number, number]> = {
 	bmw_f82: [3.8, 5],
-	mercedes_g63: [4.3, 6],
+	mercedes_g63: [4.0, 6],
 };
 
 /** Aceleração lateral máxima em regime (g): pneu esportivo de rua e SUV pesado */
