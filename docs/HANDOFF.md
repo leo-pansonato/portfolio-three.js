@@ -11,7 +11,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
-- P2-1 etapas 1 e 2 integradas; etapa 3 (pneu e roda próprios, controlador Rapier removido) feita na branch do subagente, a integrar; próxima: etapa 4 (diferencial, embreagem/conversor, freio-motor). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
+- P2-1 etapas 1 e 2 integradas; etapa 3 (pneu e roda próprios, controlador Rapier removido) integrada (6093be9); próxima: etapa 4 (diferencial, embreagem/conversor, freio-motor). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
 
