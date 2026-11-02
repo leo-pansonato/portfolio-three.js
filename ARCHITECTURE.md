@@ -110,7 +110,8 @@ Unidades e eixos ([ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md)): **SI
 - `vehicle/VehicleControl`: `InputFrame` → `VehicleCommands` a cada passo — rampa e retorno do volante (reduzidos com a velocidade), motor, freio, ré quando quase parado, freio de mão, boost, resistência ao rolamento sem acelerador nem freio. Sem THREE nem DOM; testes unitários em `test/vehicle/`.
 - `vehicle/VehiclePhysics`: dono do chassi (corpo dinâmico + cuboid) e do `DynamicRayCastVehicleController` com 4 rodas; aplica os comandos (tração `rear`/`front`/`all`, freio em N → impulso por passo), guarda os valores das rodas do passo anterior, *reset* e `destroy()`. Usa THREE só para matemática.
 - `render/VehicleView`: placeholders, carregamento do modelo via `VehicleManager` (ignora carregamentos obsoletos com `loadRequestId`), pose interpolada do chassi e das rodas com os ajustes de alinhamento, liberação de geometrias e materiais (`releaseObjects`).
-- `Player`: orquestra as peças — registra o pré-passo (input → `VehicleControl` → `VehiclePhysics`), troca de veículo, *reset* e consultas para câmera e UI (`mesh`, `getPosition`, `getQuaternion`, `getRotation`, `getCameraConfig`, `getCurrentSpeed`, `getWheelAngle`).
+- `Player`: orquestra as peças — registra o pré-passo (telemetria → input ou replay → `VehicleControl` → `VehiclePhysics`), troca de veículo, *reset*, gravação/reprodução de replay e consultas para câmera e UI (`mesh`, `getPosition`, `getQuaternion`, `getRotation`, `getCameraConfig`, `getCurrentSpeed`, `getWheelAngle`, `getTelemetry`).
+- `vehicle/VehicleTelemetry`: reescrita no lugar no início de cada pré-passo (resultado do passo anterior, sem alocação): velocidade, aceleração longitudinal/lateral em g (diferença de velocidade no passo, eixos do chassi), esterço e, por roda, contato, comprimento e compressão da suspensão (m), força da suspensão (N) e impulsos longitudinal/lateral do pneu (N·s). Lida do `RaycastVehicle` (`wheelSuspensionForce`, `wheelForwardImpulse`, `wheelSideImpulse`). Em repouso a soma das forças de suspensão é m·g (teste).
 - `VehicleManager`: só carrega os glTF, com *fallback* para primitivas.
 
 Limitações:
@@ -122,6 +123,14 @@ Limitações:
 - O `Player` recebe só o `InputFrame` (P1-4).
 
 Modelo físico do veículo: *raycast vehicle* (Bullet, via Rapier). Suspensão linear com amortecimento de compressão/relaxamento (rigidez e amortecimento por kg de chassi), atrito por limite de impulso (`frictionSlip`, `sideFrictionStiffness`), freio configurado em N e convertido no impulso por passo que o controlador espera (`força × dt`); unidades em `VehiclePhysicsConfig` e no ADR-0002. Não há equivalente ao `rollInfluence` da cannon-es (o G63 vira com raio maior que antes; ver ADR-0001). Não há modelo de pneu, inércia de roda, trem de força, câmbio, diferencial nem aerodinâmica.
+
+### 3.2.1 Replay — `src/replay/` [Implementado]
+
+- `Replay`: estado inicial (`vehicleId`, pose e velocidades linear/angular do chassi, esterço) + um `InputFrame` por passo de física em arrays tipados (`Float64Array`: valores analógicos exatos; bits para freio de mão/boost) e o passo fixo.
+- `ReplayRecorder` grava em buffers pré-alocados (padrão 10 min a 60 Hz; para ao encher); `ReplayPlayback` escreve o passo seguinte num `InputFrame` próprio. `Player.startRecording/stopRecording/playReplay`; o pré-passo usa o frame do replay no lugar do `InputFrame` ao vivo e grava o frame efetivamente usado.
+- Determinismo: o passo é fixo e o input é por passo, logo a reprodução independe da taxa de quadros. Ao iniciar a gravação o estado capturado é reaplicado ao chassi, porque a Rapier normaliza o quaternion em `setRotation` (diferença de 1 ulp); assim gravação e reprodução partem do mesmo estado. Reproduz bit a bit em mundo novo (`test/replay/`) desde que o mundo seja o mesmo; no jogo os corpos dinâmicos do `Environment` não são restaurados.
+- *Reset* ou troca de veículo descartam gravação e reprodução; passo fixo diferente do gravado lança erro.
+- Pasta própria em vez de `src/debug/`: o replay é dado de simulação (regressão, futuros *ghosts*), não ferramenta de depuração visual. Botões gravar/reproduzir no HUD de dev.
 
 ### 3.3 Input — `src/input/` [Implementado]
 
@@ -148,7 +157,7 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 
 ### 3.6 UI, dev mode, desempenho [Implementado]
 
-- `UIManager`: escreve velocidade/posição/rotação/ângulo de roda no DOM quando o modo dev está ativo. Os botões “BMW M4 / MERCEDES G63” do HTML não têm handler.
+- `UIManager`: no modo dev, a ~10 Hz, escreve velocidade/posição/rotação/ângulo de roda, aceleração em g e a tabela de telemetria por roda (contato, compressão em mm, suspensão e forças do pneu em kN = impulso/passo); botões gravar/reproduzir replay (`bindReplayControls`, ligado em `main.ts`). Os botões “BMW M4 / MERCEDES G63” do HTML não têm handler.
 - `DevModeManager`: singleton com `localStorage` e assinantes por id.
 - `PerformanceManager`: painel `Stats` (FPS).
 
@@ -224,7 +233,7 @@ Contratos-chave (a definir no P1, ver ROADMAP):
 - `PhysicsWorld`: criar/remover corpos e colisores, `castRay`/`castShape` com filtro, aplicar força/impulso em ponto, ler transformações, `step(dt)`, snapshot. Só o adaptador importa `@dimforge/rapier3d-compat`.
 - `VehicleDefinition` (dados, imutável) × `VehicleState` (runtime, por instância).
 - `InputFrame` **[Implementado]** (`src/input/InputFrame.ts`, §3.3): valores normalizados (`throttle`, `brake`, `steer`, `handbrake`, `boost`), independentes de dispositivo; produzido por quadro e lido por todos os passos do quadro.
-- `SimulationSnapshot` legível pela apresentação: transformações atual e anterior para interpolação, telemetria por roda.
+- `SimulationSnapshot` legível pela apresentação: transformações atual e anterior para interpolação, telemetria por roda (telemetria **[Implementado]** em `VehicleTelemetry`, §3.2).
 - Unidades SI (metro, quilograma, segundo, radiano, newton) e convenção de eixos única, documentadas no código.
 
 Estado da migração: **[Implementado]** `data/vehicles` (`VehicleDefinition`), `vehicle/VehicleState`, `input/InputFrame` (contrato), `vehicle/VehicleControl` (recebe o `InputFrame`), `vehicle/VehiclePhysics` (sobre `PhysicsWorld`; o controlador ainda é o *raycast* da Rapier), `physics/PhysicsWorld` + `RapierPhysicsWorld` e `render/VehicleView`. Ainda não há `castShape` com filtro, força/impulso em ponto nem snapshot. O resto continua **[Planejado]**.

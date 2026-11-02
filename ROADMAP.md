@@ -142,10 +142,11 @@ flowchart LR
 - **Entregas:** `dispose()` consistente (GPU e WASM); cancelamento de carregamento ao trocar veículo; materiais carregados passam por `LightingManager.setupMaterial`.
 - **Conclusão:** trocar de veículo 20 vezes mantém constantes `renderer.info.memory` e o número de corpos/colisores/controladores (teste ou verificação documentada).
 
-### [ ] P1-6 — Telemetria, debug e replay
+### [x] P1-6 — Telemetria, debug e replay
 
 - **Entregas:** HUD de dev com dados por roda (contato, compressão, forças); gravação de `InputFrame` + snapshot inicial; reprodução determinística em teste.
 - **Conclusão:** um replay gravado reproduz a mesma trajetória (tolerância definida) em Node.
+- **Resultado:** `VehicleTelemetry` por passo em `VehiclePhysics` (HUD F2 a 10 Hz); `src/replay/` (gravação por passo em buffers pré-alocados, estado inicial do chassi). `test/replay/`: trajetória igual bit a bit (tolerância zero) em mundo novo, com taxas de quadro diferentes na gravação e na reprodução.
 
 ### [ ] P1-7 — Lint e formatação
 

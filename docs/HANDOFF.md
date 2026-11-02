@@ -11,7 +11,8 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
-- Nada. P1-1 a P1-4 integrados (input em `src/input`, `InputFrame`, ações tipadas no `main.ts`; física atrás de `PhysicsWorld`).
+- P1-6 na branch `feat/telemetry-replay` (telemetria por passo + HUD F2, `src/replay/`, teste de replay bit a bit). Aguardando integração.
+- P1-1 a P1-4 integrados (input em `src/input`, `InputFrame`, ações tipadas no `main.ts`; física atrás de `PhysicsWorld`).
 
 ## Próximos itens (ordem)
 
@@ -37,5 +38,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - Passo de 1/120 s avaliado e não adotado: curva do G63 −3% de velocidade/+3,5% de guinada, resto < 1% (ARCHITECTURE §3.1).
 - `linearDamping` do chassi afeta muito a aceleração (0,2 → −35%).
 - Rigidez/amortecimento da suspensão do controlador são por unidade de massa do chassi (modelo Bullet).
+- Replay só é exato se gravação e reprodução partirem do estado reaplicado (`applyChassisState` no início da gravação): `setRotation` da Rapier normaliza o quaternion.
+- `rapierSim` expõe `player` e `physicsWorld` para testes que precisam de telemetria ou pré-passo próprio.
 - Testes: harness em `test/support/` (`rapierSim.ts`, `scenarios.ts`, `baseline.ts`); `UPDATE_BASELINE=1 npm test` regrava `test/baselines/rapier.json`.
 - Console no modo dev: `computeBoundingSphere(): Computed radius is NaN` ao carregar a página, já presente antes do P1-2 (provável `PhysicsDebugRenderer` no primeiro quadro); não investigado.
