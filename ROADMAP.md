@@ -169,6 +169,7 @@ flowchart LR
 
 ### [ ] P2-1 — Dinâmica veicular própria (ADR-0003)
 
+- **Estado:** ADR-0003 (`Proposta`) define 4 etapas. **Etapa 1 feita:** `vehicle/Powertrain` (curva de torque, lenta, corte, câmbio automático com histerese, diferencial, ré, limitador, inércia do motor, boost ≤ ×1,5 no torque), arrasto 0,5·ρ·Cd·A·v² por `PhysicsBody.applyImpulse`, limite de tração por roda, rpm e marcha na telemetria/HUD/replay. Medido: 0–100 BMW 4,15 s / G63 5,43 s; máxima 272,7 / 216,7 km/h. Próximas: etapa 2 suspensão própria (precisa de `castShape` e força em ponto), etapa 3 pneu, etapa 4 inércia de roda e diferencial.
 - **Objetivo:** substituir o controlador *raycast* embutido por um modelo próprio sobre o corpo rígido.
 - **Entregas, em ordem:** suspensão por roda (mola, amortecedor, *bump stop*, barra estabilizadora) com shape cast; modelo de pneu com escorregamento longitudinal/lateral e atrito combinado; inércia de roda; trem de força (curva de torque, câmbio, diferencial); freios e freio de mão; aerodinâmica; geometria de direção.
 - **Validação:** testes contra resultados analíticos (frequência natural da suspensão, carga estática por roda, força lateral em regime) e cenários de referência; telemetria do P1-6.
