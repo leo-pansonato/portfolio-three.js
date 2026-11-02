@@ -198,14 +198,11 @@ flowchart LR
 ### [ ] P2-5 — Câmeras
 
 - Câmera de perseguição com inércia, *look-ahead*, colisão com cenário; auto-centro no modo orbital.
-- **Câmera pelo analógico do gamepad:** orbitar e olhar em volta pelo analógico, como hoje o mouse faz.
+- **Câmera pelo analógico direito do gamepad:** orbitar e olhar em volta pelo analógico, como hoje o mouse faz.
   - O analógico entra no `LookInput` (`InputManager`) como taxa em rad/s, com zona morta e curva de resposta, e não como delta por quadro.
   - O auto-centro já existente volta a câmera ao soltar o analógico.
   - Funciona nos três modos de câmera.
-  - **Decidir antes:** o pedido é o analógico **esquerdo**, que hoje é a direção (`steerAxis`). As opções são:
-    - usar o direito, o padrão em jogos de corrida;
-    - tornar o eixo configurável em `InputBindings`;
-    - passar a direção para outro eixo.
+  - **Decidido (2026-11-02):** analógico **direito**; o esquerdo continua na direção (`steerAxis`).
   - **Conclusão:** teste de `InputManager` com gamepad simulado (taxa, zona morta, sem conflito com a direção); roteiro manual com controle real.
 
 ### [ ] P2-6 — UI (ADR-0004)
