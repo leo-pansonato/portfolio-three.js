@@ -44,7 +44,7 @@ export default class Player extends Entity {
 		this.currentVehicleId = "bmw_f82"; // bmw_f82 / mercedes_g63
 		this.initVehicle();
 		this.addToScene();
-		this.loadVehicle();
+		void this.loadVehicle();
 	}
 
 	/**

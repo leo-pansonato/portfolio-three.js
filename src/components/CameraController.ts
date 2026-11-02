@@ -101,8 +101,8 @@ export default class CameraController extends GameComponent {
 		this.currentAngles.pitch = THREE.MathUtils.lerp(this.currentAngles.pitch, this.targetAngles.pitch, rotationSmoothness);
 
 		// posição
-		let distance = config.distance;
-		let heightOffset = config.height;
+		const distance = config.distance;
+		const heightOffset = config.height;
 		const hDistance = distance * Math.cos(this.currentAngles.pitch);
 
 		this._offset.set(
@@ -176,7 +176,7 @@ export default class CameraController extends GameComponent {
 	}
 
 	private lerpAngle(start: number, end: number, t: number): number {
-		let d = end - start;
+		const d = end - start;
 		// if (d > Math.PI) d -= 2 * Math.PI;
 		// if (d < -Math.PI) d += 2 * Math.PI;
 		return start + d * t;

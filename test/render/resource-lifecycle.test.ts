@@ -161,9 +161,9 @@ describe("recursos de GPU ao trocar de veículo", () => {
 		gpu.render(scene);
 		const initial = gpu.counts();
 
-		player.changeVehicle("mercedes_g63");
-		player.changeVehicle("bmw_f82");
-		player.changeVehicle("mercedes_g63");
+		void player.changeVehicle("mercedes_g63");
+		void player.changeVehicle("bmw_f82");
+		void player.changeVehicle("mercedes_g63");
 		await player.changeVehicle("bmw_f82");
 		await wait(30);
 		gpu.render(scene);

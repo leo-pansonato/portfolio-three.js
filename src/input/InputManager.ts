@@ -73,7 +73,7 @@ export default class InputManager {
 
 		document.addEventListener("click", () => {
 			if (document.pointerLockElement !== document.body) {
-				document.body.requestPointerLock();
+				void document.body.requestPointerLock();
 			} else {
 				document.exitPointerLock();
 			}

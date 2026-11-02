@@ -10,7 +10,7 @@ class DevModeManager {
 
 	private constructor() {
 		const saved = localStorage.getItem("devMode");
-		this.enabled = saved == "true";
+		this.enabled = saved === "true";
 	}
 
 	/**

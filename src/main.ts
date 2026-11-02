@@ -120,8 +120,8 @@ class Game {
 		const input = this.inputManager;
 		input.on("toggleDevMode", () => devMode.toggle());
 		input.on("cycleCamera", () => this.cameraController.cycleCameraMode());
-		input.on("selectVehicle1", () => this.player.changeVehicle("bmw_f82"));
-		input.on("selectVehicle2", () => this.player.changeVehicle("mercedes_g63"));
+		input.on("selectVehicle1", () => void this.player.changeVehicle("bmw_f82"));
+		input.on("selectVehicle2", () => void this.player.changeVehicle("mercedes_g63"));
 		input.on("resetVehicle", () => this.player.resetCar());
 	}
 
@@ -188,4 +188,4 @@ async function initGame(): Promise<void> {
 	}
 }
 
-initGame();
+void initGame();
