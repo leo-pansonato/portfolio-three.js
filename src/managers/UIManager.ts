@@ -6,7 +6,15 @@ import { REVERSE_GEAR } from "../vehicle/VehicleState";
 import { devMode } from "./DevModeManager";
 
 const WHEEL_LABELS = ["DE", "DD", "TE", "TD"];
-const WHEEL_COLUMNS = ["contact", "compression", "suspension", "longitudinal", "lateral"] as const;
+const WHEEL_COLUMNS = [
+	"contact",
+	"compression",
+	"suspension",
+	"longitudinal",
+	"lateral",
+	"slipRatio",
+	"slipAngle",
+] as const;
 type WheelColumn = (typeof WHEEL_COLUMNS)[number];
 
 /**
@@ -174,6 +182,8 @@ export default class UIManager extends GameComponent {
 			cells.suspension.textContent = (wheel.suspensionForce / 1000).toFixed(2);
 			cells.longitudinal.textContent = (wheel.forwardImpulse * toKiloNewton).toFixed(2);
 			cells.lateral.textContent = (wheel.sideImpulse * toKiloNewton).toFixed(2);
+			cells.slipRatio.textContent = (wheel.slipRatio * 100).toFixed(1);
+			cells.slipAngle.textContent = ((wheel.slipAngle * 180) / Math.PI).toFixed(1);
 		}
 	}
 }
