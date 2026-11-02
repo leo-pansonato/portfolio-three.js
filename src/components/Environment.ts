@@ -21,8 +21,8 @@ export default class Environment extends GameComponent {
 		this.physicsWorld = physicsWorld;
 
 		this.createPlane();
-		// this.createCubeSkybox("../textures/cartoonSkybox/");
-		this.createHDRSkybox("../textures/realisticSkybox/", "dawn_4k.hdr");
+		// this.createCubeSkybox("textures/cartoonSkybox/");
+		this.createHDRSkybox("textures/realisticSkybox/", "dawn_4k.hdr");
 		this.createObstacles();
 	}
 

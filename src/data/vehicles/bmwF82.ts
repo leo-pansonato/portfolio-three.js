@@ -2,7 +2,7 @@ import { CameraMode, VehicleDefinition } from "./types";
 
 export const bmwF82: VehicleDefinition = {
 	body: {
-		modelPath: "/assets/models/bmw_m4_f82/scene.gltf",
+		modelPath: "assets/models/bmw_m4_f82/scene.gltf",
 		scale: { x: 1, y: 1, z: 1 },
 		position: { x: 0.2, y: -0.66, z: 0 },
 		rotation: { x: 0, y: Math.PI / 2, z: 0 },
@@ -88,7 +88,7 @@ export const bmwF82: VehicleDefinition = {
 		tractionDisplacement: "rear",
 	},
 	wheels: {
-		modelPath: "/assets/models/wheel/scene.gltf",
+		modelPath: "assets/models/wheel/scene.gltf",
 		scale: { x: 0.85, y: 0.85, z: 0.85 },
 		adjustments: [
 			{ position: { x: 1.494, y: 0, z: -0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },

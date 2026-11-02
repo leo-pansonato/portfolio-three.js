@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+import "./styles/main.css";
+
 import CameraController from "./components/CameraController";
 import Environment from "./components/Environment";
 import GameComponent from "./components/GameComponent";

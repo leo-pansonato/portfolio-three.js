@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
 	{
-		ignores: ["dist/", "node_modules/", ".agents/", ".claude/", "assets/", "textures/", "test/baselines/"],
+		ignores: ["dist/", "node_modules/", ".agents/", ".claude/", "public/", "test/baselines/"],
 	},
 	js.configs.recommended,
 	{
@@ -12,7 +12,7 @@ export default tseslint.config(
 		languageOptions: {
 			parserOptions: {
 				projectService: {
-					allowDefaultProject: ["vite-env.d.ts", "vitest.config.ts"],
+					allowDefaultProject: ["vite-env.d.ts", "vite.config.ts", "vitest.config.ts"],
 				},
 				tsconfigRootDir: import.meta.dirname,
 			},

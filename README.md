@@ -2,7 +2,7 @@
 
 Protótipo de jogo de direção 3D para navegador, escrito em TypeScript com Three.js (renderização) e um motor de física rígida em JavaScript/WASM. O jogador dirige um veículo (BMW M4 F82 ou Mercedes G63) em um cenário com obstáculos físicos, com três modos de câmera e um modo de desenvolvimento com telemetria e visualização de colisores.
 
-![Three.js Car Game](textures/print.png)
+![Three.js Car Game](public/textures/print.png)
 
 ## Objetivo e proposta técnica
 
@@ -27,7 +27,7 @@ A estratégia técnica, as limitações conhecidas e o caminho de evolução est
 | TypeScript | ^5.9.3 | `strict`, `noUnusedLocals`, `noUnusedParameters` |
 | Vite | ^7.3.0 | Servidor de desenvolvimento e build |
 
-Modelos 3D em glTF (`assets/models`), skyboxes HDR e cúbicos (`textures`).
+Modelos 3D em glTF (`public/assets/models`), skyboxes HDR e cúbicos (`public/textures`), servidos sem processamento pelo Vite.
 
 ## Pré-requisitos
 
@@ -78,9 +78,13 @@ Os testes montam o veículo real sem navegador e comparam repouso, aceleração,
 
 ```
 ├── index.html               # Página e overlays (HUD de dev, ícones de controle)
-├── css/main.css
+├── vite.config.ts           # base relativa: dist/ funciona em qualquer caminho
+├── public/                  # Copiado como está para dist/ (carregado em runtime por URL)
+│   ├── assets/models/       # glTF dos veículos e rodas
+│   └── textures/            # Skyboxes, logo, screenshot
 ├── src/
 │   ├── main.ts              # Classe Game: cria subsistemas e roda o loop
+│   ├── styles/              # CSS e imagens importados (entram no bundle com hash)
 │   ├── components/          # Objetos de jogo (GameComponent/Entity)
 │   │   ├── Player.ts        # Veículo do jogador: física, direção, sincronização visual
 │   │   ├── CameraController.ts
@@ -90,8 +94,6 @@ Os testes montam o veículo real sem navegador e comparam repouso, aceleração,
 │   ├── managers/            # Serviços: física, input, iluminação, UI, desempenho, dev mode
 │   └── loaders/ModelLoader.ts
 ├── test/                    # Vitest: harness headless, cenários e linhas de base
-├── assets/models/           # glTF dos veículos e rodas
-├── textures/                # Skyboxes, ícones, screenshot
 └── docs/decisions/          # Registros de decisão arquitetural (ADR)
 ```
 

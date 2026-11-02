@@ -59,7 +59,7 @@ npm test              # Vitest em Node: cenários de referência da física (tes
 
 - Criar arquivo: só quando a responsabilidade não cabe em um existente sem misturar domínios. Código novo segue a organização por domínio de ARCHITECTURE §5 (`src/physics`, `src/vehicle`, …); não crie novos `*Manager` genéricos.
 - Remover arquivo ou código: só se `grep` confirmar ausência de uso e o item estiver no escopo da tarefa (ex.: `Material.ts` está listado como morto, mas a remoção é P3-5).
-- Assets: não adicione modelos/texturas sem uso no código. Assets entram no histórico do Git para sempre.
+- Assets: carregados por URL em runtime (glTF, HDR) ficam em `public/`; CSS e imagens importados pelo código ficam em `src/`. Não adicione modelos/texturas sem uso no código. Assets entram no histórico do Git para sempre.
 - Nunca commite `dist/` nem `node_modules/`.
 
 ## Antes de modificar um subsistema

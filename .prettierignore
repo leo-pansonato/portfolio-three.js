@@ -2,8 +2,7 @@ dist/
 node_modules/
 .agents/
 .claude/
-assets/
-textures/
+public/
 test/baselines/
 package-lock.json
 skills-lock.json

@@ -100,7 +100,7 @@ body {
 	width: 35px;
 	height: 35px;
 	display: inline-block;
-	background: url("../textures/icoCtrls.png") 0% 50% / 300% 100% no-repeat;
+	background: url("./icoCtrls.png") 0% 50% / 300% 100% no-repeat;
 }
 
 #ctrlIcoMouse {

@@ -2,7 +2,7 @@ import { CameraMode, VehicleDefinition } from "./types";
 
 export const mercedesG63: VehicleDefinition = {
 	body: {
-		modelPath: "/assets/models/mercedes_g63/scene.gltf",
+		modelPath: "assets/models/mercedes_g63/scene.gltf",
 		scale: { x: 1, y: 1, z: 1 },
 		position: { x: 0, y: -0.66, z: 0 },
 		rotation: { x: 0, y: Math.PI / 2, z: 0 },
@@ -88,7 +88,7 @@ export const mercedesG63: VehicleDefinition = {
 		tractionDisplacement: "all",
 	},
 	wheels: {
-		modelPath: "/assets/models/wheel/scene.gltf",
+		modelPath: "assets/models/wheel/scene.gltf",
 		scale: { x: 1, y: 1, z: 1 },
 		adjustments: [
 			{ position: { x: 1.48, y: 0, z: -0.8 }, rotation: { x: -Math.PI / 2, y: 0, z: Math.PI / 2 } },
