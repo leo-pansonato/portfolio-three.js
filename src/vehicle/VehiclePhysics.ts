@@ -1,7 +1,16 @@
 import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
-import { PhysicsBody, PhysicsWorld, QuatLike, RaycastVehicle, Vec3Like } from "../physics/PhysicsWorld";
+import {
+	createRaycastHit,
+	PhysicsBody,
+	PhysicsWorld,
+	QuatLike,
+	RaycastHit,
+	RaycastVehicle,
+	Vec3Like,
+} from "../physics/PhysicsWorld";
 import { aerodynamicDragImpulse } from "./aerodynamics";
+import Suspension from "./Suspension";
 import { VehicleCommands } from "./VehicleControl";
 import { VehicleState } from "./VehicleState";
 import { createVehicleTelemetry, createWheelTelemetry, STANDARD_GRAVITY, VehicleTelemetry } from "./VehicleTelemetry";
@@ -25,7 +34,8 @@ export interface ChassisState {
 }
 
 /**
- * Física de um veículo: chassi (corpo dinâmico + cuboid) e controlador de veículo por raycast.
+ * Física de um veículo: chassi (corpo dinâmico + cuboid), suspensão própria por roda (raio pelo PhysicsWorld,
+ * impulso no ponto de fixação) e controlador de veículo por raycast só para os pneus.
  * Dono desses objetos do motor; `destroy()` os remove do mundo.
  * Eixos do chassi (ADR-0002): frente +X, cima +Y, direita +Z; THREE só para matemática.
  */
@@ -34,15 +44,24 @@ export default class VehiclePhysics {
 	readonly controller: RaycastVehicle;
 	readonly wheels: WheelStepState[] = [];
 	readonly telemetry: VehicleTelemetry = createVehicleTelemetry();
+	readonly suspension: Suspension;
 
 	private readonly suspensionRestLength: number;
-	/** Forças de suspensão do controlador valem para o estado atual (falso após escrever o estado do chassi) */
+	/** Pontos de fixação da suspensão (m, eixos locais do chassi) */
+	private readonly connectionPoints: THREE.Vector3[] = [];
+	private readonly hits: RaycastHit[] = [];
+	/** Forças de suspensão do último passo valem para o estado atual (falso após escrever o estado do chassi) */
 	private wheelLoadsValid = false;
 	private tempVector3 = new THREE.Vector3();
 	private tempVelocity = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
 	private tempRight = new THREE.Vector3();
 	private tempImpulse = new THREE.Vector3();
+	private tempPosition = new THREE.Vector3();
+	private tempHardPoint = new THREE.Vector3();
+	private tempDirection = new THREE.Vector3();
+	private tempPointVelocity = new THREE.Vector3();
+	private tempGroundVelocity = new THREE.Vector3();
 	private previousVelocity = new THREE.Vector3();
 	private hasPreviousVelocity = false;
 
@@ -57,6 +76,11 @@ export default class VehiclePhysics {
 		const physicsData = definition.physics;
 		const chassisSize = physicsData.size;
 		this.suspensionRestLength = physicsData.suspensionRestLength;
+		this.suspension = new Suspension(
+			definition.suspension,
+			physicsData.suspensionRestLength,
+			definition.wheels.adjustments.length,
+		);
 
 		this.chassisBody = physicsWorld.createRigidBody({
 			type: "dynamic",
@@ -99,14 +123,11 @@ export default class VehiclePhysics {
 				axle,
 				suspensionRestLength: physicsData.suspensionRestLength,
 				radius: physicsData.wheelRadius,
-				suspensionStiffness: physicsData.suspensionStiffness,
-				maxSuspensionTravel: physicsData.maxSuspensionTravel,
-				maxSuspensionForce: physicsData.maxSuspensionForce,
-				suspensionCompression: physicsData.suspensionCompression,
-				suspensionRelaxation: physicsData.suspensionRelaxation,
 				frictionSlip: wheel.frictionSlip ?? physicsData.frictionSlip,
 				sideFrictionStiffness: wheel.sideFrictionStiffness ?? physicsData.sideFrictionStiffness,
 			});
+			this.connectionPoints.push(new THREE.Vector3(wheel.position.x, wheel.position.y, wheel.position.z));
+			this.hits.push(createRaycastHit());
 
 			this.wheels.push({
 				previousSuspensionLength: physicsData.suspensionRestLength,
@@ -147,10 +168,62 @@ export default class VehiclePhysics {
 		);
 	}
 
-	/** Atualiza o controlador; chamar no pré-passo, antes de `world.step()` */
+	/** Suspensão e depois o controlador (pneus); chamar no pré-passo, antes de `world.step()` */
 	updateVehicle(dt: number): void {
+		this.updateSuspension(dt);
 		this.controller.updateVehicle(dt);
 		this.wheelLoadsValid = true;
+	}
+
+	/**
+	 * Mede cada roda com um raio da fixação ao longo da suspensão (ignorando o chassi), calcula as forças e as aplica
+	 * como impulso (N·s) ao longo da normal, no ponto de contato (como o controlador); a carga vai ao controlador para o atrito.
+	 * Velocidade de compressão = velocidade relativa ao longo da normal / cos(normal, suspensão): deslizar sobre o chão
+	 * não comprime; com a suspensão quase paralela ao chão (cos > −0,1) é zero.
+	 */
+	private updateSuspension(dt: number): void {
+		const chassis = this.chassisBody;
+		const position = chassis.getPosition(this.tempPosition);
+		const rotation = chassis.getRotation(this.tempQuaternion);
+		const direction = this.tempDirection.copy(VehiclePhysics.LOCAL_DOWN).applyQuaternion(rotation);
+		const radius = this.definition.physics.wheelRadius;
+		const rayLength = this.suspensionRestLength + radius;
+
+		for (let i = 0; i < this.connectionPoints.length; i++) {
+			const hardPoint = this.tempHardPoint.copy(this.connectionPoints[i]).applyQuaternion(rotation).add(position);
+			const hit = this.hits[i];
+			if (this.physicsWorld.castRayWithNormal(hardPoint, direction, rayLength, hit, chassis)) {
+				const velocity = chassis.getVelocityAtPoint(hardPoint, this.tempPointVelocity);
+				if (hit.body) {
+					const ground = hit.body.getVelocityAtPoint(hit.point, this.tempGroundVelocity);
+					velocity.sub(ground);
+				}
+				const normal = hit.normal;
+				const normalDotDirection = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
+				const normalSpeed = normal.x * velocity.x + normal.y * velocity.y + normal.z * velocity.z;
+				const compressionRate = normalDotDirection < -0.1 ? normalSpeed / normalDotDirection : 0;
+				this.suspension.setContact(i, true, hit.distance - radius, compressionRate);
+			} else {
+				this.suspension.setContact(i, false, this.suspensionRestLength, 0);
+			}
+		}
+
+		this.suspension.computeForces();
+
+		for (let i = 0; i < this.connectionPoints.length; i++) {
+			const wheel = this.suspension.wheels[i];
+			if (!wheel.inContact) {
+				this.controller.setWheelTireLoad(i, 0, this.suspensionRestLength, -1);
+				continue;
+			}
+			const hit = this.hits[i];
+			const normal = hit.normal;
+			const impulse = wheel.force * dt;
+			this.tempImpulse.set(normal.x * impulse, normal.y * impulse, normal.z * impulse);
+			chassis.applyImpulseAtPoint(this.tempImpulse, hit.point);
+			const normalDotDirection = normal.x * direction.x + normal.y * direction.y + normal.z * direction.z;
+			this.controller.setWheelTireLoad(i, wheel.force, wheel.length, normalDotDirection);
+		}
 	}
 
 	/** Força do motor por roda motriz (N) conforme a tração */
@@ -173,7 +246,7 @@ export default class VehiclePhysics {
 			this.controller.setWheelEngineForce(index, force);
 			return;
 		}
-		const normalLoad = Math.max(0, this.controller.wheelSuspensionForce(index) ?? 0);
+		const normalLoad = this.suspension.wheels[index].force;
 		const limit = this.definition.physics.tractionFriction * normalLoad;
 		this.controller.setWheelEngineForce(index, Math.max(-limit, Math.min(limit, force)));
 	}
@@ -223,10 +296,11 @@ export default class VehiclePhysics {
 		telemetry.steeringAngle = this.wheelSteering(0);
 		for (let i = 0; i < telemetry.wheels.length; i++) {
 			const wheel = telemetry.wheels[i];
-			wheel.inContact = this.wheelIsInContact(i);
-			wheel.suspensionLength = this.wheelSuspensionLength(i);
-			wheel.compression = this.suspensionRestLength - wheel.suspensionLength;
-			wheel.suspensionForce = this.controller.wheelSuspensionForce(i) ?? 0;
+			const suspension = this.suspension.wheels[i];
+			wheel.inContact = suspension.inContact;
+			wheel.suspensionLength = suspension.length;
+			wheel.compression = suspension.compression;
+			wheel.suspensionForce = suspension.force;
 			wheel.forwardImpulse = this.controller.wheelForwardImpulse(i) ?? 0;
 			wheel.sideImpulse = this.controller.wheelSideImpulse(i) ?? 0;
 			wheel.steering = this.wheelSteering(i);
@@ -243,7 +317,7 @@ export default class VehiclePhysics {
 
 	/** Comprimento atual da suspensão (m) */
 	wheelSuspensionLength(index: number): number {
-		return this.controller.wheelSuspensionLength(index) ?? this.suspensionRestLength;
+		return this.suspension.wheels[index]?.length ?? this.suspensionRestLength;
 	}
 
 	/** Esterço atual (rad) */
@@ -257,7 +331,7 @@ export default class VehiclePhysics {
 	}
 
 	wheelIsInContact(index: number): boolean {
-		return this.controller.wheelIsInContact(index) ?? false;
+		return this.suspension.wheels[index]?.inContact ?? false;
 	}
 
 	/** Teleporta 1 m acima, nivelado e parado */

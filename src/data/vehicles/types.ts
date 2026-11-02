@@ -26,7 +26,7 @@ export interface Vec3 {
 }
 
 /**
- * Configuração de física do veículo para Rapier DynamicRayCastVehicleController
+ * Chassi, rodas e pneus; os pneus ainda são do DynamicRayCastVehicleController da Rapier (ADR-0003)
  */
 export interface VehiclePhysicsConfig {
 	/** Massa do chassi (kg) */
@@ -35,18 +35,8 @@ export interface VehiclePhysicsConfig {
 	size: Vec3;
 	/** Raio das rodas (m) */
 	wheelRadius: number;
-	/** Rigidez da suspensão por kg de chassi (N/m/kg = 1/s²), modelo Bullet */
-	suspensionStiffness: number;
-	/** Comprimento de repouso da suspensão (m) */
+	/** Comprimento livre da suspensão, da fixação ao centro da roda; também a extensão máxima (m) */
 	suspensionRestLength: number;
-	/** Curso máximo a partir do repouso (m) */
-	maxSuspensionTravel: number;
-	/** Força máxima da suspensão por roda (N) */
-	maxSuspensionForce: number;
-	/** Amortecimento na compressão por kg de chassi (1/s) */
-	suspensionCompression: number;
-	/** Amortecimento na extensão por kg de chassi (1/s) */
-	suspensionRelaxation: number;
 	/** Limite de atrito do pneu (adimensional, multiplica a carga normal) */
 	frictionSlip: number;
 	/** Multiplicador do impulso lateral (adimensional) */
@@ -164,6 +154,7 @@ export interface VehicleDefinition {
 		materials: Record<string, { castShadow: boolean; receiveShadow: boolean }>;
 	};
 	physics: VehiclePhysicsConfig;
+	suspension: VehicleSuspensionConfig;
 	powertrain: VehiclePowertrainConfig;
 	aerodynamics: VehicleAerodynamicsConfig;
 	cameraSettings: Record<CameraMode, CameraConfig>;
