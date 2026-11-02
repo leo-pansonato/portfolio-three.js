@@ -26,7 +26,10 @@ export default class ModelLoader {
 	/**
 	 * Instância do modelo (recursos compartilhados com o cache); devolver com `releaseModel`
 	 */
-	async loadModel(path: string, scale: { x: number; y: number; z: number } = { x: 1, y: 1, z: 1 }): Promise<THREE.Group | null> {
+	async loadModel(
+		path: string,
+		scale: { x: number; y: number; z: number } = { x: 1, y: 1, z: 1 },
+	): Promise<THREE.Group | null> {
 		const entry = this.entries.get(path) ?? this.createEntry(path);
 		entry.users++;
 
@@ -80,7 +83,7 @@ export default class ModelLoader {
 				collectGpuResources([template], entry.resources);
 				for (const resource of entry.resources) this.cachedResources.add(resource);
 			},
-			() => {}
+			() => {},
 		);
 		this.entries.set(path, entry);
 		return entry;
@@ -99,7 +102,7 @@ export default class ModelLoader {
 				(error: unknown) => {
 					console.error("Erro ao carregar modelo:", error);
 					reject(error);
-				}
+				},
 			);
 		});
 	}

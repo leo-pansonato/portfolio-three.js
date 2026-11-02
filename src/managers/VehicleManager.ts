@@ -38,8 +38,8 @@ export default class VehicleManager {
 					vehicleConfig.wheels.modelPath,
 					vehicleConfig.wheels.scale,
 					wheelCount,
-					vehicleConfig
-				)
+					vehicleConfig,
+				),
 			]);
 
 			if (!bodyMesh) {
@@ -89,7 +89,7 @@ export default class VehicleManager {
 		modelPath: string,
 		scale: { x: number; y: number; z: number },
 		wheelCount: number,
-		vehicleConfig: VehicleDefinition
+		vehicleConfig: VehicleDefinition,
 	): Promise<THREE.Object3D[]> {
 		const loaded = await Promise.all(Array.from({ length: wheelCount }, () => this.loadModel(modelPath, scale)));
 		const wheelMeshes = loaded.filter((wheel): wheel is THREE.Group => wheel !== null);
@@ -112,7 +112,11 @@ export default class VehicleManager {
 			});
 
 			if (adjustments[i]) {
-				wheelInstance.position.set(adjustments[i].position.x, adjustments[i].position.y, adjustments[i].position.z);
+				wheelInstance.position.set(
+					adjustments[i].position.x,
+					adjustments[i].position.y,
+					adjustments[i].position.z,
+				);
 			}
 		});
 
@@ -150,11 +154,7 @@ export default class VehicleManager {
 
 			// Posição inicial baseada nos ajustes
 			if (adjustments[i]) {
-				wheelMesh.position.set(
-					adjustments[i].position.x,
-					adjustments[i].position.y,
-					adjustments[i].position.z
-				);
+				wheelMesh.position.set(adjustments[i].position.x, adjustments[i].position.y, adjustments[i].position.z);
 			}
 
 			wheelMeshes.push(wheelMesh);

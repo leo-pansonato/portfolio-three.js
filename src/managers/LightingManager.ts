@@ -101,7 +101,7 @@ export default class LightingManager extends GameComponent {
 		this.updateFrustums();
 	}
 
-   /**
+	/**
 	 * Configura todos os materiais da cena para usar CSM
 	 * Deve ser chamado após criar objetos ou ao carregar novos modelos
 	 */
@@ -142,7 +142,6 @@ export default class LightingManager extends GameComponent {
 		}
 	}
 
-
 	/**
 	 * Configura um material para usar CSM
 	 * Deve ser chamado para cada material que deve receber sombras CSM
@@ -152,7 +151,6 @@ export default class LightingManager extends GameComponent {
 		this.csm.setupMaterial(material);
 		material.needsUpdate = true;
 	}
-
 
 	/**
 	 * Habilita helper visual

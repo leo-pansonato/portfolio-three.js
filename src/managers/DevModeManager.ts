@@ -41,7 +41,6 @@ class DevModeManager {
 		});
 	}
 
-
 	toggle(): void {
 		this.setEnabled(!this.enabled);
 	}

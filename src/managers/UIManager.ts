@@ -152,8 +152,7 @@ export default class UIManager extends GameComponent {
 
 	private updateTelemetry(telemetry: Readonly<VehicleTelemetry>): void {
 		if (this.accelerationCounter)
-			this.accelerationCounter.textContent =
-				`long ${telemetry.longitudinalAccelerationG.toFixed(2)} g  lat ${telemetry.lateralAccelerationG.toFixed(2)} g`;
+			this.accelerationCounter.textContent = `long ${telemetry.longitudinalAccelerationG.toFixed(2)} g  lat ${telemetry.lateralAccelerationG.toFixed(2)} g`;
 
 		const toKiloNewton = telemetry.timeStep > 0 ? 1 / (telemetry.timeStep * 1000) : 0;
 		for (let i = 0; i < this.wheelCells.length; i++) {

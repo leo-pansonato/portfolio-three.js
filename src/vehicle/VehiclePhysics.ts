@@ -47,7 +47,7 @@ export default class VehiclePhysics {
 
 	constructor(
 		private readonly physicsWorld: PhysicsWorld,
-		private readonly definition: VehicleDefinition
+		private readonly definition: VehicleDefinition,
 	) {
 		const physicsData = definition.physics;
 		const chassisSize = physicsData.size;
@@ -74,7 +74,7 @@ export default class VehiclePhysics {
 				restitution: 0.1,
 				density: physicsData.mass / (chassisSize.x * chassisSize.y * chassisSize.z),
 			},
-			this.chassisBody
+			this.chassisBody,
 		);
 
 		this.controller = physicsWorld.createVehicleController(this.chassisBody);

@@ -54,7 +54,11 @@ export class BaselineFile {
 	save(): void {
 		if (!UPDATE_BASELINE) return;
 		const merged = { ...this.data, ...this.measured };
-		const sorted = Object.fromEntries(Object.keys(merged).sort().map((k) => [k, merged[k]]));
+		const sorted = Object.fromEntries(
+			Object.keys(merged)
+				.sort()
+				.map((k) => [k, merged[k]]),
+		);
 		writeFileSync(this.path, JSON.stringify(sorted, null, "\t") + "\n");
 	}
 }

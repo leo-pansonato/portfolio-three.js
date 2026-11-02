@@ -64,7 +64,10 @@ describe("ciclo de vida do veículo", () => {
 		expect(vehicleMeshes).toHaveLength(1);
 		expect((player as any).currentVehicleId).toBe("mercedes_g63");
 		const wheelRadii = scene.children
-			.filter((child): child is THREE.Mesh => child instanceof THREE.Mesh && child.geometry instanceof THREE.CylinderGeometry)
+			.filter(
+				(child): child is THREE.Mesh =>
+					child instanceof THREE.Mesh && child.geometry instanceof THREE.CylinderGeometry,
+			)
 			.map((wheel) => (wheel.geometry as THREE.CylinderGeometry).parameters.radiusTop);
 		// raio da roda do G63 em m (o BMW usa 0.33)
 		expect(wheelRadii).toEqual([0.38, 0.38, 0.38, 0.38]);

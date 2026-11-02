@@ -27,7 +27,7 @@ export default class Player extends Entity {
 	public physics!: VehiclePhysics;
 	private readonly view: VehicleView;
 
-	public declare mesh: THREE.Object3D;
+	declare public mesh: THREE.Object3D;
 
 	private recorder: ReplayRecorder | null = null;
 	private playback: ReplayPlayback | null = null;
@@ -166,7 +166,9 @@ export default class Player extends Entity {
 	 */
 	playReplay(replay: Replay): void {
 		if (replay.fixedTimeStep !== this.physicsManager.fixedTimeStep) {
-			throw new Error(`Replay gravado com passo ${replay.fixedTimeStep} s; o mundo usa ${this.physicsManager.fixedTimeStep} s`);
+			throw new Error(
+				`Replay gravado com passo ${replay.fixedTimeStep} s; o mundo usa ${this.physicsManager.fixedTimeStep} s`,
+			);
 		}
 		if (replay.initial.vehicleId !== this.currentVehicleId) {
 			if (this.changeVehicle(replay.initial.vehicleId) === false) return;

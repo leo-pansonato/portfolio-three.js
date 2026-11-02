@@ -26,7 +26,12 @@ interface FakePad {
 }
 
 function createPad(): FakePad {
-	return { index: 0, id: "pad", axes: [0, 0], buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })) };
+	return {
+		index: 0,
+		id: "pad",
+		axes: [0, 0],
+		buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })),
+	};
 }
 
 let doc: FakeTarget & { body: object; pointerLockElement: object | null };
@@ -116,7 +121,13 @@ describe("InputManager — InputFrame", () => {
 describe("InputManager — ações discretas", () => {
 	function record(input: InputManager): InputAction[] {
 		const fired: InputAction[] = [];
-		for (const action of ["toggleDevMode", "cycleCamera", "selectVehicle1", "selectVehicle2", "resetVehicle"] as const) {
+		for (const action of [
+			"toggleDevMode",
+			"cycleCamera",
+			"selectVehicle1",
+			"selectVehicle2",
+			"resetVehicle",
+		] as const) {
 			input.on(action, () => fired.push(action));
 		}
 		return fired;
@@ -134,7 +145,14 @@ describe("InputManager — ações discretas", () => {
 		press("2");
 		press("r");
 		press("w");
-		expect(fired).toEqual(["cycleCamera", "cycleCamera", "toggleDevMode", "selectVehicle1", "selectVehicle2", "resetVehicle"]);
+		expect(fired).toEqual([
+			"cycleCamera",
+			"cycleCamera",
+			"toggleDevMode",
+			"selectVehicle1",
+			"selectVehicle2",
+			"resetVehicle",
+		]);
 	});
 
 	it("botões do gamepad emitem na borda de subida, durante o update", () => {

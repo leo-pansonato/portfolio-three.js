@@ -6,6 +6,6 @@ export default class GameComponent {
 
 	initialize(): void {}
 	update(_deltaTime: number, ..._args: any[]): void {}
-   onChangeDevMode(_enabled: boolean): void {}
+	onChangeDevMode(_enabled: boolean): void {}
 	render(): void {}
 }

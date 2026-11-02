@@ -41,14 +41,8 @@ export default class PhysicsDebugRenderer {
 		const { vertices, colors } = this.world.debugRender();
 
 		// Atualizar geometria
-		this.geometry.setAttribute(
-			"position",
-			new THREE.BufferAttribute(vertices, 3)
-		);
-		this.geometry.setAttribute(
-			"color",
-			new THREE.BufferAttribute(colors, 4)
-		);
+		this.geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+		this.geometry.setAttribute("color", new THREE.BufferAttribute(colors, 4));
 
 		// Forçar atualização
 		this.geometry.attributes.position.needsUpdate = true;

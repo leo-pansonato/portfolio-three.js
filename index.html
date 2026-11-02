@@ -1,65 +1,75 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-   <head>
-      <meta charset="utf-8" />
-      <title>joguinho three.js</title>
-      <link rel="stylesheet" type="text/css" href="../css/main.css" />
-      <!-- magia inexplicavel -->
-      <script type="module" src="/src/main.ts"></script>
-   </head>
-   <body>
-      <div class="overlay">
-         <!-- OVERLAY DEV -->
-         <div class="header" id="dev-overlay">
-            <div id="content">
-               <div class="content-column">
-                  <p>PLAYER</p>
-                  <div class="info"><span>speed</span><span id="speed"></span></div>
-                  <div class="info"><span>position</span><span id="position"></span></div>
-                  <div class="info"><span>rotation</span><span id="rotation"></span></div>
-                  <div class="info"><span>wheel-angle</span><span id="wheel-angle"></span></div>
-               </div>
-               <div class="content-column">
-                  <p>TELEMETRIA</p>
-                  <div class="info"><span>aceleração</span><span id="acceleration"></span></div>
-                  <table class="telemetry">
-                     <thead>
-                        <tr><th></th><th>contato</th><th>comp. mm</th><th>susp. kN</th><th>long. kN</th><th>lat. kN</th></tr>
-                     </thead>
-                     <tbody id="telemetry-wheels"></tbody>
-                  </table>
-                  <div class="info">
-                     <span><button id="replay-record">gravar</button> <button id="replay-play" disabled>reproduzir</button></span>
-                     <span id="replay-status"></span>
-                  </div>
-               </div>
-               <div class="content-column">
-                  <button>BMW M4</button>
-                  <button>MERCEDES G63</button>
-               </div>
-               <div class="content-column">
-                  <span>Dev Mode</span>
-                  <span>Press F2 to hide</span>
-               </div>
-            </div>
-            <div id="fps-container"></div>
-         </div>
+	<head>
+		<meta charset="utf-8" />
+		<title>joguinho three.js</title>
+		<link rel="stylesheet" type="text/css" href="../css/main.css" />
+		<!-- magia inexplicavel -->
+		<script type="module" src="/src/main.ts"></script>
+	</head>
+	<body>
+		<div class="overlay">
+			<!-- OVERLAY DEV -->
+			<div class="header" id="dev-overlay">
+				<div id="content">
+					<div class="content-column">
+						<p>PLAYER</p>
+						<div class="info"><span>speed</span><span id="speed"></span></div>
+						<div class="info"><span>position</span><span id="position"></span></div>
+						<div class="info"><span>rotation</span><span id="rotation"></span></div>
+						<div class="info"><span>wheel-angle</span><span id="wheel-angle"></span></div>
+					</div>
+					<div class="content-column">
+						<p>TELEMETRIA</p>
+						<div class="info"><span>aceleração</span><span id="acceleration"></span></div>
+						<table class="telemetry">
+							<thead>
+								<tr>
+									<th></th>
+									<th>contato</th>
+									<th>comp. mm</th>
+									<th>susp. kN</th>
+									<th>long. kN</th>
+									<th>lat. kN</th>
+								</tr>
+							</thead>
+							<tbody id="telemetry-wheels"></tbody>
+						</table>
+						<div class="info">
+							<span
+								><button id="replay-record">gravar</button>
+								<button id="replay-play" disabled>reproduzir</button></span
+							>
+							<span id="replay-status"></span>
+						</div>
+					</div>
+					<div class="content-column">
+						<button>BMW M4</button>
+						<button>MERCEDES G63</button>
+					</div>
+					<div class="content-column">
+						<span>Dev Mode</span>
+						<span>Press F2 to hide</span>
+					</div>
+				</div>
+				<div id="fps-container"></div>
+			</div>
 
-         <!-- OVERLAY CONTROLES -->
-         <div class="ctrl" id="ctrlKeys">
-            <div class="ctrlIcon" id="ctrlIcoKeys"></div>
-            <div class="ctrlDesc">Controles</div>
-         </div>
-         <div class="ctrl" id="ctrlMouse">
-            <div class="ctrlIcon" id="ctrlIcoMouse"></div>
-            <div class="ctrlDesc">Camera</div>
-         </div>
-         <div class="ctrl" id="ctrlScroll">
-            <div class="ctrlIcon" id="ctrlIcoScroll"></div>
-            <div class="ctrlDesc">Zoom</div>
-         </div>
-      </div>
+			<!-- OVERLAY CONTROLES -->
+			<div class="ctrl" id="ctrlKeys">
+				<div class="ctrlIcon" id="ctrlIcoKeys"></div>
+				<div class="ctrlDesc">Controles</div>
+			</div>
+			<div class="ctrl" id="ctrlMouse">
+				<div class="ctrlIcon" id="ctrlIcoMouse"></div>
+				<div class="ctrlDesc">Camera</div>
+			</div>
+			<div class="ctrl" id="ctrlScroll">
+				<div class="ctrlIcon" id="ctrlIcoScroll"></div>
+				<div class="ctrlDesc">Zoom</div>
+			</div>
+		</div>
 
-      <div id="main"></div>
-   </body>
+		<div id="main"></div>
+	</body>
 </html>

@@ -24,7 +24,7 @@ export default class VehicleControl {
 
 	constructor(
 		private readonly config: VehicleDrivingConfig,
-		private readonly state: VehicleState
+		private readonly state: VehicleState,
 	) {}
 
 	/**

@@ -34,7 +34,7 @@ export default class Entity extends GameComponent {
 		return this.mesh ? this.mesh.rotation : null;
 	}
 
-   getQuaternion(): THREE.Quaternion | null {
-      return this.mesh ? this.mesh.quaternion : null;
-   }
+	getQuaternion(): THREE.Quaternion | null {
+		return this.mesh ? this.mesh.quaternion : null;
+	}
 }

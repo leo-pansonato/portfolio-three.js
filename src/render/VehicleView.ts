@@ -50,7 +50,7 @@ export default class VehicleView {
 	constructor(
 		private readonly scene: THREE.Scene,
 		private readonly physicsWorld: PhysicsWorld,
-		private readonly vehicleManager: VehicleManager = new VehicleManager()
+		private readonly vehicleManager: VehicleManager = new VehicleManager(),
 	) {}
 
 	/**
@@ -145,7 +145,11 @@ export default class VehicleView {
 			const previous = this.physics.wheels[i];
 
 			pose.isInContact = this.physics.wheelIsInContact(i);
-			pose.suspensionLength = THREE.MathUtils.lerp(previous.previousSuspensionLength, this.physics.wheelSuspensionLength(i), alpha);
+			pose.suspensionLength = THREE.MathUtils.lerp(
+				previous.previousSuspensionLength,
+				this.physics.wheelSuspensionLength(i),
+				alpha,
+			);
 			pose.steering = THREE.MathUtils.lerp(previous.previousSteering, this.physics.wheelSteering(i), alpha);
 			pose.rotation = THREE.MathUtils.lerp(previous.previousRotation, this.physics.wheelRotation(i), alpha);
 
@@ -183,12 +187,22 @@ export default class VehicleView {
 
 	private updateWheelMeshes(): void {
 		for (let i = 0; i < this.wheelPoses.length; i++) {
-			this.fixWheelAlignment(i, this.wheelMeshes[i], this.wheelPoses[i], this.definition.wheels.adjustments[i] ?? null);
+			this.fixWheelAlignment(
+				i,
+				this.wheelMeshes[i],
+				this.wheelPoses[i],
+				this.definition.wheels.adjustments[i] ?? null,
+			);
 		}
 	}
 
 	/** Pose do chassi mais o ajuste do modelo (posição em eixos locais, rotação em rad) */
-	private fixCarAlignment(carMesh: THREE.Object3D, position: THREE.Vector3, rotation: THREE.Quaternion, adjustments: { position: Vec3; rotation: Vec3 }): void {
+	private fixCarAlignment(
+		carMesh: THREE.Object3D,
+		position: THREE.Vector3,
+		rotation: THREE.Quaternion,
+		adjustments: { position: Vec3; rotation: Vec3 },
+	): void {
 		carMesh.position.copy(position);
 		carMesh.quaternion.copy(rotation);
 
@@ -201,7 +215,12 @@ export default class VehicleView {
 		carMesh.rotateZ(adjustments.rotation.z);
 	}
 
-	private fixWheelAlignment(wheelIndex: number, wheelMesh: THREE.Object3D, pose: WheelPose, adjustments: { rotation: Vec3 } | null): void {
+	private fixWheelAlignment(
+		wheelIndex: number,
+		wheelMesh: THREE.Object3D,
+		pose: WheelPose,
+		adjustments: { rotation: Vec3 } | null,
+	): void {
 		wheelMesh.position.copy(pose.worldPosition);
 		wheelMesh.quaternion.copy(pose.worldQuaternion);
 

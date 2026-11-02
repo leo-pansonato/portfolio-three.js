@@ -98,7 +98,11 @@ export default class CameraController extends GameComponent {
 		// suavização
 		const rotationSmoothness = deltaTime * this.SMOOTH_ROTATION_SPEED;
 		this.currentAngles.yaw = this.lerpAngle(this.currentAngles.yaw, this.targetAngles.yaw, rotationSmoothness);
-		this.currentAngles.pitch = THREE.MathUtils.lerp(this.currentAngles.pitch, this.targetAngles.pitch, rotationSmoothness);
+		this.currentAngles.pitch = THREE.MathUtils.lerp(
+			this.currentAngles.pitch,
+			this.targetAngles.pitch,
+			rotationSmoothness,
+		);
 
 		// posição
 		const distance = config.distance;
@@ -108,7 +112,7 @@ export default class CameraController extends GameComponent {
 		this._offset.set(
 			hDistance * Math.sin(this.currentAngles.yaw),
 			distance * Math.sin(this.currentAngles.pitch) + heightOffset,
-			hDistance * Math.cos(this.currentAngles.yaw)
+			hDistance * Math.cos(this.currentAngles.yaw),
 		);
 
 		this.camera.position.copy(targetPos).add(this._offset);

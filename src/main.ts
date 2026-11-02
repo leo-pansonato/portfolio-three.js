@@ -106,7 +106,13 @@ class Game {
 		this.lightingManager.setupCSMMaterials();
 
 		// Adicionar componentes à lista de componentes para update automático
-		this.components = [this.environment, this.lightingManager, this.player, this.cameraController, this.performanceManager];
+		this.components = [
+			this.environment,
+			this.lightingManager,
+			this.player,
+			this.cameraController,
+			this.performanceManager,
+		];
 
 		// redimensionamento de tela
 		window.addEventListener("resize", () => this.handleResize());
@@ -143,7 +149,7 @@ class Game {
 		let deltaTime = (now - this.lastTime) / 1000;
 		this.lastTime = now;
 
-      // limitar deltaTime para evitar saltos grandes
+		// limitar deltaTime para evitar saltos grandes
 		if (deltaTime > 0.1) {
 			deltaTime = 0.1;
 		}

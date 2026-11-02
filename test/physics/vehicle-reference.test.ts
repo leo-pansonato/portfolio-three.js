@@ -1,7 +1,13 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { BaselineFile } from "../support/baseline";
 import { createRapierSim } from "../support/rapierSim";
-import { accelerationScenario, brakingFromHundredScenario, brakingScenario, restScenario, turnScenario } from "../support/scenarios";
+import {
+	accelerationScenario,
+	brakingFromHundredScenario,
+	brakingScenario,
+	restScenario,
+	turnScenario,
+} from "../support/scenarios";
 
 // Sem rede/arquivos em Node: o Player usa o fallback de primitivas (física idêntica)
 vi.mock("../../src/loaders/ModelLoader", () => ({

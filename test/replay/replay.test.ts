@@ -34,10 +34,19 @@ function sampleSteps(sim: RapierSimHandle): Trajectory {
 		body.getLinearVelocity(linear);
 		body.getAngularVelocity(angular);
 		poses.push([
-			position.x, position.y, position.z,
-			rotation.x, rotation.y, rotation.z, rotation.w,
-			linear.x, linear.y, linear.z,
-			angular.x, angular.y, angular.z,
+			position.x,
+			position.y,
+			position.z,
+			rotation.x,
+			rotation.y,
+			rotation.z,
+			rotation.w,
+			linear.x,
+			linear.y,
+			linear.z,
+			angular.x,
+			angular.y,
+			angular.z,
 		]);
 	};
 	sim.physicsWorld.addPreStepCallback(callback);
@@ -72,10 +81,19 @@ function chassisVector(sim: RapierSimHandle): number[] {
 		angularVelocity: { x: 0, y: 0, z: 0 },
 	});
 	return [
-		s.position.x, s.position.y, s.position.z,
-		s.rotation.x, s.rotation.y, s.rotation.z, s.rotation.w,
-		s.linearVelocity.x, s.linearVelocity.y, s.linearVelocity.z,
-		s.angularVelocity.x, s.angularVelocity.y, s.angularVelocity.z,
+		s.position.x,
+		s.position.y,
+		s.position.z,
+		s.rotation.x,
+		s.rotation.y,
+		s.rotation.z,
+		s.rotation.w,
+		s.linearVelocity.x,
+		s.linearVelocity.y,
+		s.linearVelocity.z,
+		s.angularVelocity.x,
+		s.angularVelocity.y,
+		s.angularVelocity.z,
 	];
 }
 
@@ -111,22 +129,27 @@ describe("replay", () => {
 	it.each([
 		["bmw_f82", 1 / 144, 1 / 60],
 		["mercedes_g63", 1 / 60, 1 / 30],
-	])("%s: gravado a %f s/quadro e reproduzido a %f s/quadro em um mundo novo repete a trajetória exatamente", async (vehicleId, recordDt, playDt) => {
-		const recording = await record(vehicleId, recordDt);
-		const steps = recording.replay.stepCount;
-		expect(steps).toBe(Math.round(6.5 / recording.replay.fixedTimeStep));
-		expect(recording.replay.initial.vehicleId).toBe(vehicleId);
-		expect(Math.hypot(recording.replay.initial.linearVelocity.x, recording.replay.initial.linearVelocity.z)).toBeGreaterThan(3);
+	])(
+		"%s: gravado a %f s/quadro e reproduzido a %f s/quadro em um mundo novo repete a trajetória exatamente",
+		async (vehicleId, recordDt, playDt) => {
+			const recording = await record(vehicleId, recordDt);
+			const steps = recording.replay.stepCount;
+			expect(steps).toBe(Math.round(6.5 / recording.replay.fixedTimeStep));
+			expect(recording.replay.initial.vehicleId).toBe(vehicleId);
+			expect(
+				Math.hypot(recording.replay.initial.linearVelocity.x, recording.replay.initial.linearVelocity.z),
+			).toBeGreaterThan(3);
 
-		const played = await play(recording.replay, playDt);
+			const played = await play(recording.replay, playDt);
 
-		expect(played.slice(0, steps)).toEqual(recording.poses);
-		expect(played[steps].slice(0, 7)).toEqual(recording.final.slice(0, 7));
+			expect(played.slice(0, steps)).toEqual(recording.poses);
+			expect(played[steps].slice(0, 7)).toEqual(recording.final.slice(0, 7));
 
-		const start = recording.poses[0];
-		const end = recording.final;
-		expect(Math.hypot(end[0] - start[0], end[2] - start[2])).toBeGreaterThan(30);
-	});
+			const start = recording.poses[0];
+			const end = recording.final;
+			expect(Math.hypot(end[0] - start[0], end[2] - start[2])).toBeGreaterThan(30);
+		},
+	);
 
 	it("reset durante a gravação a descarta", async () => {
 		const sim = await createRapierSim("bmw_f82");

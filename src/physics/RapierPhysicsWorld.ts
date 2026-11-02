@@ -60,7 +60,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 	public static readonly COLLISION_GROUP_GROUND = 0x0001;
 	public static readonly COLLISION_GROUP_VEHICLE = 0x0002;
 	public static readonly COLLISION_GROUP_OBSTACLE = 0x0004;
-	public static readonly COLLISION_GROUP_ALL = 0xFFFF;
+	public static readonly COLLISION_GROUP_ALL = 0xffff;
 
 	private constructor(scene: THREE.Scene, fixedTimeStep: number) {
 		this.scene = scene;
@@ -227,7 +227,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 				colliderDesc = RAPIER.ColliderDesc.cuboid(
 					config.halfExtents.x,
 					config.halfExtents.y,
-					config.halfExtents.z
+					config.halfExtents.z,
 				);
 				break;
 
@@ -299,7 +299,12 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 	}
 
 	addEntity(body: PhysicsBody, target: PoseTarget): void {
-		const entity = { body: rapierBody(body), target, previousPosition: new THREE.Vector3(), previousQuaternion: new THREE.Quaternion() };
+		const entity = {
+			body: rapierBody(body),
+			target,
+			previousPosition: new THREE.Vector3(),
+			previousQuaternion: new THREE.Quaternion(),
+		};
 		this.savePreviousPose(entity);
 		this.entities.push(entity);
 	}
@@ -345,7 +350,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 	castRay(origin: Vec3Like, direction: Vec3Like, maxDistance: number): number | null {
 		const ray = new RAPIER.Ray(
 			new RAPIER.Vector3(origin.x, origin.y, origin.z),
-			new RAPIER.Vector3(direction.x, direction.y, direction.z)
+			new RAPIER.Vector3(direction.x, direction.y, direction.z),
 		);
 
 		const hit = this.world.castRay(ray, maxDistance, true);

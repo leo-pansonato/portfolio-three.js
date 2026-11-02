@@ -15,7 +15,7 @@ export default class RapierVehicle implements RaycastVehicle {
 			new RAPIER.Vector3(d.x, d.y, d.z),
 			new RAPIER.Vector3(a.x, a.y, a.z),
 			config.suspensionRestLength,
-			config.radius
+			config.radius,
 		);
 		this.raw.setWheelSuspensionStiffness(i, config.suspensionStiffness);
 		this.raw.setWheelMaxSuspensionTravel(i, config.maxSuspensionTravel);

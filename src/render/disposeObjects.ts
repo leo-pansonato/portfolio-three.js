@@ -4,7 +4,10 @@ import * as THREE from "three";
 export type GpuResource = THREE.BufferGeometry | THREE.Material | THREE.Texture;
 
 /** Geometrias, materiais e texturas usados pelas meshes, linhas e pontos sob as raízes, sem repetição */
-export function collectGpuResources(roots: Iterable<THREE.Object3D>, out: Set<GpuResource> = new Set()): Set<GpuResource> {
+export function collectGpuResources(
+	roots: Iterable<THREE.Object3D>,
+	out: Set<GpuResource> = new Set(),
+): Set<GpuResource> {
 	for (const root of roots) {
 		root.traverse((object) => {
 			const renderable = object as Partial<THREE.Mesh>;
@@ -35,7 +38,10 @@ function collectTextures(material: THREE.Material, out: Set<GpuResource>): void 
  * Remove as raízes dos pais e libera na GPU seus recursos, exceto os compartilhados
  * @param isShared recursos de outro dono (ex.: cache do ModelLoader) que não devem ser liberados
  */
-export function disposeObjects(roots: THREE.Object3D[], isShared: (resource: GpuResource) => boolean = () => false): void {
+export function disposeObjects(
+	roots: THREE.Object3D[],
+	isShared: (resource: GpuResource) => boolean = () => false,
+): void {
 	for (const root of roots) root.removeFromParent();
 	for (const resource of collectGpuResources(roots)) {
 		if (!isShared(resource)) resource.dispose();

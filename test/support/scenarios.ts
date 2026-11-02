@@ -17,7 +17,7 @@ export class ScenarioRunner {
 
 	constructor(
 		private readonly sim: SimHandle,
-		private readonly frameDt: number
+		private readonly frameDt: number,
 	) {}
 
 	setInput(input: Partial<DriveInput>): void {
@@ -44,9 +44,16 @@ export class ScenarioRunner {
 
 export function isFiniteSnapshot(s: VehicleSnapshot): boolean {
 	const values = [
-		s.position.x, s.position.y, s.position.z,
-		s.velocity.x, s.velocity.y, s.velocity.z,
-		s.quaternion.x, s.quaternion.y, s.quaternion.z, s.quaternion.w,
+		s.position.x,
+		s.position.y,
+		s.position.z,
+		s.velocity.x,
+		s.velocity.y,
+		s.velocity.z,
+		s.quaternion.x,
+		s.quaternion.y,
+		s.quaternion.z,
+		s.quaternion.w,
 		s.hudSpeed,
 	];
 	return values.every(Number.isFinite);
@@ -96,7 +103,11 @@ export function restScenario(sim: SimHandle, frameDt: number): RestResult {
 	let residualSpeed = 0;
 	let previous = runner.run(10 - SETTLE_TIME - 1);
 	const final = runner.run(1, (s) => {
-		const dp = Math.hypot(s.position.x - previous.position.x, s.position.y - previous.position.y, s.position.z - previous.position.z);
+		const dp = Math.hypot(
+			s.position.x - previous.position.x,
+			s.position.y - previous.position.y,
+			s.position.z - previous.position.z,
+		);
 		residualSpeed = Math.max(residualSpeed, dp / frameDt);
 		previous = s;
 	});

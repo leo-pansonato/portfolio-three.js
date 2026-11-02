@@ -33,7 +33,9 @@ describe("LightingManager", () => {
 		devMode.setEnabled(true);
 		const { scene, lighting } = createLighting();
 		lighting.update(1 / 60);
-		const lights = scene.children.filter((child): child is THREE.DirectionalLight => child instanceof THREE.DirectionalLight);
+		const lights = scene.children.filter(
+			(child): child is THREE.DirectionalLight => child instanceof THREE.DirectionalLight,
+		);
 		const shadowMap = new THREE.WebGLRenderTarget(1, 1);
 		let shadowMapsDisposed = 0;
 		shadowMap.addEventListener("dispose", () => shadowMapsDisposed++);
