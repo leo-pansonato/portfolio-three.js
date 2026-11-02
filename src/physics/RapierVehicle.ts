@@ -57,4 +57,16 @@ export default class RapierVehicle implements RaycastVehicle {
 	wheelIsInContact(index: number): boolean | null {
 		return this.raw.wheelIsInContact(index);
 	}
+
+	wheelSuspensionForce(index: number): number | null {
+		return this.raw.wheelSuspensionForce(index);
+	}
+
+	wheelForwardImpulse(index: number): number | null {
+		return this.raw.wheelForwardImpulse(index);
+	}
+
+	wheelSideImpulse(index: number): number | null {
+		return this.raw.wheelSideImpulse(index);
+	}
 }

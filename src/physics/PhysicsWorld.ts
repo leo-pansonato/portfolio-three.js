@@ -58,6 +58,8 @@ export interface PhysicsBody {
 	getRotation<T extends QuatLike>(out: T): T;
 	/** Velocidade linear no mundo (m/s) */
 	getLinearVelocity<T extends Vec3Like>(out: T): T;
+	/** Velocidade angular no mundo (rad/s) */
+	getAngularVelocity<T extends Vec3Like>(out: T): T;
 	setPosition(position: Vec3Like): void;
 	setRotation(rotation: QuatLike): void;
 	setLinearVelocity(velocity: Vec3Like): void;
@@ -114,6 +116,12 @@ export interface RaycastVehicle {
 	/** Giro acumulado (rad) */
 	wheelRotation(index: number): number | null;
 	wheelIsInContact(index: number): boolean | null;
+	/** Força da suspensão no último updateVehicle (N) */
+	wheelSuspensionForce(index: number): number | null;
+	/** Impulso longitudinal do pneu no último updateVehicle (N·s; sinal do motor) */
+	wheelForwardImpulse(index: number): number | null;
+	/** Impulso lateral do pneu no último updateVehicle (N·s; sinal do motor) */
+	wheelSideImpulse(index: number): number | null;
 }
 
 /** Alvo da pose interpolada (ex.: THREE.Object3D) */

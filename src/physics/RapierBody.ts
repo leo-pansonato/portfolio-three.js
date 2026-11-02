@@ -32,6 +32,14 @@ export default class RapierBody implements PhysicsBody {
 		return out;
 	}
 
+	getAngularVelocity<T extends Vec3Like>(out: T): T {
+		const velocity = this.raw.angvel();
+		out.x = velocity.x;
+		out.y = velocity.y;
+		out.z = velocity.z;
+		return out;
+	}
+
 	setPosition(position: Vec3Like): void {
 		this.raw.setTranslation(position, true);
 	}
