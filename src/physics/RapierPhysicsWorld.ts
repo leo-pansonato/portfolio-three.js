@@ -45,6 +45,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 	private debugRenderer: PhysicsDebugRenderer | null = null;
 
 	private entities: PhysicsEntity[] = [];
+	private entityByHandle = new Map<number, PhysicsEntity>();
 
 	/** Passo fixo da simulação (s) */
 	readonly fixedTimeStep: number;
@@ -279,6 +280,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		}
 
 		this.world.createCollider(colliderDesc, rapierBody(body).raw);
+		this.debugRenderer?.invalidate();
 	}
 
 	createGroundCollider(body: PhysicsBody, friction: number = 0.8, halfSize: number = 100): void {
@@ -288,6 +290,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 			.setTranslation(0, -0.1, 0);
 
 		this.world.createCollider(colliderDesc, rapierBody(body).raw);
+		this.debugRenderer?.invalidate();
 	}
 
 	createVehicleController(chassis: PhysicsBody): RaycastVehicle {
@@ -307,12 +310,16 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		};
 		this.savePreviousPose(entity);
 		this.entities.push(entity);
+		this.entityByHandle.set(entity.body.raw.handle, entity);
 	}
 
 	removeRigidBody(body: PhysicsBody): void {
 		const index = this.entities.findIndex((e) => e.body === body);
 		if (index !== -1) this.entities.splice(index, 1);
-		this.world.removeRigidBody(rapierBody(body).raw);
+		const raw = rapierBody(body).raw;
+		this.entityByHandle.delete(raw.handle);
+		this.world.removeRigidBody(raw);
+		this.debugRenderer?.invalidate();
 	}
 
 	getRigidBodyForMesh(mesh: THREE.Object3D): PhysicsBody | null {
@@ -322,8 +329,22 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 
 	private addDebugger(): void {
 		if (!this.debugRenderer && this.scene) {
-			this.debugRenderer = new PhysicsDebugRenderer(this.scene, this.world);
+			this.debugRenderer = new PhysicsDebugRenderer(this.scene, this.world, (body, outPosition, outQuaternion) =>
+				this.debugPose(body, outPosition, outQuaternion),
+			);
 		}
+	}
+
+	private debugPose(body: RAPIER.RigidBody, outPosition: THREE.Vector3, outQuaternion: THREE.Quaternion): void {
+		const entity = this.entityByHandle.get(body.handle);
+		if (entity && body.bodyType() !== RAPIER.RigidBodyType.Fixed) {
+			this.interpolate(entity, outPosition, outQuaternion);
+			return;
+		}
+		const position = body.translation();
+		const rotation = body.rotation();
+		outPosition.set(position.x, position.y, position.z);
+		outQuaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
 	}
 
 	private updateDebugger(): void {
@@ -368,6 +389,7 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 	dispose(): void {
 		this.removeDebugger();
 		this.entities = [];
+		this.entityByHandle.clear();
 		this.world.free();
 	}
 }
