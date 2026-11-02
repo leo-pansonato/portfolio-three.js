@@ -27,7 +27,7 @@ export const mercedesG63: VehicleDefinition = {
 		compressionDamping: 8000,
 		reboundDamping: 4000,
 		maxCompression: 0.25,
-		bumpStopLength: 0.06,
+		bumpStopLength: 0.08,
 		bumpStopStiffness: 1e7,
 		antiRollStiffness: { front: 0, rear: 0 },
 	},

@@ -27,7 +27,7 @@ export const bmwF82: VehicleDefinition = {
 		compressionDamping: 4960,
 		reboundDamping: 2480,
 		maxCompression: 0.2,
-		bumpStopLength: 0.06,
+		bumpStopLength: 0.08,
 		bumpStopStiffness: 1e7,
 		antiRollStiffness: { front: 0, rear: 0 },
 	},
