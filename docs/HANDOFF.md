@@ -5,19 +5,19 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 ## Estado (2026-11-02)
 
 - `master` = `origin/master`. P0 completo (P0-1…P0-6), P1-8 (CI) e P2-7 (pipeline de cor) concluídos.
-- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 27 testes (cenários, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
+- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 70 testes (cenários, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
 ## Em andamento
 
-- P1-6 na branch `feat/telemetry-replay` (telemetria por passo + HUD F2, `src/replay/`, teste de replay bit a bit). Aguardando integração.
-- P1-1 a P1-4 integrados (input em `src/input`, `InputFrame`, ações tipadas no `main.ts`; física atrás de `PhysicsWorld`).
+- P1-7 (lint) — subagente em worktree; roda sozinho porque toca todos os arquivos.
 
 ## Próximos itens (ordem)
 
-1. P1-6 telemetria/replay, P1-7 lint.
-2. P2-1 dinâmica própria (arrasto, câmbio, pneu, CG baixo), P2-5 câmeras, P2-3 mundo, P2-4 renderização.
+1. P2-1 dinâmica própria (arrasto, câmbio, pneu com escorregamento, CG baixo), validada por telemetria e replay.
+2. P2-5 câmeras (perseguição com inércia), P2-3 mundo (heightfield, superfícies), P2-4 renderização (pós, reflexos), P2-8 áudio.
+3. Pendências menores: `Game.dispose()` chamando `environment/lightingManager/physicsManager/renderer.dispose`; placeholder do chassi ainda registrado no `PhysicsWorld`; `clearCache()` nunca chamado.
 
 ## Pendências conhecidas
 
