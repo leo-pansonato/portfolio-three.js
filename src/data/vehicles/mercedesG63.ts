@@ -29,7 +29,7 @@ export const mercedesG63: VehicleDefinition = {
 		maxCompression: 0.25,
 		bumpStopLength: 0.08,
 		bumpStopStiffness: 1e7,
-		antiRollStiffness: { front: 0, rear: 0 },
+		antiRollStiffness: { front: 30000, rear: 15000 },
 	},
 	powertrain: {
 		torqueCurve: [
