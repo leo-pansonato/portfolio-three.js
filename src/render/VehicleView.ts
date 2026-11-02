@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Vec3, VehicleDefinition } from "../data/vehicles/types";
-import PhysicsManager from "../physics/PhysicsManager";
+import { PhysicsWorld } from "../physics/PhysicsWorld";
 import VehicleManager from "../managers/VehicleManager";
 import VehiclePhysics from "../vehicle/VehiclePhysics";
 
@@ -48,7 +48,7 @@ export default class VehicleView {
 
 	constructor(
 		private readonly scene: THREE.Scene,
-		private readonly physicsManager: PhysicsManager,
+		private readonly physicsWorld: PhysicsWorld,
 		private readonly vehicleManager: VehicleManager = new VehicleManager(scene)
 	) {}
 
@@ -90,8 +90,8 @@ export default class VehicleView {
 			this.wheelMeshes.push(wheelMesh);
 		}
 
-		// o PhysicsManager sincroniza o placeholder com o chassi
-		this.physicsManager.addEntity(physics.chassisBody, this.mesh);
+		// o PhysicsWorld sincroniza o placeholder com o chassi
+		this.physicsWorld.addEntity(physics.chassisBody, this.mesh);
 	}
 
 	/**
@@ -125,8 +125,8 @@ export default class VehicleView {
 
 	/** Aplica a pose interpolada da física às meshes (por quadro) */
 	update(): void {
-		this.physicsManager.getInterpolatedPose(this.physics.chassisBody, this.renderPosition, this.renderQuaternion);
-		this.updateWheelPoses(this.physicsManager.getInterpolationAlpha());
+		this.physicsWorld.getInterpolatedPose(this.physics.chassisBody, this.renderPosition, this.renderQuaternion);
+		this.updateWheelPoses(this.physicsWorld.getInterpolationAlpha());
 		this.updateChassisMesh();
 		this.updateWheelMeshes();
 	}

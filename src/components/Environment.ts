@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import PhysicsManager from "../physics/PhysicsManager";
+import { PhysicsWorld } from "../physics/PhysicsWorld";
 import GameComponent from "./GameComponent";
 
 /**
@@ -8,12 +8,12 @@ import GameComponent from "./GameComponent";
  */
 export default class Environment extends GameComponent {
   private scene: THREE.Scene;
-  private physicsManager: PhysicsManager;
+  private physicsWorld: PhysicsWorld;
 
-  constructor(scene: THREE.Scene, physicsManager: PhysicsManager) {
+  constructor(scene: THREE.Scene, physicsWorld: PhysicsWorld) {
     super();
     this.scene = scene;
-    this.physicsManager = physicsManager;
+    this.physicsWorld = physicsWorld;
 
     this.createPlane();
     // this.createCubeSkybox("../textures/cartoonSkybox/");
@@ -34,11 +34,11 @@ export default class Environment extends GameComponent {
     this.scene.add(plane);
 
     // Plano físico: corpo estático com um cuboid fino (superfície em y = 0)
-    const groundBody = this.physicsManager.createRigidBody({
+    const groundBody = this.physicsWorld.createRigidBody({
       type: "static",
       position: { x: 0, y: 0, z: 0 },
     });
-    this.physicsManager.createGroundCollider(groundBody, 0.8, 1000);
+    this.physicsWorld.createGroundCollider(groundBody, 0.8, 1000);
   }
 
   createCubeSkybox(path: string): void {
@@ -101,11 +101,11 @@ export default class Environment extends GameComponent {
       this.scene.add(boxMesh);
 
       // Criar corpo físico (massa de 5, como na versão cannon-es)
-      const boxBody = this.physicsManager.createRigidBody({
+      const boxBody = this.physicsWorld.createRigidBody({
         type: "dynamic",
         position: { x: pos.x, y: pos.y, z: pos.z },
       });
-      this.physicsManager.createCollider(
+      this.physicsWorld.createCollider(
         {
           shape: "cuboid",
           halfExtents: { x: boxSize.x / 2, y: boxSize.y / 2, z: boxSize.z / 2 },
@@ -115,7 +115,7 @@ export default class Environment extends GameComponent {
       );
 
       // Adicionar ao gerenciador de física
-      this.physicsManager.addEntity(boxBody, boxMesh);
+      this.physicsWorld.addEntity(boxBody, boxMesh);
     });
   }
 

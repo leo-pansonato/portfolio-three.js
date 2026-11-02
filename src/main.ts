@@ -7,7 +7,8 @@ import Player from "./components/Player";
 import InputManager from "./managers/InputManager";
 import LightingManager from "./managers/LightingManager";
 import PerformanceManager from "./managers/PerformanceManager";
-import PhysicsManager from "./physics/PhysicsManager";
+import { PhysicsWorld } from "./physics/PhysicsWorld";
+import RapierPhysicsWorld from "./physics/RapierPhysicsWorld";
 import UIManager from "./managers/UIManager";
 
 /** Configuração do pipeline de cor. A exposição pode ser sobrescrita com `?exposure=<n>` na URL. */
@@ -33,7 +34,7 @@ class Game {
 
 	public performanceManager!: PerformanceManager;
 	public scene!: THREE.Scene;
-	public physicsManager!: PhysicsManager;
+	public physicsManager!: PhysicsWorld;
 	public camera!: THREE.PerspectiveCamera;
 	public renderer!: THREE.WebGLRenderer;
 
@@ -64,7 +65,7 @@ class Game {
 		this.scene = new THREE.Scene();
 
 		// instanciando o gerenciador de física
-		this.physicsManager = await PhysicsManager.create(this.scene);
+		this.physicsManager = await RapierPhysicsWorld.create(this.scene);
 
 		// instanciando a camera
 		this.camera = new THREE.PerspectiveCamera(

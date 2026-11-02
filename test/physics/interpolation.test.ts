@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
 import InputManager from "../../src/managers/InputManager";
-import PhysicsManager from "../../src/physics/PhysicsManager";
+import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { ScriptedInput } from "../support/sim";
 
 vi.mock("../../src/loaders/ModelLoader", () => ({
@@ -28,10 +28,10 @@ function runFrames(seconds: number, frame: () => void): void {
  */
 describe("interpolação visual entre passos", () => {
 	it("corpo em velocidade constante: deslocamento por quadro uniforme, 1 passo atrás", async () => {
-		const physics = await PhysicsManager.create(new THREE.Scene(), STEP);
+		const physics = await RapierPhysicsWorld.create(new THREE.Scene(), STEP);
 		const body = physics.createRigidBody({ type: "kinematicVelocityBased", position: { x: 0, y: 0, z: 0 } });
 		const speed = 10; // m/s
-		body.setLinvel({ x: speed, y: 0, z: 0 }, true);
+		body.setLinearVelocity({ x: speed, y: 0, z: 0 });
 		const mesh = new THREE.Object3D();
 		physics.addEntity(body, mesh);
 
@@ -50,7 +50,7 @@ describe("interpolação visual entre passos", () => {
 
 	it("veículo a 144 FPS: chassi e rodas avançam sem quadros parados", async () => {
 		const scene = new THREE.Scene();
-		const physics = await PhysicsManager.create(scene, STEP);
+		const physics = await RapierPhysicsWorld.create(scene, STEP);
 		const groundBody = physics.createRigidBody({ type: "static", position: { x: 0, y: 0, z: 0 } });
 		physics.createGroundCollider(groundBody, 0.8, 1000);
 		const input = new ScriptedInput();

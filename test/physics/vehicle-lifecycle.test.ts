@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import Player from "../../src/components/Player";
 import { VEHICLE_DEFINITIONS } from "../../src/data/vehicles";
 import InputManager from "../../src/managers/InputManager";
-import PhysicsManager from "../../src/physics/PhysicsManager";
+import RapierPhysicsWorld from "../../src/physics/RapierPhysicsWorld";
 import { ScriptedInput } from "../support/sim";
 
 const loadDelayMs: Record<string, number> = {};
@@ -23,7 +23,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function createPlayer() {
 	const scene = new THREE.Scene();
-	const physics = await PhysicsManager.create(scene);
+	const physics = await RapierPhysicsWorld.create(scene);
 	const player = new Player(scene, new ScriptedInput() as unknown as InputManager, physics);
 	return { scene, physics, player };
 }
@@ -33,12 +33,7 @@ describe("ciclo de vida do veículo", () => {
 		const { scene, physics, player } = await createPlayer();
 		await wait(5);
 
-		const counts = () => ({
-			bodies: physics.world.bodies.len(),
-			colliders: physics.world.colliders.len(),
-			controllers: physics.world.vehicleControllers.size,
-			sceneObjects: scene.children.length,
-		});
+		const counts = () => ({ ...physics.countObjects(), sceneObjects: scene.children.length });
 		const initial = counts();
 		const disposeSpy = vi.spyOn(THREE.BufferGeometry.prototype, "dispose");
 
@@ -48,7 +43,7 @@ describe("ciclo de vida do veículo", () => {
 		}
 
 		expect(counts()).toEqual(initial);
-		expect(initial.controllers).toBe(1);
+		expect(initial.vehicleControllers).toBe(1);
 		// cada troca descarta o placeholder e o modelo anterior (chassi + rodas)
 		expect(disposeSpy.mock.calls.length).toBeGreaterThanOrEqual(20 * 2);
 		disposeSpy.mockRestore();
@@ -78,7 +73,7 @@ describe("ciclo de vida do veículo", () => {
 describe("estado de runtime do veículo", () => {
 	it("trocar de veículo zera o volante", async () => {
 		const scene = new THREE.Scene();
-		const physics = await PhysicsManager.create(scene);
+		const physics = await RapierPhysicsWorld.create(scene);
 		const input = new ScriptedInput();
 		const player = new Player(scene, input as unknown as InputManager, physics);
 		await wait(5);

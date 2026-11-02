@@ -19,7 +19,7 @@ vi.mock("../../src/loaders/ModelLoader", () => ({
  */
 
 const FRAME_DT = 1 / 60;
-const G = 9.82; // m/s², igual ao mundo (PhysicsManager)
+const G = 9.82; // m/s², igual ao mundo (RapierPhysicsWorld)
 
 /** 0–100 km/h (s): referências de fábrica M4 F82 ~4,1 s, G63 W463A ~4,5 s, com folga para o modelo sem câmbio */
 const ZERO_TO_HUNDRED: Record<string, [number, number]> = {

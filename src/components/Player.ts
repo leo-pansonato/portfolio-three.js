@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import InputManager from "../managers/InputManager";
-import PhysicsManager from "../physics/PhysicsManager";
+import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { CameraConfig, CameraMode, getVehicleDefinition, VehicleDefinition } from "../data/vehicles";
 import VehicleView from "../render/VehicleView";
 import VehicleControl, { createDriverInput } from "../vehicle/VehicleControl";
@@ -13,7 +13,7 @@ import Entity from "./Entity";
  */
 export default class Player extends Entity {
 	private inputManager: InputManager;
-	private physicsManager: PhysicsManager;
+	private physicsManager: PhysicsWorld;
 
 	private currentVehicleId: string;
 	private vehicleData!: VehicleDefinition;
@@ -29,7 +29,7 @@ export default class Player extends Entity {
 	// Callback para atualização do veículo no step da física
 	private physicsPreStepCallback: ((dt: number) => void) | null = null;
 
-	constructor(scene: THREE.Scene, inputManager: InputManager, physicsManager: PhysicsManager) {
+	constructor(scene: THREE.Scene, inputManager: InputManager, physicsManager: PhysicsWorld) {
 		super(scene);
 		this.inputManager = inputManager;
 		this.physicsManager = physicsManager;
@@ -146,9 +146,8 @@ export default class Player extends Entity {
 	}
 
 	getMovimentDirection(): THREE.Vector3 {
-		const chassisRot = this.physics.chassisBody.rotation();
 		const direction = VehiclePhysics.LOCAL_FORWARD.clone();
-		direction.applyQuaternion(new THREE.Quaternion(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w));
+		direction.applyQuaternion(this.physics.chassisBody.getRotation(new THREE.Quaternion()));
 		return direction;
 	}
 }

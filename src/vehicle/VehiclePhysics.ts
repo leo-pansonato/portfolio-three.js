@@ -1,7 +1,6 @@
-import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
 import { VehicleDefinition } from "../data/vehicles/types";
-import PhysicsManager from "../physics/PhysicsManager";
+import { PhysicsBody, PhysicsWorld, RaycastVehicle } from "../physics/PhysicsWorld";
 import { VehicleCommands } from "./VehicleControl";
 
 /** Valores de uma roda no passo anterior, para a interpolação visual */
@@ -15,18 +14,18 @@ export interface WheelStepState {
 }
 
 /**
- * Física de um veículo: chassi (corpo dinâmico + cuboid) e DynamicRayCastVehicleController.
+ * Física de um veículo: chassi (corpo dinâmico + cuboid) e controlador de veículo por raycast.
  * Dono desses objetos do motor; `destroy()` os remove do mundo.
  * Eixos do chassi (ADR-0002): frente +X, cima +Y, direita +Z; THREE só para matemática.
  */
 export default class VehiclePhysics {
-	readonly chassisBody: RAPIER.RigidBody;
-	readonly chassisCollider: RAPIER.Collider;
-	readonly controller: RAPIER.DynamicRayCastVehicleController;
+	readonly chassisBody: PhysicsBody;
+	readonly controller: RaycastVehicle;
 	readonly wheels: WheelStepState[] = [];
 
 	private readonly suspensionRestLength: number;
 	private tempVector3 = new THREE.Vector3();
+	private tempVelocity = new THREE.Vector3();
 	private tempQuaternion = new THREE.Quaternion();
 
 	static readonly LOCAL_FORWARD = new THREE.Vector3(1, 0, 0);
@@ -34,14 +33,14 @@ export default class VehiclePhysics {
 	static readonly LOCAL_RIGHT = new THREE.Vector3(0, 0, 1);
 
 	constructor(
-		private readonly physicsManager: PhysicsManager,
+		private readonly physicsWorld: PhysicsWorld,
 		private readonly definition: VehicleDefinition
 	) {
 		const physicsData = definition.physics;
 		const chassisSize = physicsData.size;
 		this.suspensionRestLength = physicsData.suspensionRestLength;
 
-		this.chassisBody = physicsManager.createRigidBody({
+		this.chassisBody = physicsWorld.createRigidBody({
 			type: "dynamic",
 			position: { x: 0, y: 1, z: 3 },
 			linearDamping: 0.01,
@@ -50,7 +49,7 @@ export default class VehiclePhysics {
 			ccdEnabled: true,
 		});
 
-		this.chassisCollider = physicsManager.createCollider(
+		physicsWorld.createCollider(
 			{
 				shape: "cuboid",
 				halfExtents: {
@@ -65,33 +64,31 @@ export default class VehiclePhysics {
 			this.chassisBody
 		);
 
-		this.controller = physicsManager.world.createVehicleController(this.chassisBody);
+		this.controller = physicsWorld.createVehicleController(this.chassisBody);
 		this.addWheels();
 	}
 
 	private addWheels(): void {
 		const physicsData = this.definition.physics;
-		const Rapier = this.physicsManager.getRapier();
 		// o controlador usa +X como frente (indexForwardAxis = 0) e +Y como cima
 		const down = VehiclePhysics.LOCAL_DOWN;
 		const axle = VehiclePhysics.LOCAL_RIGHT;
 
-		this.definition.wheels.adjustments.forEach((wheel, i) => {
-			this.controller.addWheel(
-				new Rapier.Vector3(wheel.position.x, wheel.position.y, wheel.position.z),
-				new Rapier.Vector3(down.x, down.y, down.z),
-				new Rapier.Vector3(axle.x, axle.y, axle.z),
-				physicsData.suspensionRestLength,
-				physicsData.wheelRadius
-			);
-
-			this.controller.setWheelSuspensionStiffness(i, physicsData.suspensionStiffness);
-			this.controller.setWheelMaxSuspensionTravel(i, physicsData.maxSuspensionTravel);
-			this.controller.setWheelMaxSuspensionForce(i, physicsData.maxSuspensionForce);
-			this.controller.setWheelSuspensionCompression(i, physicsData.suspensionCompression);
-			this.controller.setWheelSuspensionRelaxation(i, physicsData.suspensionRelaxation);
-			this.controller.setWheelFrictionSlip(i, wheel.frictionSlip ?? physicsData.frictionSlip);
-			this.controller.setWheelSideFrictionStiffness(i, wheel.sideFrictionStiffness ?? physicsData.sideFrictionStiffness);
+		this.definition.wheels.adjustments.forEach((wheel) => {
+			this.controller.addWheel({
+				connectionPoint: wheel.position,
+				direction: down,
+				axle,
+				suspensionRestLength: physicsData.suspensionRestLength,
+				radius: physicsData.wheelRadius,
+				suspensionStiffness: physicsData.suspensionStiffness,
+				maxSuspensionTravel: physicsData.maxSuspensionTravel,
+				maxSuspensionForce: physicsData.maxSuspensionForce,
+				suspensionCompression: physicsData.suspensionCompression,
+				suspensionRelaxation: physicsData.suspensionRelaxation,
+				frictionSlip: wheel.frictionSlip ?? physicsData.frictionSlip,
+				sideFrictionStiffness: wheel.sideFrictionStiffness ?? physicsData.sideFrictionStiffness,
+			});
 
 			this.wheels.push({
 				previousSuspensionLength: physicsData.suspensionRestLength,
@@ -148,9 +145,8 @@ export default class VehiclePhysics {
 
 	/** Velocidade do chassi ao longo de +X local (m/s; negativa em ré) */
 	forwardSpeed(): number {
-		const velocity = this.chassisBody.linvel();
-		const chassisRot = this.chassisBody.rotation();
-		this.tempQuaternion.set(chassisRot.x, chassisRot.y, chassisRot.z, chassisRot.w);
+		const velocity = this.chassisBody.getLinearVelocity(this.tempVelocity);
+		this.chassisBody.getRotation(this.tempQuaternion);
 		const forward = this.tempVector3.copy(VehiclePhysics.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
 		return velocity.x * forward.x + velocity.y * forward.y + velocity.z * forward.z;
 	}
@@ -176,17 +172,17 @@ export default class VehiclePhysics {
 
 	/** Teleporta 1 m acima, nivelado e parado */
 	reset(): void {
-		const currentPos = this.chassisBody.translation();
-		this.chassisBody.setTranslation({ x: currentPos.x, y: currentPos.y + 1, z: currentPos.z }, true);
-		this.chassisBody.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
-		this.chassisBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
-		this.chassisBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
-		this.physicsManager.resetInterpolation(this.chassisBody);
+		const currentPos = this.chassisBody.getPosition(this.tempVector3);
+		this.chassisBody.setPosition({ x: currentPos.x, y: currentPos.y + 1, z: currentPos.z });
+		this.chassisBody.setRotation({ x: 0, y: 0, z: 0, w: 1 });
+		this.chassisBody.setLinearVelocity({ x: 0, y: 0, z: 0 });
+		this.chassisBody.setAngularVelocity({ x: 0, y: 0, z: 0 });
+		this.physicsWorld.resetInterpolation(this.chassisBody);
 	}
 
 	/** Remove o controlador e o chassi (corpo e colisor) do mundo */
 	destroy(): void {
-		this.physicsManager.world.removeVehicleController(this.controller);
-		this.physicsManager.removeEntity(this.chassisBody);
+		this.physicsWorld.removeVehicleController(this.controller);
+		this.physicsWorld.removeRigidBody(this.chassisBody);
 	}
 }
