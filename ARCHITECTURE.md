@@ -109,16 +109,18 @@ Unidades e eixos ([ADR-0002](docs/decisions/ADR-0002-unidades-e-eixos.md)): **SI
 - `vehicle/VehicleState`: estado de runtime por instância (esterço, velocidade à frente, multiplicador de boost).
 - `vehicle/VehicleControl`: `InputFrame` → `VehicleCommands` a cada passo — rampa e retorno do volante (reduzidos com a velocidade), motor, freio, ré quando quase parado, freio de mão, boost, resistência ao rolamento sem acelerador nem freio. Sem THREE nem DOM; testes unitários em `test/vehicle/`.
 - `vehicle/VehiclePhysics`: dono do chassi (corpo dinâmico + cuboid) e do `DynamicRayCastVehicleController` com 4 rodas; aplica os comandos (tração `rear`/`front`/`all`, freio em N → impulso por passo), guarda os valores das rodas do passo anterior, *reset* e `destroy()`. Usa THREE só para matemática.
-- `render/VehicleView`: placeholders, carregamento do modelo via `VehicleManager` (ignora carregamentos obsoletos com `loadRequestId`), pose interpolada do chassi e das rodas com os ajustes de alinhamento, liberação de geometrias e materiais (`releaseObjects`).
+- `render/VehicleView`: placeholders, carregamento do modelo via `VehicleManager` (ignora carregamentos obsoletos com `loadRequestId`), pose interpolada do chassi e das rodas com os ajustes de alinhamento, liberação via `VehicleManager.releaseObjects`. Na troca, as meshes antigas saem da cena e só são devolvidas depois de o novo carregamento reservar seus modelos, para a roda comum aos dois veículos não sair da GPU.
 - `Player`: orquestra as peças — registra o pré-passo (telemetria → input ou replay → `VehicleControl` → `VehiclePhysics`), troca de veículo, *reset*, gravação/reprodução de replay e consultas para câmera e UI (`mesh`, `getPosition`, `getQuaternion`, `getRotation`, `getCameraConfig`, `getCurrentSpeed`, `getWheelAngle`, `getTelemetry`).
 - `vehicle/VehicleTelemetry`: reescrita no lugar no início de cada pré-passo (resultado do passo anterior, sem alocação): velocidade, aceleração longitudinal/lateral em g (diferença de velocidade no passo, eixos do chassi), esterço e, por roda, contato, comprimento e compressão da suspensão (m), força da suspensão (N) e impulsos longitudinal/lateral do pneu (N·s). Lida do `RaycastVehicle` (`wheelSuspensionForce`, `wheelForwardImpulse`, `wheelSideImpulse`). Em repouso a soma das forças de suspensão é m·g (teste).
-- `VehicleManager`: só carrega os glTF, com *fallback* para primitivas.
+- `VehicleManager`: carrega os glTF, com *fallback* para primitivas, e devolve objetos fora da cena; `releaseObjects` libera os recursos próprios (inclusive texturas) e devolve as instâncias ao cache.
+- `loaders/ModelLoader`: cache por caminho, dono do modelo-base e de suas geometrias, materiais e texturas; um download por caminho mesmo com pedidos simultâneos. Cada `loadModel` é uma instância (clone) a devolver com `releaseModel`; sem instâncias, os recursos são liberados na GPU e o modelo fica em memória para reutilização sem novo download (`clearCache` descarta os não usados). `isCached` diz o que não pode ser liberado por quem usa a instância.
+- `render/disposeObjects`: coleta geometrias, materiais e texturas (propriedades do material e uniforms) e libera, exceto os compartilhados.
 
 Limitações:
 
 - Eixos locais do chassi: frente +X, cima +Y, direita +Z (`VehiclePhysics.LOCAL_FORWARD` etc.); ângulo de esterço positivo vira à esquerda.
 - Índices de roda fixos (0/1 dianteiras esquerda/direita, 2/3 traseiras; ímpares espelhadas) sem tipo que os represente.
-- Recursos GPU: trocar de veículo libera geometrias e materiais; texturas e o cache do `ModelLoader` não são liberados (P1-5).
+- Recursos GPU: trocar de veículo 20 vezes mantém `renderer.info.memory` constante (P1-5, medido no navegador: BMW 392 geometrias/31 texturas, G63 608/40). Modelos-base ficam em memória de CPU pelo resto da sessão (dois veículos hoje).
 - O mesh de *placeholder* continua registrado no `PhysicsWorld` depois que o modelo real é carregado.
 - O `Player` recebe só o `InputFrame` (P1-4).
 
@@ -152,7 +154,8 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 - `LightingManager`: CSM do Three em escala SI — 4 cascatas terminando em 10, 26, 64 e 200 m (`maxFar 200`, modo `custom`), shadow map 2048 por cascata (4×2048² contra 3×4096² antes, ~⅓ da memória), `fade` entre cascatas, `lightMargin 50`, `lightFar 600`. `bias −0.00005` (≈3 cm na profundidade de 600 m) e `normalBias` de 1,5 texel calculado por cascata em `updateFrustums()` (≈1,7 cm na primeira, ≈34 cm na última). Texel na primeira cascata ≈1–1,5 cm, conforme o aspecto da tela.
 - Luz direcional: cor `0xf6ad8f` e intensidade 5 mantidas. A cor coincide com o brilho do amanhecer no `dawn_4k.hdr` (linear ≈ 1 : 0,48 : 0,27, azimute ≈45°, junto ao horizonte); a elevação de 35° é artística. Medido no HDR: irradiância horizontal do céu ≈3,2 (luminância) contra ≈1,5 do sol — sombras naturalmente suaves; com o plano quase preto (`0x0f0f0f`, albedo ≈0,5%) elas quase não aparecem. Faces iluminadas já chegam ao ombro do AgX, então aumentar o sol sem reduzir exposição ou `environmentIntensity` estoura as cores.
 - Materiais: `setupCSMMaterials()` cobre o que existe na inicialização; objetos adicionados à cena depois (veículos, rodas) são configurados pelo evento `childadded` da cena e removidos do mapa do CSM em `childremoved`. Antes disso os materiais dos veículos recebiam as N luzes das cascatas sem a seleção do CSM (N× a luz direta).
-- `Environment`: plano 200×200, skybox HDR, 3 caixas dinâmicas.
+- `Environment`: plano 200×200, skybox HDR, 3 caixas dinâmicas. `dispose()` remove meshes e corpos, libera geometrias, materiais e a textura do céu (também a que chegar depois). Não é chamado pelo `main.ts`.
+- `LightingManager.dispose()`: tira luzes e helper da cena, libera os shadow maps e desfaz o CSM dos materiais. O helper do CSM é liberado por `disposeObjects` (o `CSMHelper.dispose` do Three falha antes do primeiro `update`).
 - Sem pós-processamento, sem reflexos além do mapa de ambiente, sem LOD, sem instancing, sem compressão de texturas (glTF com PNG; `assets` ~49 MB, `textures` ~52 MB).
 
 ### 3.6 UI, dev mode, desempenho [Implementado]
@@ -174,6 +177,7 @@ Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` p
 - `test/support/baseline.ts` + `test/baselines/rapier.json`: comparação com tolerância (2% relativo, 0,01 absoluto); `UPDATE_BASELINE=1` regrava.
 - `test/baselines/cannon-master.json`: medições da implementação anterior (cannon-es), mantidas como referência histórica; não usadas nos testes.
 - `vehicle-reference.test.ts` também exige resultados iguais a 30/60/144 FPS e frenagem igual com passo de 1/60 e 1/120 s; `interpolation.test.ts` verifica deslocamento visual uniforme por quadro a 144 Hz.
+- `test/render/`: cache do `ModelLoader`, 20 trocas com GPU emulada (recurso alocado ao desenhar, liberado no evento `dispose`) mantendo geometrias/materiais/texturas constantes, carregamentos obsoletos, `Environment.dispose`, `LightingManager` (F2 antes do primeiro quadro, `dispose`). O `GLTFLoader`/`HDRLoader` são mockados.
 - `test/physics/vehicle-lifecycle.test.ts`: trocar de veículo 20 vezes não acumula corpos, colisores, controladores nem objetos na cena e libera geometrias; carregamento obsoleto não substitui o veículo atual.
 - Os cenários medem o comportamento atual para detectar regressões. `test/physics/vehicle-plausibility.test.ts` impõe limites físicos largos em SI: 0–100 km/h, desaceleração de frenagem, aceleração lateral em curva, repouso estável.
 
@@ -193,7 +197,7 @@ Não há workers nem paralelismo. Tudo roda na thread principal. Carregamento de
 | R4 | ~~Input e controle por quadro, sem interpolação~~ — resolvido em P1-1 (§2). Resta: ordem do loop espalhada (sem `GameLoop`), visual 1 passo atrás | — | — |
 | R5 | Controlador de veículo embutido (raycast, caixa-preta em WASM) | Teto de qualidade da direção | P2-1 (dinâmica própria) |
 | R6 | ~~Estado no catálogo de configuração~~ — resolvido no P1-2 (`VehicleState`, catálogo congelado) | — | — |
-| R7 | Sem ciclo de vida de recursos | Vazamento de GPU/WASM ao trocar veículo | streaming de mundo |
+| R7 | ~~Sem ciclo de vida de recursos~~ — resolvido em P1-5 (§3.2, §3.5). Resta: `Game` sem `dispose` (main.ts), placeholder do chassi continua registrado no `PhysicsWorld` | — | — |
 | R8 | ~~Renderizador sem pipeline de cor/tone mapping definidos~~ — resolvido em P2-7 (§3.5) | — | — |
 
 ---

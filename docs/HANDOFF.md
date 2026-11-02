@@ -16,11 +16,13 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Próximos itens (ordem)
 
-1. P1-5 ciclo de vida (texturas, cache do ModelLoader, dispose do Environment, `CSMHelper.dispose` em undefined ao apertar F2 duas vezes antes do 1º quadro).
-2. P1-6 telemetria/replay, P1-7 lint.
-3. P2-1 dinâmica própria (arrasto, câmbio, pneu, CG baixo), P2-5 câmeras, P2-3 mundo, P2-4 renderização.
+1. P1-6 telemetria/replay, P1-7 lint.
+2. P2-1 dinâmica própria (arrasto, câmbio, pneu, CG baixo), P2-5 câmeras, P2-3 mundo, P2-4 renderização.
 
 ## Pendências conhecidas
+
+- P1-5 feito na branch `feat/resource-lifecycle`. `Game` (main.ts) não chama `Environment.dispose`/`LightingManager.dispose` nem tem `dispose` próprio; o placeholder do chassi continua registrado no `PhysicsWorld` após o modelo carregar.
+- Medir `renderer.info` com a janela oculta: o rAF para; servir uma cópia temporária do `index.html` que troca `requestAnimationFrame` por `setTimeout` e captura o renderer em `Scene.prototype.onBeforeRender`.
 
 - `computeBoundingSphere(): Computed radius is NaN` (geometria indexada) só ao carregar com modo dev ligado; não ocorre ao ligar F2 depois. Não reproduz em Node (CSMHelper, poses iniciais sem NaN). Criar o helper do CSM depois do primeiro `update` piorou (2 erros); revertido. Investigar no navegador.
 

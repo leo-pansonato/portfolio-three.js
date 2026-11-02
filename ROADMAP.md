@@ -137,7 +137,9 @@ flowchart LR
 - **Entregas:** `InputFrame` tipado; ações discretas como eventos/comandos tratados por quem é dono (sem `game: any`); remapeamento por dados.
 - **Conclusão:** `InputManager` não importa nem referencia `Game`, `Player` ou `CameraController`.
 
-### [ ] P1-5 — Ciclo de vida de recursos
+### [x] P1-5 — Ciclo de vida de recursos
+
+- **Resultado:** cache do `ModelLoader` com contagem de uso; texturas liberadas; `Environment.dispose`; `LightingManager.dispose` e helper do CSM corrigidos. 20 trocas mantêm `renderer.info.memory` constante (teste em `test/render/` e medição no navegador); corpos/colisores/controladores em `vehicle-lifecycle.test.ts`. Materiais carregados já passavam pelo CSM via `childadded`; carregamento obsoleto é descartado (não cancelado).
 
 - **Entregas:** `dispose()` consistente (GPU e WASM); cancelamento de carregamento ao trocar veículo; materiais carregados passam por `LightingManager.setupMaterial`.
 - **Conclusão:** trocar de veículo 20 vezes mantém constantes `renderer.info.memory` e o número de corpos/colisores/controladores (teste ou verificação documentada).
