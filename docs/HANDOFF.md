@@ -2,7 +2,7 @@
 
 Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar ao fim de cada bloco de trabalho.
 
-## Estado (2026-11-02)
+## Estado (2026-11-03)
 
 - `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI) e P2-7 e P2-9 concluídos.
 - Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 193 testes (cenários, trem de força acoplado, diferenciais, freio-motor, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
@@ -11,11 +11,9 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
-- Pausado por limite de crédito. P2-5, P2-4 e P2-6 interrompidos; trabalho salvo em commit `wip` (só local) em cada worktree:
-  - P2-5 câmeras: `worktree-agent-a9d4d1adf47cc3dee` (src/camera, CameraController, input; parou no CameraController).
-  - P2-4 renderização: `worktree-agent-ae6cfab8166d3fbdb` (PostProcessing, Atmosphere, LightingManager, Environment, main.ts; compilava, faltava conferir visual, ADR-0006 e docs).
-  - P2-6 HUD: `worktree-agent-a652eb8dc3058001a` (src/ui com React, UIManager, index.html, configs; faltava format/test/build, ADR-0004 e docs).
-  - Retomar: em cada worktree, desfazer o `wip` (`git reset --soft HEAD~1`), terminar o escopo do prompt original (ROADMAP P2-4/5/6), verificar e integrar um por vez (câmeras → renderização → HUD), resolvendo `main.ts`.
+- P2-5 câmeras concluído (perseguição rígida, antecipa a curva pela guinada; analógico direito). Sensação ainda em ajuste com o usuário: `turnLeadTime`/`maxTurnLead`/`headingTimeConstant` em `camera/ChaseCamera`.
+- P2-4 parcial (ADR-0006): pós WebGL2 com MSAA 4× + bloom só no sol; céu HDR mantido (céu procedural rejeitado pelo usuário).
+- P2-6 HUD pausado em `worktree-agent-a652eb8dc3058001a` (commit `wip` local: src/ui com React, UIManager, index.html, configs). Retomar: `git reset --soft HEAD~1`, rebase na `master`, format/test/build, ADR-0004, docs, integrar.
 
 - P2-1 concluído: etapa 4 (trem de força acoplado: motor com rotação própria, embreagem/conversor, diferenciais com bloqueio, freio-motor) integrada (409f384); ré chega a ~65 km/h no corte (rever relação de ré). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
