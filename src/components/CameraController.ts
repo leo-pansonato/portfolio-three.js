@@ -9,7 +9,8 @@ import Player from "./Player";
 
 /**
  * Câmera do jogador: perseguição em 3ª pessoa (ChaseCamera) e câmeras presas ao chassi (capô e 1ª pessoa).
- * Olhar livre pelo mouse (ponteiro travado) e pelo analógico direito, com auto-centro ao soltar.
+ * Olhar livre pelo mouse (ponteiro travado) e pelo analógico direito; nas câmeras presas, auto-centro ao soltar.
+ * Zoom pela roda em todos os modos (distância na perseguição, FOV nas presas), guardado por modo; `resetCamera` volta ao padrão.
  * Sem `physicsWorld`, a perseguição usa a pose do fim do passo e não colide com o cenário.
  */
 export default class CameraController extends GameComponent {
@@ -32,6 +33,20 @@ export default class CameraController extends GameComponent {
 	private readonly RIGID_MAX_PITCH = 1.0;
 	private readonly CHASE_MIN_ELEVATION = -0.2;
 	private readonly CHASE_MAX_ELEVATION = 1.2;
+	private readonly ZOOM_STEP = 1.1; // fator por entalhe da roda
+	private readonly ZOOM_RATE = 12; // 1/s, suavização do zoom
+	/** Fator de zoom por modo: escala da distância na perseguição, do FOV nas presas */
+	private readonly ZOOM_LIMITS: Record<CameraMode, readonly [number, number]> = {
+		[CameraMode.THIRD_PERSON]: [0.6, 2.5],
+		[CameraMode.HOOD]: [0.5, 1.3],
+		[CameraMode.FIRST_PERSON]: [0.5, 1.3],
+	};
+	private readonly zoomTarget: Record<CameraMode, number> = {
+		[CameraMode.THIRD_PERSON]: 1,
+		[CameraMode.HOOD]: 1,
+		[CameraMode.FIRST_PERSON]: 1,
+	};
+	private zoom = 1;
 
 	private readonly chase = new ChaseCamera();
 	private readonly chaseTarget = {
@@ -82,10 +97,20 @@ export default class CameraController extends GameComponent {
 
 		this.lookYaw = 0;
 		this.lookPitch = 0;
+		this.zoom = this.zoomTarget[this.currentMode];
 		this.chase.reset();
 		this.camera.up.set(0, 1, 0);
 
 		console.log("Camera Mode:", this.currentMode);
+	}
+
+	/** Volta a câmera ativa ao enquadramento padrão: olhar ao centro e sem zoom */
+	resetCamera(): void {
+		this.lookYaw = 0;
+		this.lookPitch = 0;
+		this.zoomTarget[this.currentMode] = 1;
+		this.zoom = 1;
+		this.chase.reset();
 	}
 
 	update(deltaTime: number): void {
@@ -93,10 +118,11 @@ export default class CameraController extends GameComponent {
 		const rigid = this.currentMode !== CameraMode.THIRD_PERSON;
 
 		this.updateLook(deltaTime, rigid);
+		this.updateZoom(deltaTime);
 
 		if (rigid) {
 			this.updateRigidCamera(config);
-			this.camera.fov = config.fov || 75;
+			this.camera.fov = (config.fov || 75) * this.zoom;
 		} else {
 			this.updateChaseCamera(deltaTime, config);
 		}
@@ -126,11 +152,22 @@ export default class CameraController extends GameComponent {
 			);
 		}
 
-		if (look.secondsSinceMove > this.AUTO_CENTER_DELAY) {
+		if (rigid && look.secondsSinceMove > this.AUTO_CENTER_DELAY) {
 			const keep = Math.exp(-this.AUTO_CENTER_RATE * deltaTime);
 			this.lookYaw *= keep;
 			this.lookPitch *= keep;
 		}
+	}
+
+	/** Roda do mouse: fator exponencial por entalhe, limitado por modo e suavizado (independente do FPS) */
+	private updateZoom(deltaTime: number): void {
+		const mode = this.currentMode;
+		const [min, max] = this.ZOOM_LIMITS[mode];
+		if (this.look.zoomSteps !== 0) {
+			const target = this.zoomTarget[mode] * Math.pow(this.ZOOM_STEP, this.look.zoomSteps);
+			this.zoomTarget[mode] = THREE.MathUtils.clamp(target, min, max);
+		}
+		this.zoom += (this.zoomTarget[mode] - this.zoom) * (1 - Math.exp(-this.ZOOM_RATE * deltaTime));
 	}
 
 	/** Perseguição: pivô no mesh (pose interpolada), rumo e velocidades do chassi */
@@ -145,8 +182,8 @@ export default class CameraController extends GameComponent {
 		body.getAngularVelocity(target.angularVelocity);
 
 		const framing = this.framing;
-		framing.distance = config.distance;
-		framing.height = config.height;
+		framing.distance = config.distance * this.zoom;
+		framing.height = config.height * this.zoom;
 		framing.lookAtHeight = config.lookAtOffset.y;
 		framing.fov = config.fov || 60;
 

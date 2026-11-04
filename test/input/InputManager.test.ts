@@ -233,6 +233,34 @@ describe("InputManager — ações discretas", () => {
 	});
 });
 
+describe("InputManager — zoom e reset da câmera", () => {
+	it("roda: entalhes somados até o update, limitados a ±1 por evento, e zerados depois", () => {
+		const input = new InputManager();
+		doc.dispatch("wheel", { deltaY: 100, deltaMode: 0 });
+		doc.dispatch("wheel", { deltaY: 40, deltaMode: 0 });
+		doc.dispatch("wheel", { deltaY: -500, deltaMode: 0 });
+		input.update();
+		expect(input.look.zoomSteps).toBeCloseTo(0.4, 10);
+		input.update();
+		expect(input.look.zoomSteps).toBe(0);
+
+		doc.dispatch("wheel", { deltaY: 3, deltaMode: 1 }); // linhas (Firefox)
+		input.update();
+		expect(input.look.zoomSteps).toBeCloseTo(0.99, 10);
+	});
+
+	it("clique da roda emite resetCamera; os outros botões não", () => {
+		const input = new InputManager();
+		const reset = vi.fn();
+		input.on("resetCamera", reset);
+		doc.dispatch("mousedown", { button: 0 });
+		doc.dispatch("mousedown", { button: 2 });
+		expect(reset).not.toHaveBeenCalled();
+		doc.dispatch("mousedown", { button: 1 });
+		expect(reset).toHaveBeenCalledTimes(1);
+	});
+});
+
 describe("módulo de input desacoplado", () => {
 	it("src/input não importa Game, Player nem CameraController", () => {
 		const dir = join(__dirname, "../../src/input");

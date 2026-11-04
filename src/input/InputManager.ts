@@ -21,6 +21,7 @@ export default class InputManager {
 
 	private mouseDeltaX = 0; // px acumulados desde o último update
 	private mouseDeltaY = 0;
+	private zoomSteps = 0; // entalhes da roda acumulados desde o último update
 	private pointerLocked = false;
 	private lastMoveTime = Date.now(); // ms
 
@@ -72,6 +73,8 @@ export default class InputManager {
 		document.addEventListener("keyup", (e) => this.heldKeys.delete(e.key.toLowerCase()));
 		document.addEventListener("mousemove", (e) => this.handleMouseMove(e));
 		document.addEventListener("contextmenu", (e) => e.preventDefault());
+		document.addEventListener("wheel", (e) => this.handleWheel(e), { passive: false });
+		document.addEventListener("mousedown", (e) => this.handleMouseDown(e));
 
 		document.addEventListener("click", () => {
 			if (document.pointerLockElement !== document.body) {
@@ -161,9 +164,26 @@ export default class InputManager {
 		look.pointerLocked = this.pointerLocked;
 		look.yawRate = this.lookYawRate;
 		look.pitchRate = this.lookPitchRate;
+		look.zoomSteps = this.zoomSteps;
 		look.secondsSinceMove = (Date.now() - this.lastMoveTime) / 1000;
 		this.mouseDeltaX = 0;
 		this.mouseDeltaY = 0;
+		this.zoomSteps = 0;
+	}
+
+	/** Roda: entalhe de mouse ≈ 1 passo; trackpad soma frações. Limitado a ±1 por evento. */
+	private handleWheel(e: WheelEvent): void {
+		e.preventDefault();
+		const pixels = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
+		this.zoomSteps += Math.max(-1, Math.min(1, pixels / 100));
+	}
+
+	private handleMouseDown(e: MouseEvent): void {
+		for (const [action, button] of Object.entries(this.bindings.mouseButtons)) {
+			if (button !== e.button) continue;
+			e.preventDefault(); // sem rolagem automática do clique da roda
+			this.emit(action as InputAction);
+		}
 	}
 
 	private processGamepad(gamepad: Gamepad): void {

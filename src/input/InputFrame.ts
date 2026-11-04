@@ -24,6 +24,8 @@ export interface LookInput {
 	yawRate: number;
 	/** Taxa do analógico, positiva olhando para cima (rad/s) */
 	pitchRate: number;
+	/** Passos de zoom desde o quadro anterior (roda do mouse; positivo afasta, um entalhe ≈ 1) */
+	zoomSteps: number;
 	/** Tempo desde o último movimento do mouse com o ponteiro travado ou do analógico fora da zona morta (s) */
 	secondsSinceMove: number;
 }
@@ -33,5 +35,5 @@ export function createInputFrame(): InputFrame {
 }
 
 export function createLookInput(): LookInput {
-	return { deltaX: 0, deltaY: 0, pointerLocked: false, yawRate: 0, pitchRate: 0, secondsSinceMove: 0 };
+	return { deltaX: 0, deltaY: 0, pointerLocked: false, yawRate: 0, pitchRate: 0, zoomSteps: 0, secondsSinceMove: 0 };
 }

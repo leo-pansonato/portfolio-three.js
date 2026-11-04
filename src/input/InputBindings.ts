@@ -2,11 +2,13 @@
 export type DrivingControl = "throttle" | "brake" | "left" | "right" | "handbrake" | "boost";
 
 /** Ações discretas, emitidas uma vez ao pressionar (InputManager.on) */
-export type InputAction = "toggleDevMode" | "cycleCamera" | "selectVehicle1" | "selectVehicle2" | "resetVehicle";
+export type InputAction =
+	"toggleDevMode" | "cycleCamera" | "resetCamera" | "selectVehicle1" | "selectVehicle2" | "resetVehicle";
 
 export const INPUT_ACTIONS: readonly InputAction[] = [
 	"toggleDevMode",
 	"cycleCamera",
+	"resetCamera",
 	"selectVehicle1",
 	"selectVehicle2",
 	"resetVehicle",
@@ -17,6 +19,8 @@ export interface InputBindings {
 	readonly keys: Readonly<Record<DrivingControl | InputAction, readonly string[]>>;
 	/** Índices de botão no mapeamento padrão do Gamepad API */
 	readonly gamepadButtons: Readonly<Partial<Record<"handbrake" | "boost" | InputAction, number>>>;
+	/** Botões do mouse (`MouseEvent.button`) que emitem ações */
+	readonly mouseButtons: Readonly<Partial<Record<InputAction, number>>>;
 	readonly gamepad: {
 		readonly steerAxis: number;
 		readonly throttleButton: number;
@@ -41,6 +45,7 @@ export const DEFAULT_INPUT_BINDINGS: InputBindings = {
 	keys: {
 		toggleDevMode: ["f2"],
 		cycleCamera: ["c", "v"],
+		resetCamera: [],
 		selectVehicle1: ["1"],
 		selectVehicle2: ["2"],
 		resetVehicle: ["r"],
@@ -55,9 +60,13 @@ export const DEFAULT_INPUT_BINDINGS: InputBindings = {
 		handbrake: 0, // A / X
 		boost: 5, // RB / R1
 		cycleCamera: 3, // Y / Triângulo
+		resetCamera: 11, // R3
 		resetVehicle: 8, // Back / Share
 		selectVehicle1: 14, // D-Pad esquerda
 		selectVehicle2: 15, // D-Pad direita
+	},
+	mouseButtons: {
+		resetCamera: 1, // clique da roda
 	},
 	gamepad: {
 		steerAxis: 0, // analógico esquerdo, horizontal

@@ -57,6 +57,8 @@ O Vite serve em `http://localhost:5173`. Clique na tela para capturar o mouse (p
 | Freio de mão | Espaço | A / X |
 | Boost | Shift | RB / R1 |
 | Trocar câmera (1ª pessoa → 3ª pessoa → capô) | C, V | Y / Triângulo |
+| Olhar em volta (clique trava o mouse) | Mouse | Analógico direito |
+| Zoom / voltar a câmera ao padrão | Roda / clique da roda | — / R3 |
 | BMW M4 / Mercedes G63 | 1 / 2 | D-pad ← / → |
 | Reposicionar carro | R | Back / Share |
 | Modo dev (telemetria, colisores, cascatas de sombra) | F2 | — |
