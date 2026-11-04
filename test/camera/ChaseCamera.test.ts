@@ -105,11 +105,10 @@ describe("ChaseCamera", () => {
 		for (const camera of cameras) {
 			expect(camera.position.distanceTo(cameras[0].position)).toBeLessThan(0.01);
 			expect(camera.lookAt.distanceTo(cameras[0].lookAt)).toBeLessThan(0.01);
-			expect(camera.fov).toBeCloseTo(cameras[0].fov, 3);
 		}
 	});
 
-	it("parado: atrás do carro na distância e altura do enquadramento, FOV base", () => {
+	it("parado: atrás do carro na distância e altura do enquadramento", () => {
 		const camera = run(60, 1, (_t, pose) => straight(0, 0)(pose));
 		expect(camera.position.x).toBeCloseTo(-5, 6);
 		expect(camera.position.y).toBeCloseTo(1.6, 6);
@@ -118,54 +117,57 @@ describe("ChaseCamera", () => {
 		expect(camera.fov).toBeCloseTo(60, 6);
 	});
 
-	it("look-ahead e FOV crescem com a velocidade, com limite", () => {
-		const ahead = (v: number) => {
-			const camera = run(60, 4, (t, pose) => straight(v * t, v)(pose));
-			return { lookAhead: camera.lookAt.x - v * 4, fov: camera.fov };
-		};
-		const stopped = ahead(0);
-		const slow = ahead(10);
-		const fast = ahead(30);
-		const veryFast = ahead(80);
-		expect(stopped.lookAhead).toBeCloseTo(0, 6);
-		expect(slow.lookAhead).toBeCloseTo(1, 3);
-		expect(fast.lookAhead).toBeCloseTo(3, 3);
-		expect(veryFast.lookAhead).toBeCloseTo(4, 3);
-		expect(slow.fov).toBeGreaterThan(stopped.fov);
-		expect(fast.fov).toBeGreaterThan(slow.fov);
-		expect(veryFast.fov).toBeCloseTo(70, 3);
+	it("em velocidade, distância, altura e FOV ficam fixos: o carro não sai do centro", () => {
+		for (const v of [10, 40, 80]) {
+			const camera = run(60, 3, (t, pose) => straight(v * t, v)(pose));
+			expect(camera.position.x - v * 3).toBeCloseTo(-5, 6);
+			expect(camera.position.y).toBeCloseTo(1.6, 6);
+			expect(camera.lookAt.x).toBeCloseTo(v * 3, 6);
+			expect(camera.fov).toBe(60);
+		}
 	});
 
-	it("velocidade constante não afasta a câmera; frenagem a aproxima um pouco", () => {
-		const cruising = run(60, 2, (t, pose) => straight(25 * t, 25)(pose));
-		expect(cruising.position.x - 25 * 2).toBeCloseTo(-5, 3);
-
-		const braking = run(60, 2, (t, pose) => straight(25 * t - 4 * t * t, 25 - 8 * t)(pose));
-		const pivotX = 25 * 2 - 4 * 4;
-		const gap = pivotX - braking.position.x;
-		expect(gap).toBeLessThan(5 - 0.03);
-		expect(gap).toBeGreaterThan(4.8);
-	});
-
-	it("em curva, o rumo da câmera fica um pouco atrás do carro, para o lado de fora", () => {
+	it("em curva constante, a câmera fica atrás do vetor de movimento, sem atraso", () => {
 		const omega = 0.5;
 		const camera = run(60, 4, (t, pose) => circle(t, 40, omega, pose));
 		const pose = createPose();
 		circle(4, 40, omega, pose);
 		const direction = new THREE.Vector3().subVectors(pose.position, camera.position);
-		const lag = omega * 4 - Math.atan2(direction.z, direction.x);
-		expect(lag).toBeGreaterThan(0.02);
-		expect(lag).toBeLessThan(0.3);
+		expect(Math.atan2(direction.z, direction.x)).toBeCloseTo(omega * 4, 3);
 	});
 
-	it("teleporte longo reposiciona sem mola", () => {
+	it("em derrapagem, alinha com o vetor de movimento e não com a frente do chassi", () => {
+		const drift = (pose: CarPose) => {
+			straight(0, 0)(pose);
+			pose.velocity.set(20 * Math.cos(0.4), 0, 20 * Math.sin(0.4));
+			setHeading(pose, 0.8);
+		};
+		const camera = run(60, 1, (_t, pose) => drift(pose));
+		expect(Math.atan2(-camera.position.z, -camera.position.x)).toBeCloseTo(0.4, 6);
+	});
+
+	it("parado e em ré, segue a frente do chassi (não vira para a frente do carro)", () => {
+		const reverse = (pose: CarPose) => {
+			straight(0, -8)(pose);
+			setHeading(pose, 0.3);
+			pose.velocity.set(-8 * Math.cos(0.3), 0, -8 * Math.sin(0.3));
+		};
+		const camera = run(60, 1, (_t, pose) => reverse(pose));
+		expect(Math.atan2(-camera.position.z, -camera.position.x)).toBeCloseTo(0.3, 6);
+	});
+
+	it("mudança brusca de rumo é suavizada pela mola e converge", () => {
 		const camera = new ChaseCamera();
 		const pose = createPose();
 		straight(0, 0)(pose);
 		camera.update(1 / 60, pose, FRAMING, 0, 0);
-		straight(100, 0)(pose);
+		setHeading(pose, 1);
 		camera.update(1 / 60, pose, FRAMING, 0, 0);
-		expect(camera.position.x).toBeCloseTo(95, 6);
+		const first = Math.atan2(-camera.position.z, -camera.position.x);
+		expect(first).toBeGreaterThan(0);
+		expect(first).toBeLessThan(0.1);
+		for (let i = 0; i < 120; i++) camera.update(1 / 60, pose, FRAMING, 0, 0);
+		expect(Math.atan2(-camera.position.z, -camera.position.x)).toBeCloseTo(1, 4);
 	});
 
 	it("obstáculo entre o carro e a câmera a aproxima, sem atravessar, e ela volta depois", async () => {

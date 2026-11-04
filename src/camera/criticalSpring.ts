@@ -1,5 +1,3 @@
-import * as THREE from "three";
-
 /** Estado de uma mola escalar: valor e taxa de variação (unidade do valor por s) */
 export interface SpringState {
 	value: number;
@@ -33,34 +31,6 @@ export function stepCriticalSpring(
 	const decay = Math.exp(-omega * dt);
 	state.value = target + (f + temp) * decay - lag;
 	state.velocity = targetVelocity + (fRate - omega * temp) * decay;
-}
-
-const _component: SpringState = { value: 0, velocity: 0 };
-
-/** stepCriticalSpring por componente; escreve em `value` e `velocity` */
-export function stepCriticalSpringVector(
-	value: THREE.Vector3,
-	velocity: THREE.Vector3,
-	target: Readonly<THREE.Vector3>,
-	targetVelocity: Readonly<THREE.Vector3>,
-	dt: number,
-	timeConstant: number,
-	velocityFeedForward = 0,
-): void {
-	for (let axis = 0; axis < 3; axis++) {
-		_component.value = value.getComponent(axis);
-		_component.velocity = velocity.getComponent(axis);
-		stepCriticalSpring(
-			_component,
-			target.getComponent(axis),
-			targetVelocity.getComponent(axis),
-			dt,
-			timeConstant,
-			velocityFeedForward,
-		);
-		value.setComponent(axis, _component.value);
-		velocity.setComponent(axis, _component.velocity);
-	}
 }
 
 /** Ângulo equivalente em [−π, π) (rad) */
