@@ -4,8 +4,8 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Estado (2026-11-03)
 
-- `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI) e P2-7 e P2-9 concluídos.
-- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 193 testes (cenários, trem de força acoplado, diferenciais, freio-motor, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
+- `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI); P2-1, P2-5, P2-7, P2-8 (protótipo) e P2-9 concluídos.
+- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 231 testes (cenários, mapeamento de áudio, trem de força acoplado, diferenciais, freio-motor, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
 - Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
 
@@ -18,6 +18,20 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 - P2-8 concluído como protótipo procedural (`src/audio/`, tecla M); usuário reprovou o timbre (agudo, artificial, derrapagem irreconhecível, impacto inaudível). Refatoração nos padrões da indústria registrada como P2-11; ADR-0007 aceito com a opção A (motor próprio por amostras); falta a origem das gravações.
 - P2-1 concluído: etapa 4 (trem de força acoplado: motor com rotação própria, embreagem/conversor, diferenciais com bloqueio, freio-motor) integrada (409f384); ré chega a ~65 km/h no corte (rever relação de ré). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
+
+## Retomar: P2-11 — áudio veicular nos padrões da indústria
+
+Ler antes: [ADR-0007](decisions/ADR-0007-audio-veicular.md) (diagnóstico, práticas, decisão), ROADMAP P2-11 (etapas e conclusão), ARCHITECTURE §3.6.1 (protótipo atual).
+
+- **Decidido:** opção A — motor de áudio próprio em Web Audio, por amostras, sem dependência; contrato no estilo middleware (eventos, parâmetros, barramentos, *snapshots*) para aceitar granular depois.
+- **Bloqueio do usuário (etapas 3–5):** origem e licença das gravações (próprias, biblioteca comprada, CC0), formato (Opus/Ogg + alternativa para Safari, verificar) e orçamento de download por veículo. Nenhuma amostra entra no Git antes disso.
+- **Próximo passo sem bloqueio — etapa 2 (sinais), commits separados:**
+  1. Telemetria: carga do motor (torque pedido ÷ disponível na rpm, de `vehicle/Engine`/`Driveline`), corte ativo, escorregamento normalizado ao pico por roda (`peakSlip` de `vehicle/Tire`). Turbo só se o trem de força ganhar pressão de turbo (hoje não existe; não inventar). Atualizar `VehicleTelemetry` + teste em `test/vehicle/VehicleTelemetry.test.ts`; replay e linha de base `rapier.json` devem continuar idênticos.
+  2. Eventos de contato no contrato `PhysicsWorld` (`physics/PhysicsWorld.ts` + `RapierPhysicsWorld`): `ActiveEvents.CONTACT_FORCE_EVENTS` com limiar por colisor, drenados após `world.step()` em buffer pré-alocado (impulso, ponto, par de corpos), sem alocação por passo; só `src/physics/` importa a Rapier. Teste em `test/physics/`.
+  3. Antes do áudio de impacto: o item **[Investigar]** do P2-11 (se batidas nas caixas passam de 3 g e se o impacto atual só é inaudível).
+- **Depois:** etapa 3 (camadas de rpm com/sem carga, *crossfade* de potência constante, fontes escape/admissão/transmissão/corte/estalos, mix interno × externo por câmera), 4 (pneus por amostras e superfície, depende do P2-3), 5 (impactos/raspagens pelos eventos), 6 (espacialização e barramentos).
+- **Reaproveitar:** `src/audio/vehicleSound.ts` (mapeamento puro, testes em `test/audio/`), partida do `AudioContext` no primeiro gesto, tecla M, suspensão com a aba oculta. Substituir os osciladores e o ruído de `VehicleAudio.ts`.
+- **Verificação no navegador sem ouvido:** envolver `window.AudioContext` antes do primeiro gesto para capturar o contexto e ligar um `AnalyserNode` no compressor; teclas sintéticas precisam ir para `document` (o `InputManager` escuta lá). Aprovação final é de escuta do usuário, no roteiro do P2-11.
 
 ## Próximos itens (ordem)
 
