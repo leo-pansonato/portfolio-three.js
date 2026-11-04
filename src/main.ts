@@ -114,6 +114,7 @@ class Game {
 		);
 		this.bindInputActions();
 		this.ui.bindReplayControls(this.player);
+		this.ui.mountRaceHud();
 
 		// Configurar materiais existentes para usar CSM
 		this.lightingManager.setupCSMMaterials();

@@ -168,6 +168,8 @@ Modelo físico do veículo: todo próprio sobre o corpo rígido (ADR-0003): trem
 
 ### 3.6 UI, dev mode, desempenho [Implementado]
 
+- HUD de corrida (ADR-0004): React em `#hud` sobre o canvas, `src/ui/` (conta-giros com faixa vermelha e alerta de troca, velocidade, marcha). `UIManager.updateRaceHud` copia velocidade, rpm e marcha da telemetria para `HudStore.frame` e chama `publish(dt)` por quadro; o React só renderiza mudanças discretas, os valores contínuos são escritos direto no DOM. Escala do mostrador por veículo (`createHudVehicleSpec`, de `Player.getDefinition().powertrain`).
+
 - `UIManager`: no modo dev, a ~10 Hz, escreve velocidade/posição/rotação/ângulo de roda, aceleração em g e a tabela de telemetria por roda (contato, compressão em mm, suspensão e forças do pneu em kN = impulso/passo); botões gravar/reproduzir replay (`bindReplayControls`, ligado em `main.ts`). Os botões “BMW M4 / MERCEDES G63” do HTML não têm handler.
 - `DevModeManager`: singleton com `localStorage` e assinantes por id.
 - `PerformanceManager`: painel `Stats` (FPS).

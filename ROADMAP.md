@@ -210,6 +210,7 @@ flowchart LR
 ### [ ] P2-6 — UI (ADR-0004)
 
 - Decidir DOM puro × React/Preact sobre o canvas; HUD de corrida, menus, seleção de veículo.
+- **Parcial (2026-11-03):** React 19 (ADR-0004); HUD de corrida (rpm, velocidade, marcha) em `src/ui/`, testes em `test/ui/`. Faltam menus e seleção de veículo.
 
 ### [x] P2-7 — Pipeline de cor e iluminação
 

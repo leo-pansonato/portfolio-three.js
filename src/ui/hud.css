@@ -1,0 +1,320 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;1,600;1,700;1,800&display=swap");
+
+/* Escala: 1 --hud-u ≈ 1 px a 1080p, pela menor dimensão da tela (720p → 0,67; 4K → 2) */
+#hud {
+	--hud-u: clamp(0.55px, calc(100vmin / 1080), 2.4px);
+	position: fixed;
+	inset: 0;
+	z-index: 5;
+	pointer-events: none;
+	user-select: none;
+	font-family: var(--hud-font-display);
+	color: var(--hud-color-ink);
+}
+
+#hud * {
+	font-family: var(--hud-font-display);
+}
+
+.hud {
+	position: absolute;
+	inset: 0;
+	opacity: 1;
+	transition: opacity var(--hud-fade-ms) var(--hud-ease-in-out);
+}
+
+.hud[data-visible="false"] {
+	opacity: 0;
+}
+
+.hud-cluster {
+	position: absolute;
+	right: calc(env(safe-area-inset-right, 0px) + var(--hud-size-gutter));
+	bottom: calc(env(safe-area-inset-bottom, 0px) + var(--hud-size-gutter));
+	width: var(--hud-size-tachometer);
+	height: calc(var(--hud-size-tachometer) * 1.08);
+	animation: hud-enter var(--hud-enter-ms) var(--hud-ease-out) both;
+	contain: layout style;
+}
+
+/* Conta-giros */
+.hud-tach {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: var(--hud-size-tachometer);
+	height: var(--hud-size-tachometer);
+}
+
+.hud-tach::before {
+	content: "";
+	position: absolute;
+	inset: -12%;
+	border-radius: 50%;
+	background: radial-gradient(
+		circle,
+		var(--hud-color-backdrop) 0%,
+		var(--hud-color-backdrop) 48%,
+		rgba(8, 10, 16, 0.18) 64%,
+		transparent 72%
+	);
+}
+
+.hud-tach__dial {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+.hud-tach__track,
+.hud-tach__redline,
+.hud-tach__fill {
+	fill: none;
+}
+
+.hud-tach__track {
+	stroke: var(--hud-color-track);
+	stroke-width: 2.5;
+}
+
+.hud-tach__redline {
+	stroke: var(--hud-color-redline);
+	stroke-width: 6;
+	transition: filter var(--hud-fade-ms) var(--hud-ease-in-out);
+}
+
+.hud-tach__fill {
+	stroke: var(--hud-color-ink-soft);
+	stroke-width: 6;
+	stroke-dasharray: 1 1;
+	stroke-dashoffset: 1;
+	transition: stroke var(--hud-fade-ms) var(--hud-ease-in-out);
+}
+
+.hud-tach__tick {
+	stroke: var(--hud-color-ink-faint);
+	stroke-width: 1.4;
+	stroke-linecap: round;
+}
+
+.hud-tach__tick.is-major {
+	stroke: var(--hud-color-ink);
+	stroke-width: 2.4;
+}
+
+.hud-tach__tick.is-red {
+	stroke: var(--hud-color-redline);
+}
+
+.hud-tach__label {
+	fill: var(--hud-color-ink);
+	font-size: 15px;
+	font-style: italic;
+	font-weight: var(--hud-weight-bold);
+	text-anchor: middle;
+	dominant-baseline: central;
+	paint-order: stroke;
+	stroke: var(--hud-color-shadow);
+	stroke-width: 2px;
+}
+
+.hud-tach__label.is-red {
+	fill: var(--hud-color-redline);
+}
+
+.hud-tach__unit {
+	fill: var(--hud-color-ink-faint);
+	font-size: 8px;
+	font-weight: var(--hud-weight-regular);
+	letter-spacing: 0.08em;
+	text-anchor: middle;
+	text-transform: uppercase;
+}
+
+.hud-tach__needle polygon {
+	fill: var(--hud-color-accent);
+	stroke: rgba(255, 255, 255, 0.85);
+	stroke-width: 0.6;
+	stroke-linejoin: round;
+}
+
+.hud-tach.is-shift .hud-tach__fill {
+	stroke: var(--hud-color-redline);
+}
+
+.hud-tach.is-shift .hud-tach__redline {
+	filter: drop-shadow(0 0 3px var(--hud-color-redline-glow));
+}
+
+.hud-tach__center {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}
+
+/* Marcha */
+.hud-gear {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: var(--hud-size-gear-disc);
+	height: var(--hud-size-gear-disc);
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.06);
+	box-shadow:
+		inset 0 0 0 calc(var(--hud-u) * 2.5) var(--hud-color-ink),
+		0 calc(var(--hud-u) * 4) calc(var(--hud-u) * 18) var(--hud-color-shadow);
+	overflow: hidden;
+}
+
+.hud-gear__value {
+	grid-area: 1 / 1;
+	font-size: var(--hud-size-gear-text);
+	font-style: italic;
+	font-weight: var(--hud-weight-heavy);
+	line-height: 1;
+	padding-right: 0.06em;
+	text-shadow: 0 calc(var(--hud-u) * 2) calc(var(--hud-u) * 10) var(--hud-color-shadow);
+	animation: hud-gear-up var(--hud-gear-ms) var(--hud-ease-out) both;
+}
+
+.hud-gear[data-direction="down"] .hud-gear__value {
+	animation-name: hud-gear-down;
+}
+
+.hud-gear[data-gear="R"] .hud-gear__value {
+	color: var(--hud-color-redline);
+}
+
+.hud-gear__pulse {
+	grid-area: 1 / 1;
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255, 255, 255, 0.35), transparent 70%);
+	opacity: 0;
+	animation: hud-gear-pulse calc(var(--hud-gear-ms) * 1.6) var(--hud-ease-out) both;
+}
+
+.hud-tach.is-shift .hud-gear {
+	animation: hud-shift-blink calc(var(--hud-shift-blink-ms) * 2) steps(1, end) infinite;
+}
+
+/* Velocidade */
+.hud-speed {
+	position: absolute;
+	left: 50%;
+	top: calc(var(--hud-size-tachometer) * 0.66);
+	transform: translateX(-50%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	line-height: 1;
+}
+
+.hud-speed__number {
+	font-size: var(--hud-size-speed-text);
+	font-style: italic;
+	font-weight: var(--hud-weight-heavy);
+	font-variant-numeric: tabular-nums lining-nums;
+	letter-spacing: -0.01em;
+	white-space: nowrap;
+	padding-right: 0.08em;
+	text-shadow:
+		0 calc(var(--hud-u) * 3) calc(var(--hud-u) * 16) var(--hud-color-shadow),
+		0 0 calc(var(--hud-u) * 2) rgba(0, 0, 0, 0.35);
+}
+
+.hud-speed__lead {
+	color: var(--hud-color-ink-faint);
+	text-shadow: none;
+}
+
+.hud-speed__unit {
+	margin-top: calc(var(--hud-u) * -4);
+	font-size: var(--hud-size-unit-text);
+	font-style: italic;
+	font-weight: var(--hud-weight-bold);
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--hud-color-ink-soft);
+	text-shadow: 0 calc(var(--hud-u) * 2) calc(var(--hud-u) * 8) var(--hud-color-shadow);
+}
+
+@keyframes hud-enter {
+	from {
+		opacity: 0;
+		transform: translate(calc(var(--hud-u) * 24), calc(var(--hud-u) * 16)) scale(0.94);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes hud-gear-up {
+	from {
+		opacity: 0;
+		transform: translateY(45%) scale(0.8);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes hud-gear-down {
+	from {
+		opacity: 0;
+		transform: translateY(-45%) scale(0.8);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes hud-gear-pulse {
+	from {
+		opacity: 1;
+		transform: scale(0.6);
+	}
+	to {
+		opacity: 0;
+		transform: scale(1.4);
+	}
+}
+
+@keyframes hud-shift-blink {
+	0% {
+		background-color: var(--hud-color-redline);
+	}
+	50% {
+		background-color: rgba(255, 255, 255, 0.06);
+	}
+}
+
+.hud[data-reduced-motion="true"] *,
+.hud[data-reduced-motion="true"] {
+	animation: none !important;
+	transition: none !important;
+}
+
+.hud[data-reduced-motion="true"] .hud-tach.is-shift .hud-gear {
+	background-color: var(--hud-color-redline);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hud,
+	.hud * {
+		animation: none !important;
+		transition: none !important;
+	}
+
+	.hud-tach.is-shift .hud-gear {
+		background-color: var(--hud-color-redline);
+	}
+}

@@ -1,6 +1,10 @@
 import GameComponent from "../components/GameComponent";
 import Player from "../components/Player";
+import { VehicleDefinition } from "../data/vehicles";
 import { Replay } from "../replay/Replay";
+import { metersPerSecondToKmh } from "../ui/format";
+import { createHudVehicleSpec } from "../ui/gauge";
+import { MountedHud, mountHud } from "../ui/mountHud";
 import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
 import { REVERSE_GEAR } from "../vehicle/VehicleState";
 import { devMode } from "./DevModeManager";
@@ -37,6 +41,8 @@ export default class UIManager extends GameComponent {
 	private playButton: HTMLButtonElement | null;
 	private replayStatus: HTMLElement | null;
 	private lastReplay: Replay | null = null;
+	private raceHud: MountedHud | null = null;
+	private hudVehicle: Readonly<VehicleDefinition> | null = null;
 
 	public ui: {
 		overlays: { dev: HTMLElement | null };
@@ -132,10 +138,23 @@ export default class UIManager extends GameComponent {
 		this.hudTimer = UIManager.DEV_HUD_INTERVAL;
 	}
 
+	/** Monta o HUD de corrida (React) no elemento `#hud` */
+	mountRaceHud(container = document.getElementById("hud")): void {
+		if (!container || this.raceHud) return;
+		this.raceHud = mountHud(container);
+	}
+
+	disposeRaceHud(): void {
+		this.raceHud?.dispose();
+		this.raceHud = null;
+		this.hudVehicle = null;
+	}
+
 	/**
-	 * Atualiza informações do player na UI (~10 Hz)
+	 * Atualiza o HUD de corrida (por quadro) e as informações do player no HUD de dev (~10 Hz)
 	 */
 	updatePlayerInfo(deltaTime: number, player: Player): void {
+		this.updateRaceHud(deltaTime, player);
 		if (!devMode.isEnabled()) return;
 
 		this.hudTimer += deltaTime;
@@ -159,6 +178,23 @@ export default class UIManager extends GameComponent {
 
 		this.updateTelemetry(player.getTelemetry());
 		this.updateReplayStatus(player);
+	}
+
+	/** Copia marcha, rotação e velocidade da telemetria para o snapshot do HUD */
+	private updateRaceHud(deltaTime: number, player: Player): void {
+		const hud = this.raceHud;
+		if (!hud) return;
+		const definition = player.getDefinition();
+		if (definition !== this.hudVehicle) {
+			this.hudVehicle = definition;
+			hud.store.setVehicle(createHudVehicleSpec(definition.powertrain));
+		}
+		const telemetry = player.getTelemetry();
+		const frame = hud.store.frame;
+		frame.speedKmh = Math.abs(metersPerSecondToKmh(telemetry.forwardSpeed));
+		frame.engineRpm = telemetry.engineRpm;
+		frame.gear = telemetry.gear;
+		hud.store.publish(deltaTime);
 	}
 
 	private updateTelemetry(telemetry: Readonly<VehicleTelemetry>): void {

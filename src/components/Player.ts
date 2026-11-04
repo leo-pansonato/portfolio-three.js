@@ -212,6 +212,11 @@ export default class Player extends Entity {
 		return this.mesh.position;
 	}
 
+	/** Definição (imutável) do veículo atual */
+	getDefinition(): Readonly<VehicleDefinition> {
+		return this.vehicleData;
+	}
+
 	getCameraConfig(): Record<CameraMode, CameraConfig> {
 		return this.vehicleData.cameraSettings;
 	}
