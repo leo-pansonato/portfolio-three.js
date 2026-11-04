@@ -222,11 +222,11 @@ flowchart LR
 - Motor (por RPM/carga), pneus (por escorregamento), impactos, ambiente. Depende de P2-1 para os sinais.
 - **Resultado:** áudio procedural em Web Audio, sem assets nem dependência (`src/audio/`, ARCHITECTURE §3.6.1): motor por ordem de ignição e carga, perfil por veículo em `VehicleDefinition.sound` (S55 seis cilindros, M177 V8 com meia ordem forte); chiado dos pneus acima do pico de escorregamento; vento e rolamento por velocidade; impacto por pico de aceleração. Tecla `M` liga/desliga. Testes do mapeamento em `test/audio/`. No navegador: contexto ativo após o primeiro gesto, nível e frequência sobem com acelerador e rpm, `M` suspende. Não avaliado de ouvido nem com controle; sem som espacial nem por superfície (P2-3).
 
-### [ ] P2-11 — Refatoração do áudio veicular nos padrões da indústria (ADR-0007)
+### [~] P2-11 — Refatoração do áudio veicular nos padrões da indústria (ADR-0007)
 
-- **Motivo:** avaliação do usuário do P2-8 — motor agudo e artificial, derrapagem como chiado irreconhecível, impacto inaudível. Diagnóstico e práticas consideradas no ADR-0007 (status `Proposta`).
+- **Motivo:** avaliação do usuário do P2-8 — motor agudo e artificial, derrapagem como chiado irreconhecível, impacto inaudível. Diagnóstico, práticas e decisão no ADR-0007 (aceito: opção A).
 - **Entregas, em ordem:**
-  1. Decidir o ADR-0007 (motor próprio por amostras × FMOD × granular) e a origem/licença/formato das gravações.
+  1. ~~Decidir o ADR-0007~~ — opção A, motor próprio por amostras (2026-11-03). Falta decidir a origem/licença/formato das gravações.
   2. Sinais: carga do motor, turbo e escorregamento normalizado na telemetria; eventos de força de contato no `PhysicsWorld` (commit próprio).
   3. Motor por camadas de rpm com conjuntos com/sem carga, *crossfade* de potência constante, fontes de escape/admissão/transmissão/turbo/corte/estalos; mix interno × externo por câmera.
   4. Pneus por amostras (*scrub*, guincho, travamento) pelo escorregamento normalizado ao pico, por superfície (P2-3).

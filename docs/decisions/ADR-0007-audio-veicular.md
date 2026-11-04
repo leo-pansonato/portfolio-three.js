@@ -1,6 +1,6 @@
 # ADR-0007 — Áudio veicular por amostras, parâmetros e eventos de contato
 
-- **Status:** Proposta (2026-11-03)
+- **Status:** Aceita (2026-11-03) — opção A; origem das gravações pendente
 - **Data:** 2026-11-03
 - **Escopo:** som de motor, pneus, impactos e mixagem (ROADMAP P2-11, substitui o protótipo do P2-8).
 
@@ -42,6 +42,10 @@ Jogos de corrida comerciais não sintetizam o motor do zero: usam gravações do
 | Testes em Node | mapeamento de parâmetros testável | só no navegador | mapeamento testável |
 
 Recomendação inicial: **A**, com contrato espelhando os conceitos de middleware (eventos, parâmetros, barramentos, *snapshots*) para permitir migrar a B ou acrescentar C ao motor sem mudar os chamadores. **Decisão pendente do usuário**, assim como a origem das gravações.
+
+## Decisão
+
+**A** (escolhida pelo usuário em 2026-11-03): motor de áudio próprio em Web Audio, por amostras, sem dependência nova. O contrato segue os conceitos de middleware (eventos, parâmetros, barramentos, *snapshots*) para que o granular (C) possa entrar depois como outra fonte de motor sem mudar os chamadores. A origem, a licença e o formato das gravações continuam em aberto.
 
 ## Pré-requisitos e questões abertas
 

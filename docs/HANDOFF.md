@@ -16,7 +16,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - P2-6 parcial (ADR-0004): HUD de corrida em React (`src/ui/`); faltam menus e seleção de veículo.
 - Zoom pela roda em todas as câmeras, clique da roda reseta a câmera ativa, órbita sem auto-centro (feito).
 
-- P2-8 concluído como protótipo procedural (`src/audio/`, tecla M); usuário reprovou o timbre (agudo, artificial, derrapagem irreconhecível, impacto inaudível). Refatoração nos padrões da indústria registrada como P2-11 e ADR-0007 (`Proposta`): aguarda decisão da opção e da origem das gravações.
+- P2-8 concluído como protótipo procedural (`src/audio/`, tecla M); usuário reprovou o timbre (agudo, artificial, derrapagem irreconhecível, impacto inaudível). Refatoração nos padrões da indústria registrada como P2-11; ADR-0007 aceito com a opção A (motor próprio por amostras); falta a origem das gravações.
 - P2-1 concluído: etapa 4 (trem de força acoplado: motor com rotação própria, embreagem/conversor, diferenciais com bloqueio, freio-motor) integrada (409f384); ré chega a ~65 km/h no corte (rever relação de ré). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
