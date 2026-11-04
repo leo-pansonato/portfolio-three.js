@@ -74,7 +74,7 @@ flowchart TD
    - `Player.update` → `VehicleView.update`: só visual — chassi e rodas (suspensão, esterço, giro) interpolados pelo mesmo `alpha`.
    - `CameraController.update`: posiciona a câmera conforme o modo, a partir da pose interpolada do mesh do chassi.
    - `LightingManager.update`: `csm.update()`.
-5. `ui.updatePlayerInfo` (só no modo dev).
+5. `audio.update(dt)` (`VehicleAudio`) e `ui.updatePlayerInfo` (só no modo dev).
 6. `renderer.render(scene, camera)`.
 
 Consequências:
@@ -173,6 +173,12 @@ Modelo físico do veículo: todo próprio sobre o corpo rígido (ADR-0003): trem
 - `UIManager`: no modo dev, a ~10 Hz, escreve velocidade/posição/rotação/ângulo de roda, aceleração em g e a tabela de telemetria por roda (contato, compressão em mm, suspensão e forças do pneu em kN = impulso/passo); botões gravar/reproduzir replay (`bindReplayControls`, ligado em `main.ts`). Os botões “BMW M4 / MERCEDES G63” do HTML não têm handler.
 - `DevModeManager`: singleton com `localStorage` e assinantes por id.
 - `PerformanceManager`: painel `Stats` (FPS).
+
+### 3.6.1 Áudio — `src/audio/` [Implementado]
+
+- `vehicleSound.ts` (puro, testado em Node): telemetria do último passo + acelerador → frequência de ignição (rpm/60 · cilindros/2), ganho e corte do motor, chiado dos pneus (escorregamento combinado acima do pico de `peakSlip`, pela carga e velocidade do contato), vento (v²), rolamento (v) e intensidade de impacto (aceleração horizontal do chassi > 3 g).
+- `VehicleAudio.ts`: grafo Web Audio procedural, sem assets — osciladores do motor (ignição, 2ª ordem, meia ordem por `VehicleDefinition.sound`) com saturação e passa-baixas; ruído branco filtrado para pneus, vento, rolamento e impactos; compressor na saída. Lido por quadro com rampas de 30 ms (`setTargetAtTime`), sem alocação por quadro. O `AudioContext` nasce no primeiro gesto (autoplay); `M` suspende, aba oculta também.
+- Limitações: carga do motor = acelerador do `InputFrame` ao vivo (no replay, não o gravado); impacto só por aceleração horizontal (pouso de salto não soa); sem som espacial, superfície nem ambiente de cenário.
 
 ### 3.7 Código morto [Implementado]
 
@@ -278,4 +284,4 @@ Decisão já implícita no código e mantida: **Three.js imperativo** como camad
 5. Pipeline de assets: compressão (KTX2/Basis, Draco/Meshopt), limites por veículo; os modelos atuais somam ~49 MB.
 6. Terreno: `heightfield` × `trimesh` na Rapier para direção (arestas internas, desempenho de consulta).
 7. Necessidade de determinismo entre plataformas (replays, fantasmas, rede) — define se usar `rapier3d-deterministic-compat`.
-8. Áudio: não existe nenhum sistema de áudio.
+8. Áudio: procedural (§3.6.1); amostras gravadas ou sintetizadas por veículo exigiriam decidir formato e orçamento de download (P3-2).

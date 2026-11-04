@@ -217,9 +217,10 @@ flowchart LR
 - Tone mapping explícito, exposição, espaço de cor, `HDRLoader` no lugar do `RGBELoader` obsoleto; câmera com razão near/far adequada (ou *logarithmic depth*).
 - **Feito:** AgX com exposição 1,3 (`?exposure=` para ajuste), `SRGBColorSpace` explícito, `HDRLoader` com mapeamento de reflexão, `pixelRatio ≤ 2`, `near 0.1`/`far 1000` sem *logarithmic depth* (ARCHITECTURE §3.5). Intensidade das luzes não foi reajustada.
 
-### [ ] P2-8 — Áudio
+### [x] P2-8 — Áudio
 
-- Não existe. Motor (por RPM/carga), pneus (por escorregamento), impactos, ambiente. Depende de P2-1 para os sinais.
+- Motor (por RPM/carga), pneus (por escorregamento), impactos, ambiente. Depende de P2-1 para os sinais.
+- **Resultado:** áudio procedural em Web Audio, sem assets nem dependência (`src/audio/`, ARCHITECTURE §3.6.1): motor por ordem de ignição e carga, perfil por veículo em `VehicleDefinition.sound` (S55 seis cilindros, M177 V8 com meia ordem forte); chiado dos pneus acima do pico de escorregamento; vento e rolamento por velocidade; impacto por pico de aceleração. Tecla `M` liga/desliga. Testes do mapeamento em `test/audio/`. No navegador: contexto ativo após o primeiro gesto, nível e frequência sobem com acelerador e rpm, `M` suspende. Não avaliado de ouvido nem com controle; sem som espacial nem por superfície (P2-3).
 
 ### [x] P2-9 — Debug físico sincronizado com a pose interpolada
 

@@ -226,6 +226,17 @@ export interface WheelDefinition {
 	rotation: Vec3;
 }
 
+/** Som procedural do motor (P2-8) */
+export interface VehicleSoundConfig {
+	/** Cilindros de um motor quatro tempos: ignição em rpm/60 · cilindros/2 (Hz) */
+	cylinders: number;
+	/** Peso da meia ordem (rpm/60 · cilindros/4) em relação à ignição (0–1); alto num V8 de virabrequim cruzado */
+	subharmonicGain: number;
+	/** Corte do filtro do motor em lenta sem carga e no corte com carga plena (Hz) */
+	idleCutoffHz: number;
+	fullLoadCutoffHz: number;
+}
+
 export interface VehicleDefinition {
 	body: {
 		modelPath: string;
@@ -241,6 +252,7 @@ export interface VehicleDefinition {
 	tire: VehicleTireConfig;
 	powertrain: VehiclePowertrainConfig;
 	aerodynamics: VehicleAerodynamicsConfig;
+	sound: VehicleSoundConfig;
 	cameraSettings: Record<CameraMode, CameraConfig>;
 	configs: VehicleDrivingConfig;
 	wheels: {

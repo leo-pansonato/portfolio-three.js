@@ -69,6 +69,12 @@ export const mercedesG63: VehicleDefinition = {
 		dragCoefficient: 0.54,
 		frontalArea: 3.3,
 	},
+	sound: {
+		cylinders: 8,
+		subharmonicGain: 0.7,
+		idleCutoffHz: 600,
+		fullLoadCutoffHz: 2600,
+	},
 	cameraSettings: {
 		[CameraMode.THIRD_PERSON]: {
 			distance: 5,

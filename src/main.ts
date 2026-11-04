@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 import "./styles/main.css";
 
+import VehicleAudio from "./audio/VehicleAudio";
 import CameraController from "./components/CameraController";
 import Environment from "./components/Environment";
 import GameComponent from "./components/GameComponent";
@@ -49,6 +50,7 @@ class Game {
 	public lightingManager!: LightingManager;
 	public player!: Player;
 	public cameraController!: CameraController;
+	public audio!: VehicleAudio;
 
 	// binding do loop para manter o contexto 'this' correto no requestAnimationFrame
 	private gameLoopBound: (now: number) => void;
@@ -112,6 +114,7 @@ class Game {
 			this.inputManager.look,
 			this.physicsManager,
 		);
+		this.audio = new VehicleAudio(this.player, this.inputManager.frame);
 		this.bindInputActions();
 		this.ui.bindReplayControls(this.player);
 		this.ui.mountRaceHud();
@@ -144,6 +147,7 @@ class Game {
 		input.on("selectVehicle1", () => void this.player.changeVehicle("bmw_f82"));
 		input.on("selectVehicle2", () => void this.player.changeVehicle("mercedes_g63"));
 		input.on("resetVehicle", () => this.player.resetCar());
+		input.on("toggleAudio", () => this.audio.toggleMute());
 	}
 
 	handleResize(): void {
@@ -177,6 +181,8 @@ class Game {
 
 		// atualizar lógica do Jogo (componentes)
 		this.update(deltaTime);
+
+		this.audio.update(deltaTime);
 
 		// atualizar UI
 		this.ui.updatePlayerInfo(deltaTime, this.player);

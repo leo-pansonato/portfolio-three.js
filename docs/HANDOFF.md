@@ -16,12 +16,13 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 - P2-6 parcial (ADR-0004): HUD de corrida em React (`src/ui/`); faltam menus e seleção de veículo.
 - Zoom pela roda em todas as câmeras, clique da roda reseta a câmera ativa, órbita sem auto-centro (feito).
 
+- P2-8 concluído: áudio procedural (`src/audio/`), tecla M; timbre não ajustado de ouvido pelo usuário.
 - P2-1 concluído: etapa 4 (trem de força acoplado: motor com rotação própria, embreagem/conversor, diferenciais com bloqueio, freio-motor) integrada (409f384); ré chega a ~65 km/h no corte (rever relação de ré). P2-9 (debug físico interpolado) concluído; P2-10 (worker) planejado.
 
 ## Próximos itens (ordem)
 
 1. P2-2 (controle de tração e ESC): o BMW roda com acelerador pleno em curva e patina a traseira na arrancada; o G63 patina as quatro.
-2. P2-5 câmeras (perseguição com inércia), P2-3 mundo (heightfield, superfícies), P2-4 renderização (pós, reflexos), P2-8 áudio.
+2. P2-3 mundo (heightfield, superfícies; ligar ao áudio dos pneus), P2-4 renderização (reflexos, CSM), P2-6 menus.
 3. Pendências menores: `Game.dispose()` chamando `environment/lightingManager/physicsManager/renderer.dispose`; placeholder do chassi ainda registrado no `PhysicsWorld`; `clearCache()` nunca chamado.
 
 ## Pendências conhecidas

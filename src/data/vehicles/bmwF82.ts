@@ -66,6 +66,12 @@ export const bmwF82: VehicleDefinition = {
 		dragCoefficient: 0.34,
 		frontalArea: 2.2,
 	},
+	sound: {
+		cylinders: 6,
+		subharmonicGain: 0.25,
+		idleCutoffHz: 900,
+		fullLoadCutoffHz: 4200,
+	},
 	cameraSettings: {
 		[CameraMode.THIRD_PERSON]: {
 			distance: 5,

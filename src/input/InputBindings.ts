@@ -3,7 +3,13 @@ export type DrivingControl = "throttle" | "brake" | "left" | "right" | "handbrak
 
 /** Ações discretas, emitidas uma vez ao pressionar (InputManager.on) */
 export type InputAction =
-	"toggleDevMode" | "cycleCamera" | "resetCamera" | "selectVehicle1" | "selectVehicle2" | "resetVehicle";
+	| "toggleDevMode"
+	| "cycleCamera"
+	| "resetCamera"
+	| "selectVehicle1"
+	| "selectVehicle2"
+	| "resetVehicle"
+	| "toggleAudio";
 
 export const INPUT_ACTIONS: readonly InputAction[] = [
 	"toggleDevMode",
@@ -12,6 +18,7 @@ export const INPUT_ACTIONS: readonly InputAction[] = [
 	"selectVehicle1",
 	"selectVehicle2",
 	"resetVehicle",
+	"toggleAudio",
 ];
 
 /** Mapeamento de dispositivos como dados. Teclas em minúsculas, como `KeyboardEvent.key`. */
@@ -49,6 +56,7 @@ export const DEFAULT_INPUT_BINDINGS: InputBindings = {
 		selectVehicle1: ["1"],
 		selectVehicle2: ["2"],
 		resetVehicle: ["r"],
+		toggleAudio: ["m"],
 		throttle: ["arrowup", "w"],
 		brake: ["arrowdown", "s"],
 		left: ["arrowleft", "a"],

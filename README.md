@@ -62,6 +62,7 @@ O Vite serve em `http://localhost:5173`. Clique na tela para capturar o mouse (p
 | BMW M4 / Mercedes G63 | 1 / 2 | D-pad ← / → |
 | Reposicionar carro | R | Back / Share |
 | Modo dev (telemetria, colisores, cascatas de sombra) | F2 | — |
+| Som liga/desliga (começa no primeiro clique ou tecla) | M | — |
 
 ## Build e verificações
 
