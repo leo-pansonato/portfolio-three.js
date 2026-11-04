@@ -178,6 +178,7 @@ Modelo físico do veículo: todo próprio sobre o corpo rígido (ADR-0003): trem
 
 - `vehicleSound.ts` (puro, testado em Node): telemetria do último passo + acelerador → frequência de ignição (rpm/60 · cilindros/2), ganho e corte do motor, chiado dos pneus (escorregamento combinado acima do pico de `peakSlip`, pela carga e velocidade do contato), vento (v²), rolamento (v) e intensidade de impacto (aceleração horizontal do chassi > 3 g).
 - `VehicleAudio.ts`: grafo Web Audio procedural, sem assets — osciladores do motor (ignição, 2ª ordem, meia ordem por `VehicleDefinition.sound`) com saturação e passa-baixas; ruído branco filtrado para pneus, vento, rolamento e impactos; compressor na saída. Lido por quadro com rampas de 30 ms (`setTargetAtTime`), sem alocação por quadro. O `AudioContext` nasce no primeiro gesto (autoplay); `M` suspende, aba oculta também.
+- Avaliação do usuário: motor agudo e artificial, derrapagem irreconhecível, impacto inaudível; refatoração por amostras e eventos de contato proposta no ADR-0007 (P2-11).
 - Limitações: carga do motor = acelerador do `InputFrame` ao vivo (no replay, não o gravado); impacto só por aceleração horizontal (pouso de salto não soa); sem som espacial, superfície nem ambiente de cenário.
 
 ### 3.7 Código morto [Implementado]

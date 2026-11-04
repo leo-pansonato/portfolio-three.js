@@ -217,10 +217,24 @@ flowchart LR
 - Tone mapping explícito, exposição, espaço de cor, `HDRLoader` no lugar do `RGBELoader` obsoleto; câmera com razão near/far adequada (ou *logarithmic depth*).
 - **Feito:** AgX com exposição 1,3 (`?exposure=` para ajuste), `SRGBColorSpace` explícito, `HDRLoader` com mapeamento de reflexão, `pixelRatio ≤ 2`, `near 0.1`/`far 1000` sem *logarithmic depth* (ARCHITECTURE §3.5). Intensidade das luzes não foi reajustada.
 
-### [x] P2-8 — Áudio
+### [x] P2-8 — Áudio (protótipo procedural; substituído pelo P2-11)
 
 - Motor (por RPM/carga), pneus (por escorregamento), impactos, ambiente. Depende de P2-1 para os sinais.
 - **Resultado:** áudio procedural em Web Audio, sem assets nem dependência (`src/audio/`, ARCHITECTURE §3.6.1): motor por ordem de ignição e carga, perfil por veículo em `VehicleDefinition.sound` (S55 seis cilindros, M177 V8 com meia ordem forte); chiado dos pneus acima do pico de escorregamento; vento e rolamento por velocidade; impacto por pico de aceleração. Tecla `M` liga/desliga. Testes do mapeamento em `test/audio/`. No navegador: contexto ativo após o primeiro gesto, nível e frequência sobem com acelerador e rpm, `M` suspende. Não avaliado de ouvido nem com controle; sem som espacial nem por superfície (P2-3).
+
+### [ ] P2-11 — Refatoração do áudio veicular nos padrões da indústria (ADR-0007)
+
+- **Motivo:** avaliação do usuário do P2-8 — motor agudo e artificial, derrapagem como chiado irreconhecível, impacto inaudível. Diagnóstico e práticas consideradas no ADR-0007 (status `Proposta`).
+- **Entregas, em ordem:**
+  1. Decidir o ADR-0007 (motor próprio por amostras × FMOD × granular) e a origem/licença/formato das gravações.
+  2. Sinais: carga do motor, turbo e escorregamento normalizado na telemetria; eventos de força de contato no `PhysicsWorld` (commit próprio).
+  3. Motor por camadas de rpm com conjuntos com/sem carga, *crossfade* de potência constante, fontes de escape/admissão/transmissão/turbo/corte/estalos; mix interno × externo por câmera.
+  4. Pneus por amostras (*scrub*, guincho, travamento) pelo escorregamento normalizado ao pico, por superfície (P2-3).
+  5. Impactos e raspagens pelos eventos de contato (nível por impulso, variações, intervalo mínimo por par).
+  6. Espacialização (`PannerNode`, distância, Doppler) e barramentos de mixagem com *snapshots*.
+- **Conclusão:** aprovação de escuta do usuário em roteiro fixo (lenta, acelerada 0–100, redução, corte, derrapagem, freio de mão, batida nas caixas) nos três modos de câmera; testes de mapeamento em Node; orçamento de download registrado.
+- **[Investigar] antes do item 5:** se batidas nas caixas passam de 3 g na telemetria e se o impacto atual é só inaudível.
+- **Dependências:** P2-1 (sinais), P2-3 (superfícies, para o item 4 completo), P3-2 (orçamento de assets).
 
 ### [x] P2-9 — Debug físico sincronizado com a pose interpolada
 

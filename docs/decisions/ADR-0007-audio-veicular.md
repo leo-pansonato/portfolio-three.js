@@ -1,0 +1,57 @@
+# ADR-0007 — Áudio veicular por amostras, parâmetros e eventos de contato
+
+- **Status:** Proposta (2026-11-03)
+- **Data:** 2026-11-03
+- **Escopo:** som de motor, pneus, impactos e mixagem (ROADMAP P2-11, substitui o protótipo do P2-8).
+
+## Contexto
+
+O P2-8 entregou um protótipo procedural (`src/audio/`, ARCHITECTURE §3.6.1): osciladores dente de serra/quadrada saturados para o motor e ruído branco filtrado para pneus, vento e impactos. Avaliação do usuário (2026-11-03):
+
+- motor agudo demais e artificial;
+- derrapagem é um chiado irreconhecível;
+- impacto não se ouve.
+
+Diagnóstico:
+
+- **Motor:** síntese de forma de onda não reproduz o espectro de um motor real (ordens de combustão moduladas, ressonâncias de admissão e escape, ruído mecânico). Saturação + segunda ordem quadrada + corte até 4,2 kHz deixam os harmônicos altos dominarem.
+- **Pneus:** o guincho real é tonal (stick-slip da borracha, ~1–3 kHz com modulação); ruído de banda larga em um passa-banda não soa como pneu.
+- **Impacto [Investigar]:** medir se a telemetria passa de 3 g em batidas nas caixas (`impactIntensity`) e se o burst atual (ruído em passa-baixas de 300–1200 Hz, decaimento de 80 ms) é audível depois do compressor. Detectar impacto pela aceleração do chassi é indireto de qualquer forma.
+
+Jogos de corrida comerciais não sintetizam o motor do zero: usam gravações do carro real (em dinamômetro, em várias rotações e cargas) tocadas por um motor de áudio dirigido por parâmetros da simulação.
+
+## Práticas da indústria consideradas
+
+1. **Motor por camadas de rpm (*loop crossfading*):** loops gravados em rotações fixas (ex.: a cada 500–1000 rpm), em dois conjuntos — **com carga** (acelerando) e **sem carga** (desacelerando). Cada camada sofre *pitch-shift* só em torno da sua rotação de gravação (±10–15%) e as vizinhas fazem *crossfade* de potência constante pela rpm; a carga faz o *crossfade* entre os conjuntos. É o modelo das ferramentas FMOD/Wwise (parâmetros RTPC, eventos, barramentos).
+2. **Motor granular:** uma gravação de rampa de rpm fatiada em grãos de um ciclo, escolhidos e emendados pela rpm e pela carga (abordagem de produtos como o REV, da Crankcase Audio). Transições mais naturais que (1), maior custo de implementação e de CPU.
+3. **Fontes separadas por componente:** escape, admissão, mecânica do motor, transmissão (*whine* por rotação da saída), turbo (assovio pela pressão, *blow-off* ao soltar), corte de giro, estalos/*backfire* ao tirar o pé. Cada uma com seus parâmetros.
+4. **Mix interno × externo:** *snapshot* de mixagem por modo de câmera (cabine abafada e mais motor/transmissão; externa com mais escape), atenuação e filtragem por ângulo do ouvinte em relação ao escape.
+5. **Pneus por amostras e superfície:** loops de *scrub* (escorregamento baixo), guincho (acima do pico) e travamento/burnout; volume e pitch pelo escorregamento normalizado ao pico e pela velocidade do contato; por roda ou por eixo; conjunto por material de superfície (asfalto, zebra, terra, grama — P2-3); rolamento por superfície.
+6. **Impactos e raspagens por eventos de contato da física:** a Rapier emite eventos de força de contato (`ActiveEvents.CONTACT_FORCE_EVENTS`, limiar por colisor). Impulso → nível (leve/médio/forte) → amostra sorteada entre variações, com pitch/volume aleatórios pequenos e intervalo mínimo por par de corpos; raspagem como loop contínuo pela velocidade de deslizamento do contato; par de materiais (metal × concreto, metal × metal). Batente de suspensão pela telemetria.
+7. **Espacialização:** `PannerNode` (HRTF para fontes próximas), modelo de distância, ouvinte na câmera, efeito Doppler calculado à mão (a Web Audio não tem mais `dopplerFactor`), necessário quando houver outros carros.
+8. **Dados × estado:** definição de áudio por veículo (amostras, rpm e carga de cada uma, ganhos, curvas) imutável no catálogo; estado de reprodução na instância. Parâmetros vêm do estado da simulação (carga real do motor, pressão do turbo), não do input — vale também no replay.
+
+## Opções
+
+| | A — Motor próprio em Web Audio (amostras) | B — FMOD Studio HTML5 (WASM) | C — Granular próprio |
+|---|---|---|---|
+| Dependência | nenhuma | runtime FMOD (licença, MBs de WASM) | nenhuma (talvez `AudioWorklet`) |
+| Autoria | dados em TS/JSON | ferramenta FMOD Studio (designer de som) | dados + ferramenta de fatiar grãos |
+| Qualidade do motor | boa com camadas bem gravadas | boa (mesmo modelo de camadas, com ferramenta) | a melhor nas transições |
+| Escala (vários carros, superfícies) | barramentos e vozes por conta própria | pronta (vozes, prioridade, *snapshots*) | igual a A |
+| Testes em Node | mapeamento de parâmetros testável | só no navegador | mapeamento testável |
+
+Recomendação inicial: **A**, com contrato espelhando os conceitos de middleware (eventos, parâmetros, barramentos, *snapshots*) para permitir migrar a B ou acrescentar C ao motor sem mudar os chamadores. **Decisão pendente do usuário**, assim como a origem das gravações.
+
+## Pré-requisitos e questões abertas
+
+- **Assets [Investigar]:** origem e licença das gravações (próprias, biblioteca comprada, CC0); formato (Opus/Ogg com alternativa AAC para Safari — verificar suporte); orçamento de download por veículo e carregamento sob demanda (P3-2).
+- **Sinais da simulação:** telemetria precisa de carga do motor (torque pedido ÷ disponível), torque no corte, pressão do turbo e escorregamento por roda já normalizado; contrato `PhysicsWorld` precisa de eventos de contato (impulso, ponto, par de colisores, materiais) — muda `src/physics/` (ARCHITECTURE §5).
+- **Superfícies:** material por colisor vem do P2-3.
+- **Verificação:** além dos testes de mapeamento em Node, roteiro de escuta com o usuário e gravação de referência (ex.: acelerada 0–100 e redução) comparada lado a lado.
+
+## Consequências
+
+- O protótipo procedural do P2-8 fica até a nova implementação substituí-lo, e os testes de mapeamento são reaproveitados.
+- Gravações de áudio entram no histórico do Git para sempre: escolher formato e orçamento antes de commitar qualquer amostra.
+- Mudança no contrato `PhysicsWorld` (eventos de contato) entra em commit próprio, antes do áudio de impacto.
