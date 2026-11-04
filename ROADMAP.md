@@ -195,7 +195,7 @@ flowchart LR
 - **Dependências:** P2-7.
 - **Feito (parcial):** CSM em escala SI (4 cascatas até 200 m, 2048, *fade*, *normal bias* por texel) e CSM aplicado aos materiais adicionados depois da inicialização (ARCHITECTURE §3.5). Luz direcional revista e mantida. Pendente: albedo do plano (`0x0f0f0f` esconde as sombras) e, se quiser sombras mais marcadas, sol mais forte com exposição/`environmentIntensity` menores.
 
-### [ ] P2-5 — Câmeras
+### [x] P2-5 — Câmeras
 
 - Câmera de perseguição com inércia, *look-ahead*, colisão com cenário; auto-centro no modo orbital.
 - **Câmera pelo analógico direito do gamepad:** orbitar e olhar em volta pelo analógico, como hoje o mouse faz.
@@ -204,6 +204,7 @@ flowchart LR
   - Funciona nos três modos de câmera.
   - **Decidido (2026-11-02):** analógico **direito**; o esquerdo continua na direção (`steerAxis`).
   - **Conclusão:** teste de `InputManager` com gamepad simulado (taxa, zona morta, sem conflito com a direção); roteiro manual com controle real.
+- **Feito:** `camera/ChaseCamera` (ARCHITECTURE §3.4) e analógico direito no `LookInput`. Testes em `test/camera/` e `test/input/`. Jogo conferido com teclado; roteiro com controle padrão real e colisão com as caixas **não** feitos manualmente.
 
 ### [ ] P2-6 — UI (ADR-0004)
 

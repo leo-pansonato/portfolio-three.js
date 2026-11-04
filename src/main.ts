@@ -100,7 +100,12 @@ class Game {
 		this.environment = new Environment(this.scene, this.physicsManager);
 		this.lightingManager = new LightingManager(this.scene, this.camera);
 		this.player = new Player(this.scene, this.inputManager.frame, this.physicsManager);
-		this.cameraController = new CameraController(this.camera, this.player, this.inputManager.look);
+		this.cameraController = new CameraController(
+			this.camera,
+			this.player,
+			this.inputManager.look,
+			this.physicsManager,
+		);
 		this.bindInputActions();
 		this.ui.bindReplayControls(this.player);
 

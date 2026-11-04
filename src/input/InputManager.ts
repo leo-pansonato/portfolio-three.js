@@ -10,7 +10,7 @@ type ActionHandler = () => void;
 export default class InputManager {
 	/** Comandos do motorista deste quadro (reescritos em update) */
 	readonly frame: InputFrame = createInputFrame();
-	/** Olhar livre do mouse deste quadro (reescrito em update) */
+	/** Olhar livre (mouse e analógico) deste quadro (reescrito em update) */
 	readonly look: LookInput = createLookInput();
 
 	private readonly bindings: InputBindings;
@@ -32,6 +32,8 @@ export default class InputManager {
 	private brake = 0;
 	private left = 0;
 	private right = 0;
+	private lookYawRate = 0; // rad/s
+	private lookPitchRate = 0;
 
 	constructor(bindings: InputBindings = DEFAULT_INPUT_BINDINGS) {
 		this.bindings = bindings;
@@ -101,9 +103,7 @@ export default class InputManager {
 	/**
 	 * Gamepad atual; o polling acha controles já conectados antes do carregamento da página
 	 */
-	private getGamepad(): Gamepad | null {
-		const gamepads = navigator.getGamepads();
-
+	private getGamepad(gamepads: readonly (Gamepad | null)[]): Gamepad | null {
 		if (this.gamepadIndex >= 0 && gamepads[this.gamepadIndex]) {
 			return gamepads[this.gamepadIndex];
 		}
@@ -132,9 +132,17 @@ export default class InputManager {
 		this.left = 0;
 		this.right = 0;
 
-		const gamepad = this.getGamepad();
+		this.lookYawRate = 0;
+		this.lookPitchRate = 0;
+
+		const gamepads = navigator.getGamepads();
+		const gamepad = this.getGamepad(gamepads);
 		if (gamepad) {
 			this.processGamepad(gamepad);
+		}
+		const lookGamepad = this.getLookGamepad(gamepads, gamepad);
+		if (lookGamepad) {
+			this.processLookStick(lookGamepad, lookGamepad === gamepad);
 		}
 
 		// teclado sobrescreve o gamepad
@@ -151,6 +159,8 @@ export default class InputManager {
 		look.deltaX = this.mouseDeltaX;
 		look.deltaY = this.mouseDeltaY;
 		look.pointerLocked = this.pointerLocked;
+		look.yawRate = this.lookYawRate;
+		look.pitchRate = this.lookPitchRate;
 		look.secondsSinceMove = (Date.now() - this.lastMoveTime) / 1000;
 		this.mouseDeltaX = 0;
 		this.mouseDeltaY = 0;
@@ -188,6 +198,35 @@ export default class InputManager {
 			if (throttle > config.deadzone) this.throttle = throttle;
 			if (brake > config.deadzone) this.brake = brake;
 		}
+	}
+
+	/** Controle da câmera: o da direção se servir; senão o primeiro com mapeamento padrão */
+	private getLookGamepad(gamepads: readonly (Gamepad | null)[], driving: Gamepad | null): Gamepad | null {
+		if (!this.bindings.gamepad.lookStandardMappingOnly) return driving;
+		if (driving?.mapping === "standard") return driving;
+		for (let i = 0; i < gamepads.length; i++) {
+			const gamepad = gamepads[i];
+			if (gamepad?.mapping === "standard") return gamepad;
+		}
+		return null;
+	}
+
+	/** Analógico da câmera: zona morta radial, curva de resposta e taxa em rad/s */
+	private processLookStick(gamepad: Gamepad, isDrivingGamepad: boolean): void {
+		const config = this.bindings.gamepad;
+		const axes = gamepad.axes;
+		const steerAxis = isDrivingGamepad ? config.steerAxis : -1;
+		const x = config.lookAxisX < axes.length && config.lookAxisX !== steerAxis ? axes[config.lookAxisX] : 0;
+		const y = config.lookAxisY < axes.length && config.lookAxisY !== steerAxis ? axes[config.lookAxisY] : 0;
+
+		const magnitude = Math.hypot(x, y);
+		if (magnitude <= config.lookDeadzone) return;
+
+		const scaled = Math.min(1, (magnitude - config.lookDeadzone) / (1 - config.lookDeadzone));
+		const rate = (Math.pow(scaled, config.lookExponent) * config.lookMaxRate) / magnitude;
+		this.lookYawRate = x * rate;
+		this.lookPitchRate = -y * rate;
+		this.lastMoveTime = Date.now();
 	}
 
 	private processKeyboard(): void {

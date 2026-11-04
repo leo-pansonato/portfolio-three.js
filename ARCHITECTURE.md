@@ -142,14 +142,16 @@ Modelo físico do veículo: todo próprio sobre o corpo rígido (ADR-0003): trem
 
 ### 3.3 Input — `src/input/` [Implementado]
 
-- `InputFrame.ts` (contrato): `InputFrame` — `throttle`, `brake` (0–1), `steer` (−1…+1, positivo à direita), `handbrake`, `boost` — e `LookInput` (delta do mouse em px, pointer lock, segundos desde o último movimento). Dono: `InputManager`, que reescreve os dois objetos no lugar uma vez por quadro em `update()`, antes da física; consumidores recebem `Readonly<…>` no construtor (`Player` → `VehicleControl`; `CameraController`). Todos os passos de física do quadro leem o mesmo `InputFrame`.
+- `InputFrame.ts` (contrato): `InputFrame` — `throttle`, `brake` (0–1), `steer` (−1…+1, positivo à direita), `handbrake`, `boost` — e `LookInput` (delta do mouse em px, pointer lock, taxa do analógico em rad/s, segundos desde o último movimento). Dono: `InputManager`, que reescreve os dois objetos no lugar uma vez por quadro em `update()`, antes da física; consumidores recebem `Readonly<…>` no construtor (`Player` → `VehicleControl`; `CameraController`). Todos os passos de física do quadro leem o mesmo `InputFrame`.
 - `InputBindings.ts`: mapeamento como dados (`DEFAULT_INPUT_BINDINGS`): teclas por controle contínuo e por ação, botões do gamepad, eixo do volante, gatilhos e *deadzone*. O `InputManager` aceita outro objeto no construtor.
 - Gamepad: analógico com *deadzone* reescalada, gatilhos com limiar; teclado (digital, 1) sobrescreve o gamepad; esquerda + direita no teclado = direita.
 - Ações discretas (`InputAction`: `toggleDevMode`, `cycleCamera`, `selectVehicle1/2`, `resetVehicle`) são eventos tipados: `inputManager.on(action, handler)`, assinados em `Game.bindInputActions` (`main.ts`) por quem é dono de cada uma. Tecla: no `keydown`, sem repetição automática; botão do gamepad: borda de subida, durante `update()`. `src/input` não importa `Game`, `Player`, `CameraController` nem `devMode` (teste em `test/input/`).
 - Sem alocação por quadro além de `navigator.getGamepads()`.
-### 3.4 Câmera — `src/components/CameraController.ts` [Implementado]
+### 3.4 Câmera — `src/components/CameraController.ts`, `src/camera/` [Implementado]
 
-Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` presos ao chassi com olhar livre e auto-centralização; `THIRD_PERSON` orbital com mouse. O auto-centro do modo orbital está comentado — a câmera não acompanha a guinada do carro. Ajusta `fov` e chama `updateProjectionMatrix()` todo quadro.
+- Três modos por veículo (`cameraSettings`): `FIRST_PERSON` (padrão) e `HOOD` presos ao chassi; `THIRD_PERSON` de perseguição. Olhar livre pelo mouse (pointer lock) e pelo analógico direito nos três modos, com auto-centro ao soltar.
+- `camera/ChaseCamera` (sem cena nem DOM): molas críticas em forma fechada (independentes do FPS) na posição, no rumo (segue parte da guinada sem atraso), no *look-ahead* (à frente pela velocidade, para dentro da curva pela guinada) e no FOV (abre com a velocidade). Colisão por raio do ponto de mira até a câmera (`PhysicsWorld.castRayWithNormal`, excluindo o chassi), com aproximação imediata e afastamento suave; salto do pivô > 20 m reposiciona sem mola. Testes em `test/camera/`.
+- Analógico: `LookInput.yawRate/pitchRate` em rad/s (zona morta radial 0,15, curva quadrática, 3 rad/s no fim de curso); só de controles com `mapping === "standard"`, então o G29 não move a câmera.
 
 ### 3.5 Renderização e iluminação — `src/main.ts`, `src/managers/LightingManager.ts`, `src/components/Environment.ts` [Implementado]
 

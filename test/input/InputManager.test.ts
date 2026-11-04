@@ -21,6 +21,7 @@ class FakeTarget {
 interface FakePad {
 	index: number;
 	id: string;
+	mapping: string;
 	axes: number[];
 	buttons: { pressed: boolean; value: number }[];
 }
@@ -29,7 +30,8 @@ function createPad(): FakePad {
 	return {
 		index: 0,
 		id: "pad",
-		axes: [0, 0],
+		mapping: "standard",
+		axes: [0, 0, 0, 0],
 		buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 })),
 	};
 }
@@ -115,6 +117,65 @@ describe("InputManager — InputFrame", () => {
 		expect(input.look.deltaY).toBe(-1);
 		input.update();
 		expect(input.look.deltaX).toBe(0);
+	});
+});
+
+describe("InputManager — analógico da câmera", () => {
+	it("taxa em rad/s com zona morta radial e curva quadrática, sem mexer na direção", () => {
+		const pad = createPad();
+		pads = [pad];
+		const input = new InputManager();
+
+		pad.axes[2] = 0.575; // (0,575 − 0,15) / 0,85 = 0,5 → 0,5² · 3 = 0,75 rad/s
+		input.update();
+		expect(input.look.yawRate).toBeCloseTo(0.75, 10);
+		expect(input.look.pitchRate).toBeCloseTo(0, 10);
+		expect(input.frame.steer).toBe(0);
+
+		pad.axes[2] = 0;
+		pad.axes[3] = -1; // para cima no fim de curso
+		input.update();
+		expect(input.look.pitchRate).toBeCloseTo(3, 10);
+		expect(input.look.yawRate).toBeCloseTo(0, 10);
+
+		pad.axes[3] = 0.1;
+		pad.axes[2] = 0.1; // |(0,1; 0,1)| < 0,15
+		input.update();
+		expect(input.look.yawRate).toBe(0);
+		expect(input.look.pitchRate).toBe(0);
+	});
+
+	it("direção e câmera ao mesmo tempo, e o tempo desde o movimento zera com o analógico", () => {
+		const pad = createPad();
+		pads = [pad];
+		const now = vi.spyOn(Date, "now").mockReturnValue(10_000);
+		const input = new InputManager();
+		input.update();
+		now.mockReturnValue(12_000);
+		input.update();
+		expect(input.look.secondsSinceMove).toBeGreaterThanOrEqual(2);
+
+		pad.axes[0] = 1;
+		pad.axes[2] = -1;
+		input.update();
+		expect(input.frame.steer).toBe(1);
+		expect(input.look.yawRate).toBeCloseTo(-3, 10);
+		expect(input.look.secondsSinceMove).toBe(0);
+	});
+
+	it("volante sem mapeamento padrão não move a câmera; um controle padrão ao lado move", () => {
+		const wheel = { ...createPad(), id: "wheel", mapping: "" };
+		wheel.axes[2] = 1;
+		pads = [wheel];
+		const input = new InputManager();
+		input.update();
+		expect(input.look.yawRate).toBe(0);
+
+		const pad = { ...createPad(), index: 1 };
+		pad.axes[2] = 1;
+		pads = [wheel, pad];
+		input.update();
+		expect(input.look.yawRate).toBeCloseTo(3, 10);
 	});
 });
 

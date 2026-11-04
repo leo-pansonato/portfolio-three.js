@@ -1,188 +1,178 @@
 import * as THREE from "three";
+import ChaseCamera, { CameraRaycast, ChaseFraming } from "../camera/ChaseCamera";
+import { wrapAngle } from "../camera/criticalSpring";
 import { CameraConfig, CameraMode } from "../data/vehicles";
 import { LookInput } from "../input/InputFrame";
+import { createRaycastHit, PhysicsWorld } from "../physics/PhysicsWorld";
 import GameComponent from "./GameComponent";
 import Player from "./Player";
 
+/**
+ * Câmera do jogador: perseguição em 3ª pessoa (ChaseCamera) e câmeras presas ao chassi (capô e 1ª pessoa).
+ * Olhar livre pelo mouse (ponteiro travado) e pelo analógico direito, com auto-centro ao soltar.
+ * Sem `physicsWorld`, a perseguição usa a pose do fim do passo e não colide com o cenário.
+ */
 export default class CameraController extends GameComponent {
-	private camera: THREE.PerspectiveCamera;
-	private target: Player | null;
+	private readonly camera: THREE.PerspectiveCamera;
+	private readonly target: Player;
 	private readonly look: Readonly<LookInput>;
-
-	private lastTargetPosition: THREE.Vector3 = new THREE.Vector3();
+	private readonly physicsWorld: PhysicsWorld | null;
 
 	private currentMode: CameraMode = CameraMode.FIRST_PERSON;
-	private availableModes: CameraMode[] = [CameraMode.THIRD_PERSON, CameraMode.HOOD, CameraMode.FIRST_PERSON];
+	private readonly availableModes: CameraMode[] = [CameraMode.THIRD_PERSON, CameraMode.HOOD, CameraMode.FIRST_PERSON];
 
-	private currentAngles = { yaw: 0, pitch: 0 };
-	private targetAngles = { yaw: 0, pitch: 0 };
+	/** Olhar do jogador relativo ao veículo (rad): + direita, + cima */
+	private lookYaw = 0;
+	private lookPitch = 0;
 
-	private readonly MOUSE_SENSITIVITY = 0.002;
-	private readonly AUTO_CENTER_SPEED = 3.0;
-	private readonly SMOOTH_ROTATION_SPEED = 10.0;
+	private readonly MOUSE_SENSITIVITY = 0.002; // rad/px
+	private readonly AUTO_CENTER_DELAY = 0.6; // s
+	private readonly AUTO_CENTER_RATE = 3.0; // 1/s
+	private readonly RIGID_MAX_YAW = 2.0; // rad
+	private readonly RIGID_MAX_PITCH = 1.0;
+	private readonly CHASE_MIN_ELEVATION = -0.2;
+	private readonly CHASE_MAX_ELEVATION = 1.2;
 
-	private _lookAtPos = new THREE.Vector3();
-	private _offset = new THREE.Vector3();
+	private readonly chase = new ChaseCamera();
+	private readonly chaseTarget = {
+		position: new THREE.Vector3(),
+		quaternion: new THREE.Quaternion(),
+		velocity: new THREE.Vector3(),
+		angularVelocity: new THREE.Vector3(),
+	};
+	private readonly framing: ChaseFraming = { distance: 0, height: 0, lookAtHeight: 0, fov: 60 };
+	private readonly raycast: CameraRaycast | undefined;
+	private readonly hit = createRaycastHit();
 
-	constructor(camera: THREE.PerspectiveCamera, target: Player, look: Readonly<LookInput>) {
+	private readonly _lookAtPos = new THREE.Vector3();
+	private readonly _offset = new THREE.Vector3();
+	private readonly _up = new THREE.Vector3();
+	private readonly _lookEuler = new THREE.Euler(0, 0, 0, "YXZ");
+
+	constructor(
+		camera: THREE.PerspectiveCamera,
+		target: Player,
+		look: Readonly<LookInput>,
+		physicsWorld: PhysicsWorld | null = null,
+	) {
 		super();
 		this.camera = camera;
 		this.target = target;
 		this.look = look;
+		this.physicsWorld = physicsWorld;
 
-		if (this.target) {
-			this.lastTargetPosition.copy(this.target.getPosition());
+		if (physicsWorld) {
+			this.raycast = (origin, direction, maxDistance) =>
+				physicsWorld.castRayWithNormal(
+					origin,
+					direction,
+					maxDistance,
+					this.hit,
+					this.target.physics.chassisBody,
+				)
+					? this.hit.distance
+					: null;
 		}
-
-		this.currentAngles.yaw = 0;
-		this.targetAngles.yaw = 0;
 	}
 
 	cycleCameraMode() {
 		const currentIndex = this.availableModes.indexOf(this.currentMode);
-
-		// calcula o proximo fazendo o corte pelo tamanho do array
 		const nextIndex = (currentIndex + 1) % this.availableModes.length;
 		this.currentMode = this.availableModes[nextIndex];
 
-		// Resetar angulos ao trocar
-		this.targetAngles.yaw = 0;
-		this.targetAngles.pitch = 0;
-		this.currentAngles.yaw = 0;
-		this.currentAngles.pitch = 0;
+		this.lookYaw = 0;
+		this.lookPitch = 0;
+		this.chase.reset();
 		this.camera.up.set(0, 1, 0);
 
 		console.log("Camera Mode:", this.currentMode);
 	}
 
 	update(deltaTime: number): void {
-		if (!this.target) return;
-
-		const currentTargetPos = this.target.getPosition();
 		const config = this.target.getCameraConfig()[this.currentMode];
+		const rigid = this.currentMode !== CameraMode.THIRD_PERSON;
 
-		this.camera.fov = config.fov || 75;
+		this.updateLook(deltaTime, rigid);
 
-		// lógica de Rotação
-		if (this.currentMode === CameraMode.FIRST_PERSON || this.currentMode === CameraMode.HOOD) {
-			this.updateRigidCamera(deltaTime, config, currentTargetPos);
+		if (rigid) {
+			this.updateRigidCamera(config);
+			this.camera.fov = config.fov || 75;
 		} else {
-			this.updateOrbitCamera(deltaTime, config, currentTargetPos);
+			this.updateChaseCamera(deltaTime, config);
 		}
 
 		this.camera.updateProjectionMatrix();
 	}
 
-	// Terceira Pessoa (orbital)
-	private updateOrbitCamera(deltaTime: number, config: CameraConfig, targetPos: THREE.Vector3): void {
-		// const carRotation = this.target!.getRotation();
+	/** Mouse (px → rad) e analógico (rad/s → rad), limites por modo e auto-centro */
+	private updateLook(deltaTime: number, rigid: boolean): void {
+		const look = this.look;
+		if (look.pointerLocked) {
+			this.lookYaw += look.deltaX * this.MOUSE_SENSITIVITY;
+			this.lookPitch -= look.deltaY * this.MOUSE_SENSITIVITY;
+		}
+		this.lookYaw += look.yawRate * deltaTime;
+		this.lookPitch += look.pitchRate * deltaTime;
 
-		// Input Mouse
-		if (this.look.pointerLocked) {
-			this.targetAngles.yaw -= this.look.deltaX * this.MOUSE_SENSITIVITY;
-			this.targetAngles.pitch += this.look.deltaY * this.MOUSE_SENSITIVITY;
-			this.targetAngles.pitch = Math.max(-0.3, Math.min(1.5, this.targetAngles.pitch));
+		if (rigid) {
+			this.lookYaw = THREE.MathUtils.clamp(this.lookYaw, -this.RIGID_MAX_YAW, this.RIGID_MAX_YAW);
+			this.lookPitch = THREE.MathUtils.clamp(this.lookPitch, -this.RIGID_MAX_PITCH, this.RIGID_MAX_PITCH);
+		} else {
+			this.lookYaw = wrapAngle(this.lookYaw);
+			this.lookPitch = THREE.MathUtils.clamp(
+				this.lookPitch,
+				-this.CHASE_MAX_ELEVATION,
+				-this.CHASE_MIN_ELEVATION,
+			);
 		}
 
-		// --- AUTO CENTER ---
-		/*
-        if (this.look.secondsSinceMove > this.AUTO_CENTER_DELAY) {
-            const idealYaw = carRotation.y; 
-            const t = 1.0 - Math.pow(0.01, deltaTime * this.AUTO_CENTER_SPEED);
-            this.targetAngles.yaw = this.lerpAngle(this.targetAngles.yaw, idealYaw, t);
-            this.targetAngles.pitch = THREE.MathUtils.lerp(this.targetAngles.pitch, 0.2, t);
-        }
-        */
-		// ------------------------------
-
-		// suavização
-		const rotationSmoothness = deltaTime * this.SMOOTH_ROTATION_SPEED;
-		this.currentAngles.yaw = this.lerpAngle(this.currentAngles.yaw, this.targetAngles.yaw, rotationSmoothness);
-		this.currentAngles.pitch = THREE.MathUtils.lerp(
-			this.currentAngles.pitch,
-			this.targetAngles.pitch,
-			rotationSmoothness,
-		);
-
-		// posição
-		const distance = config.distance;
-		const heightOffset = config.height;
-		const hDistance = distance * Math.cos(this.currentAngles.pitch);
-
-		this._offset.set(
-			hDistance * Math.sin(this.currentAngles.yaw),
-			distance * Math.sin(this.currentAngles.pitch) + heightOffset,
-			hDistance * Math.cos(this.currentAngles.yaw),
-		);
-
-		this.camera.position.copy(targetPos).add(this._offset);
-
-		// olhar para o carro
-		this._lookAtPos.copy(targetPos);
-		if (config.lookAtOffset) {
-			this._lookAtPos.y += config.lookAtOffset.y;
-			this._lookAtPos.x += config.lookAtOffset.x || 0;
-			this._lookAtPos.z += config.lookAtOffset.z || 0;
+		if (look.secondsSinceMove > this.AUTO_CENTER_DELAY) {
+			const keep = Math.exp(-this.AUTO_CENTER_RATE * deltaTime);
+			this.lookYaw *= keep;
+			this.lookPitch *= keep;
 		}
-		this.camera.lookAt(this._lookAtPos);
 	}
 
-	// Primeira Pessoa e Capô (rigida)
-	private updateRigidCamera(deltaTime: number, config: CameraConfig, targetPos: THREE.Vector3): void {
-		const carQuaternion = this.target!.getQuaternion();
-
-		const cameraUp = new THREE.Vector3(0, 1, 0);
-		if (carQuaternion) cameraUp.applyQuaternion(carQuaternion);
-		this.camera.up.copy(cameraUp);
-
-		// configurar posição da camera
-		const defaultX = 0.175;
-		const defaultY = 0.53;
-		const defaultZ = -0.2;
-
-		this._offset.set(config.offset?.x ?? defaultX, config.offset?.y ?? defaultY, config.offset?.z ?? defaultZ);
-
-		// aplica a rotação do carro ao offset para posicionar a câmera
-		if (carQuaternion) this._offset.applyQuaternion(carQuaternion);
-		this.camera.position.copy(targetPos).add(this._offset);
-
-		// input do mouse
-		if (this.look.pointerLocked) {
-			this.targetAngles.yaw -= this.look.deltaX * this.MOUSE_SENSITIVITY;
-			this.targetAngles.pitch -= this.look.deltaY * this.MOUSE_SENSITIVITY;
+	/** Perseguição: pivô no mesh (pose interpolada), rumo e velocidades do chassi */
+	private updateChaseCamera(deltaTime: number, config: CameraConfig): void {
+		const target = this.chaseTarget;
+		const body = this.target.physics.chassisBody;
+		target.position.copy(this.target.getPosition());
+		if (!this.physicsWorld?.getInterpolatedPose(body, this._offset, target.quaternion)) {
+			body.getRotation(target.quaternion);
 		}
+		body.getLinearVelocity(target.velocity);
+		body.getAngularVelocity(target.angularVelocity);
 
-		// limites de rotação
-		this.targetAngles.pitch = Math.max(-1.0, Math.min(1.0, this.targetAngles.pitch));
-		this.targetAngles.yaw = Math.max(-2.0, Math.min(2.0, this.targetAngles.yaw));
+		const framing = this.framing;
+		framing.distance = config.distance;
+		framing.height = config.height;
+		framing.lookAtHeight = config.lookAtOffset.y;
+		framing.fov = config.fov || 60;
 
-		// auto center
-		if (this.look.secondsSinceMove > 0.6) {
-			const t = deltaTime * this.AUTO_CENTER_SPEED;
-			this.targetAngles.yaw = THREE.MathUtils.lerp(this.targetAngles.yaw, 0, t);
-			this.targetAngles.pitch = THREE.MathUtils.lerp(this.targetAngles.pitch, 0, t);
-		}
+		this.chase.update(deltaTime, target, framing, this.lookYaw, -this.lookPitch, this.raycast);
 
-		// vetor apontando para frente (Z+)
-		const lookVector = new THREE.Vector3(0, 0, 20);
-
-		// aplicar rotação do mouse no vetor
-		lookVector.applyEuler(new THREE.Euler(-this.targetAngles.pitch, this.targetAngles.yaw, 0, "YXZ"));
-
-		// aplicar quaternion do CARRO no vetor
-		if (carQuaternion) lookVector.applyQuaternion(carQuaternion);
-
-		// somar posição da câmera para ter o ponto final no mundo 3D
-		this._lookAtPos.copy(this.camera.position).add(lookVector);
-
-		// olhar para esse ponto calculado
-		this.camera.lookAt(this._lookAtPos);
+		this.camera.up.set(0, 1, 0);
+		this.camera.position.copy(this.chase.position);
+		this.camera.lookAt(this.chase.lookAt);
+		this.camera.fov = this.chase.fov;
 	}
 
-	private lerpAngle(start: number, end: number, t: number): number {
-		const d = end - start;
-		// if (d > Math.PI) d -= 2 * Math.PI;
-		// if (d < -Math.PI) d += 2 * Math.PI;
-		return start + d * t;
+	/** Capô e 1ª pessoa: offset e olhar no referencial do mesh do veículo (frente em +Z do modelo) */
+	private updateRigidCamera(config: CameraConfig): void {
+		const carQuaternion = this.target.getQuaternion();
+		if (!carQuaternion) return;
+		const carPosition = this.target.getPosition();
+
+		this.camera.up.copy(this._up.set(0, 1, 0).applyQuaternion(carQuaternion));
+
+		this._offset.set(config.offset?.x ?? 0.175, config.offset?.y ?? 0.53, config.offset?.z ?? -0.2);
+		this._offset.applyQuaternion(carQuaternion);
+		this.camera.position.copy(carPosition).add(this._offset);
+
+		this._lookEuler.set(-this.lookPitch, -this.lookYaw, 0);
+		this._lookAtPos.set(0, 0, 20).applyEuler(this._lookEuler).applyQuaternion(carQuaternion);
+		this._lookAtPos.add(this.camera.position);
+		this.camera.lookAt(this._lookAtPos);
 	}
 }

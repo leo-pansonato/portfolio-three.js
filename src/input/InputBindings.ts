@@ -23,6 +23,17 @@ export interface InputBindings {
 		readonly brakeButton: number;
 		/** Zona morta do analógico (reescalada) e limiar dos gatilhos (0–1) */
 		readonly deadzone: number;
+		/** Eixos do analógico da câmera (horizontal: +1 direita; vertical: +1 baixo) */
+		readonly lookAxisX: number;
+		readonly lookAxisY: number;
+		/** Zona morta radial do analógico da câmera (0–1, reescalada) */
+		readonly lookDeadzone: number;
+		/** Expoente da curva de resposta depois da zona morta (1 = linear) */
+		readonly lookExponent: number;
+		/** Taxa com o analógico no fim de curso (rad/s) */
+		readonly lookMaxRate: number;
+		/** Câmera só de controles com `mapping === "standard"` (volantes como o G29 ficam de fora) */
+		readonly lookStandardMappingOnly: boolean;
 	};
 }
 
@@ -53,5 +64,11 @@ export const DEFAULT_INPUT_BINDINGS: InputBindings = {
 		throttleButton: 7, // RT
 		brakeButton: 6, // LT
 		deadzone: 0.15,
+		lookAxisX: 2, // analógico direito, horizontal
+		lookAxisY: 3, // analógico direito, vertical
+		lookDeadzone: 0.15,
+		lookExponent: 2,
+		lookMaxRate: 3,
+		lookStandardMappingOnly: true,
 	},
 };
