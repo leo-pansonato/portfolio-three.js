@@ -13,6 +13,7 @@ import PerformanceManager from "./managers/PerformanceManager";
 import { PhysicsWorld } from "./physics/PhysicsWorld";
 import RapierPhysicsWorld from "./physics/RapierPhysicsWorld";
 import UIManager from "./managers/UIManager";
+import PostProcessing, { readPostSettings } from "./render/PostProcessing";
 
 /** Configuração do pipeline de cor. A exposição pode ser sobrescrita com `?exposure=<n>` na URL. */
 const RENDER_CONFIG = {
@@ -40,6 +41,7 @@ class Game {
 	public physicsManager!: PhysicsWorld;
 	public camera!: THREE.PerspectiveCamera;
 	public renderer!: THREE.WebGLRenderer;
+	public postProcessing: PostProcessing | null = null;
 
 	public ui!: UIManager;
 	public inputManager!: InputManager;
@@ -78,8 +80,9 @@ class Game {
 			RENDER_CONFIG.cameraFar,
 		);
 
-		// instanciando o renderizador e adicionando ao DOM
-		this.renderer = new THREE.WebGLRenderer({ antialias: true });
+		// instanciando o renderizador e adicionando ao DOM; com pós-processamento o AA é feito na cadeia de passes
+		const postSettings = readPostSettings(window.location.search);
+		this.renderer = new THREE.WebGLRenderer({ antialias: !postSettings.enabled });
 		this.renderer.shadowMap.enabled = true;
 		this.renderer.shadowMap.type = THREE.VSMShadowMap;
 		this.renderer.setClearColor(0xa8a8f8, 1);
@@ -99,6 +102,9 @@ class Game {
 		this.inputManager = new InputManager();
 		this.environment = new Environment(this.scene, this.physicsManager);
 		this.lightingManager = new LightingManager(this.scene, this.camera);
+		if (postSettings.enabled) {
+			this.postProcessing = new PostProcessing(this.renderer, this.scene, this.camera, postSettings.quality);
+		}
 		this.player = new Player(this.scene, this.inputManager.frame, this.physicsManager);
 		this.cameraController = new CameraController(
 			this.camera,
@@ -187,7 +193,8 @@ class Game {
 	}
 
 	render(): void {
-		this.renderer.render(this.scene, this.camera);
+		if (this.postProcessing) this.postProcessing.render();
+		else this.renderer.render(this.scene, this.camera);
 	}
 }
 

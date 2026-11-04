@@ -155,7 +155,7 @@ Modelo físico do veículo: todo próprio sobre o corpo rígido (ADR-0003): trem
 
 ### 3.5 Renderização e iluminação — `src/main.ts`, `src/managers/LightingManager.ts`, `src/components/Environment.ts` [Implementado]
 
-- `WebGLRenderer` com antialias, `shadowMap.type = VSMShadowMap`, `pixelRatio = min(devicePixelRatio, 2)`.
+- `WebGLRenderer` (WebGL2, ADR-0006), `shadowMap.type = VSMShadowMap`, `pixelRatio = min(devicePixelRatio, 2)`. Com pós-processamento (padrão), canvas sem MSAA e `render/PostProcessing` faz cena em HalfFloat → bloom → `OutputPass` (tone mapping) → SMAA/FXAA; `?post=0` renderiza direto com MSAA; `?quality=baixa|media|alta`.
 - Pipeline de cor (`RENDER_CONFIG` em `main.ts`): `outputColorSpace = SRGBColorSpace`, *tone mapping* AgX, exposição 1,3 (sobrescrevível com `?exposure=<n>` na URL). AgX foi escolhido em vez de ACES Filmic porque, com `dawn_4k.hdr`, o ACES desloca o azul saturado da pintura para violeta; o AgX preserva o matiz e suaviza o céu, ao custo de um pouco de saturação.
 - Câmera perspectiva `near 0.1`, `far 1000` (razão 1e4). Conferido sem recorte no interior dos dois veículos em primeira pessoa na escala atual (~0,5); com a escala SI (P0-6) a folga aumenta. `logarithmicDepthBuffer` não é necessário.
 - Céu e `scene.environment`: `dawn_4k.hdr` via `HDRLoader`, `EquirectangularReflectionMapping`. O renderer já converte `scene.environment` equiretangular em PMREM; um `PMREMGenerator` explícito não mudaria o resultado.
@@ -270,7 +270,7 @@ Decisão já implícita no código e mantida: **Three.js imperativo** como camad
 ## 7. Questões pendentes [Investigar]
 
 1. Efeito visual de os materiais dos veículos não passarem por `csm.setupMaterial`.
-2. WebGL × `WebGPURenderer` (Three r182) para a meta gráfica: custo de migração do CSM/shaders, suporte de navegadores-alvo.
+2. ~~WebGL × `WebGPURenderer`~~ — WebGL2 com `EffectComposer` (ADR-0006); reavaliar no P3-1.
 3. Tamanho do bundle com Rapier: pacote não-`compat` com `.wasm` separado.
 4. Orçamentos de desempenho (FPS-alvo, hardware-alvo, memória) — não existem medições.
 5. Pipeline de assets: compressão (KTX2/Basis, Draco/Meshopt), limites por veículo; os modelos atuais somam ~49 MB.
