@@ -18,7 +18,7 @@ O jogo renderiza direto na tela com `WebGLRenderer` (MSAA do canvas), AgX e céu
 
 ## Decisão
 
-**A.** WebGL2 com `render/PostProcessing`: cena em alvo HalfFloat linear → bloom (`UnrealBloomPass`, limiar 10, força 0,08, só o sol e brilhos fortes) → `OutputPass` (tone mapping e espaço de cor do renderer) → SMAA (ou FXAA na qualidade baixa). `?post=0` desliga; `?quality=baixa|media|alta` escolhe o preset (MSAA 4× no alvo só em `alta`). Com pós ligado, o canvas é criado sem MSAA.
+**A.** WebGL2 com `render/PostProcessing`: cena em alvo HalfFloat linear → bloom (`UnrealBloomPass`, limiar 10, força 0,08, só o sol e brilhos fortes) → `OutputPass` (tone mapping e espaço de cor do renderer) com MSAA 4× no alvo da cena (padrão `media`, mesma qualidade de arestas do canvas sem pós); `alta` soma SMAA e `baixa` usa só FXAA. `?post=0` desliga; `?quality=baixa|media|alta` escolhe o preset. Com pós ligado, o canvas é criado sem MSAA. SMAA sem MSAA foi testado como padrão e serrilhava visivelmente.
 
 Céu e reflexos continuam no HDR. Um céu procedural fica para quando houver hora do dia (sol móvel), com tuning contra o HDR como referência de cor.
 

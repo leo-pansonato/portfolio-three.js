@@ -19,12 +19,13 @@ interface QualityPreset {
 	/** Amostras de MSAA no alvo HDR da cena (0 = sem MSAA) */
 	msaaSamples: number;
 	bloom: boolean;
-	antialias: "fxaa" | "smaa";
+	/** AA de tela depois do tone mapping; com MSAA não é necessário */
+	antialias: "fxaa" | "smaa" | null;
 }
 
 const PRESETS: Record<PostQuality, QualityPreset> = {
 	baixa: { msaaSamples: 0, bloom: false, antialias: "fxaa" },
-	media: { msaaSamples: 0, bloom: true, antialias: "smaa" },
+	media: { msaaSamples: 4, bloom: true, antialias: null },
 	alta: { msaaSamples: 4, bloom: true, antialias: "smaa" },
 };
 
@@ -43,7 +44,8 @@ export function readPostSettings(search: string): PostSettings {
 
 /**
  * Cadeia de pós-processamento WebGL2: cena em alvo HDR linear → bloom → OutputPass
- * (tone mapping e espaço de cor do renderer, aplicados só aqui) → SMAA ou FXAA.
+ * (tone mapping e espaço de cor do renderer, aplicados só aqui), com MSAA 4× no alvo da cena
+ * (como o canvas antes do pós) e SMAA/FXAA opcionais.
  * Acompanha o tamanho do renderer a cada quadro; dono dos alvos e materiais dos passes.
  */
 export default class PostProcessing {
@@ -75,7 +77,8 @@ export default class PostProcessing {
 			this.addPass(new UnrealBloomPass(this.size, BLOOM.strength, BLOOM.radius, BLOOM.threshold));
 		}
 		this.addPass(new OutputPass());
-		this.addPass(preset.antialias === "smaa" ? new SMAAPass() : new FXAAPass());
+		if (preset.antialias === "smaa") this.addPass(new SMAAPass());
+		else if (preset.antialias === "fxaa") this.addPass(new FXAAPass());
 
 		this.syncSize();
 	}
