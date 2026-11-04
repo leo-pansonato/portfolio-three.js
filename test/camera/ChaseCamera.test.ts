@@ -127,16 +127,16 @@ describe("ChaseCamera", () => {
 		}
 	});
 
-	it("em curva constante, a câmera adianta para dentro da curva (lateral de dentro visível), sem atraso", () => {
+	it("em curva constante, a câmera fica para fora da curva (lateral de fora visível), sem atraso da mola", () => {
 		const omega = 0.5;
 		const camera = run(60, 4, (t, pose) => circle(t, 40, omega, pose));
 		const pose = createPose();
 		circle(4, 40, omega, pose);
 		const direction = new THREE.Vector3().subVectors(pose.position, camera.position);
-		expect(Math.atan2(direction.z, direction.x) - omega * 4).toBeCloseTo(0.5 * 0.25, 3);
+		expect(Math.atan2(direction.z, direction.x) - omega * 4).toBeCloseTo(-0.5 * 0.25, 3);
 	});
 
-	it("a antecipação tem limite e não depende do escorregamento", () => {
+	it("o desvio na curva tem limite e não depende do escorregamento", () => {
 		const spin = (pose: CarPose) => {
 			straight(0, 20)(pose);
 			pose.velocity.set(20 * Math.cos(-0.5), 0, 20 * Math.sin(-0.5));
@@ -146,7 +146,7 @@ describe("ChaseCamera", () => {
 		const pose = createPose();
 		spin(pose);
 		camera.update(1 / 60, pose, FRAMING, 0, 0);
-		expect(Math.atan2(-camera.position.z, -camera.position.x)).toBeCloseTo(0.3, 6);
+		expect(Math.atan2(-camera.position.z, -camera.position.x)).toBeCloseTo(-0.3, 6);
 	});
 
 	it("parado e em ré, segue a frente do chassi (não vira para a frente do carro)", () => {

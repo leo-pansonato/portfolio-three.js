@@ -5,11 +5,11 @@ import { SpringState, stepCriticalSpring, wrapAngle } from "./criticalSpring";
 export interface ChaseCameraSettings {
 	/** Constante de tempo da mola do rumo; só suaviza transições, sem atraso em curva constante */
 	readonly headingTimeConstant: number;
-	/** Antecipação da curva: rumo à frente do chassi por taxa de guinada (s), mostra a lateral de dentro */
+	/** Atraso aparente na curva: rumo atrás da frente do chassi por taxa de guinada (s), mostra a lateral de fora */
 	readonly turnLeadTime: number;
-	/** Limite da antecipação (rad) */
+	/** Limite do atraso (rad) */
 	readonly maxTurnLead: number;
-	/** Faixa de velocidade de avanço (m/s) em que a antecipação entra; parado e em ré não há */
+	/** Faixa de velocidade de avanço (m/s) em que o atraso entra; parado e em ré não há */
 	readonly turnLeadMinSpeed: number;
 	readonly turnLeadFullSpeed: number;
 	/** Folga entre a câmera e o obstáculo atingido pelo raio */
@@ -63,7 +63,7 @@ export type CameraRaycast = (
 
 /**
  * Câmera de perseguição em 3ª pessoa, sem DOM nem cena: órbita rígida em volta do pivô (distância, altura e FOV fixos),
- * alinhada à frente do chassi e adiantada para dentro da curva pela guinada. Só o rumo tem mola (crítica, forma fechada, independente do FPS), com a guinada
+ * alinhada à frente do chassi e atrasada para fora da curva pela guinada. Só o rumo tem mola (crítica, forma fechada, independente do FPS), com a guinada
  * do carro como antecipação de taxa, então numa curva constante não há atraso. Colisão por raio do ponto de mira até a câmera.
  * Ângulos do jogador: `orbitYaw` positivo olha para a direita, `orbitElevation` positivo eleva a câmera (rad).
  */
@@ -138,7 +138,7 @@ export default class ChaseCamera {
 		if (raycast) this.resolveCollision(dt, raycast);
 	}
 
-	/** Rumo (rad, a partir de +X girando para +Z): frente do chassi, adiantada para dentro da curva em marcha */
+	/** Rumo (rad, a partir de +X girando para +Z): frente do chassi, atrasada para fora da curva em marcha */
 	private headingOf(target: ChaseTarget): number {
 		const s = this.settings;
 		const forward = this._forward.set(1, 0, 0).applyQuaternion(target.quaternion);
@@ -150,7 +150,7 @@ export default class ChaseCamera {
 		const weight = THREE.MathUtils.smoothstep(forwardSpeed, s.turnLeadMinSpeed, s.turnLeadFullSpeed);
 		const yawRate = -target.angularVelocity.y;
 		const lead = THREE.MathUtils.clamp(yawRate * s.turnLeadTime, -s.maxTurnLead, s.maxTurnLead);
-		return chassisHeading + weight * lead;
+		return chassisHeading - weight * lead;
 	}
 
 	/** Aproxima na hora quando o raio do ponto de mira até a câmera bate no cenário; afasta suave depois */

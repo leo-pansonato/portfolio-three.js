@@ -11,7 +11,7 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Em andamento
 
-- P2-5 câmeras concluído (perseguição rígida, antecipa a curva pela guinada; analógico direito). Sensação ainda em ajuste com o usuário: `turnLeadTime`/`maxTurnLead`/`headingTimeConstant` em `camera/ChaseCamera`.
+- P2-5 câmeras concluído (perseguição rígida, fica para fora da curva pela guinada; analógico direito). Sensação ainda em ajuste com o usuário: `turnLeadTime`/`maxTurnLead`/`headingTimeConstant` em `camera/ChaseCamera`.
 - P2-4 parcial (ADR-0006): pós WebGL2 com MSAA 4× + bloom só no sol; céu HDR mantido (céu procedural rejeitado pelo usuário).
 - P2-6 HUD pausado em `worktree-agent-a652eb8dc3058001a` (commit `wip` local: src/ui com React, UIManager, index.html, configs). Retomar: `git reset --soft HEAD~1`, rebase na `master`, format/test/build, ADR-0004, docs, integrar.
 
