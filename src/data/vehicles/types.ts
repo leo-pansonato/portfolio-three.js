@@ -235,6 +235,11 @@ export interface VehicleSoundConfig {
 	/** Corte do filtro do motor em lenta sem carga e no corte com carga plena (Hz) */
 	idleCutoffHz: number;
 	fullLoadCutoffHz: number;
+	/**
+	 * Manifesto do banco de camadas do motor (URL relativa à página, gerado por tools/audio); sem ele, ou enquanto não
+	 * carrega, o motor é procedural
+	 */
+	engineBank?: string;
 }
 
 export interface VehicleDefinition {

@@ -74,6 +74,8 @@ export const mercedesG63: VehicleDefinition = {
 		subharmonicGain: 0.7,
 		idleCutoffHz: 600,
 		fullLoadCutoffHz: 2600,
+		// provisório: gravação do S55 até haver uma do M177
+		engineBank: "audio/engines/bmw_s55.json",
 	},
 	cameraSettings: {
 		[CameraMode.THIRD_PERSON]: {

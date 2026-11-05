@@ -71,6 +71,7 @@ export const bmwF82: VehicleDefinition = {
 		subharmonicGain: 0.25,
 		idleCutoffHz: 900,
 		fullLoadCutoffHz: 4200,
+		engineBank: "audio/engines/bmw_s55.json",
 	},
 	cameraSettings: {
 		[CameraMode.THIRD_PERSON]: {

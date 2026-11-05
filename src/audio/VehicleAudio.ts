@@ -2,6 +2,7 @@ import { VehicleDefinition } from "../data/vehicles/types";
 import { PhysicsBody } from "../physics/PhysicsWorld";
 import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
 import ContactImpactDetector, { ContactEventSource } from "./ContactImpactDetector";
+import SampledEngine from "./SampledEngine";
 import { computeVehicleSound, createVehicleSoundParams } from "./vehicleSound";
 
 /** O que o áudio lê do veículo */
@@ -14,11 +15,13 @@ export interface VehicleAudioSource {
 /** Constante de tempo das rampas de parâmetro (s): suaviza a leitura por quadro de um sinal por passo */
 const RAMP_TIME = 0.03;
 const MASTER_GAIN = 0.5;
+/** Nível do motor por camadas em relação ao procedural (as camadas têm RMS de −18 dBFS) */
+const SAMPLED_ENGINE_GAIN = 1.2;
 
 /**
- * Áudio procedural do veículo (Web Audio, sem assets): motor por rpm e carga, chiado dos pneus por escorregamento,
- * vento e rolamento por velocidade, impacto pelos eventos de contato do chassi. O `AudioContext` só nasce no primeiro gesto do
- * usuário (política de autoplay).
+ * Áudio do veículo em Web Audio: motor por camadas gravadas (SampledEngine, banco em `sound.engineBank`) ou, sem
+ * banco pronto, procedural por rpm e carga; chiado dos pneus por escorregamento, vento e rolamento por velocidade,
+ * impacto pelos eventos de contato do chassi. O `AudioContext` só nasce no primeiro gesto (política de autoplay).
  */
 export default class VehicleAudio {
 	private context: AudioContext | null = null;
@@ -34,6 +37,7 @@ export default class VehicleAudio {
 	private roadGain!: GainNode;
 	private noiseBuffer!: AudioBuffer;
 	private sources: AudioScheduledSourceNode[] = [];
+	private sampledEngine: SampledEngine | null = null;
 
 	private readonly params = createVehicleSoundParams();
 	private definition: Readonly<VehicleDefinition> | null = null;
@@ -70,11 +74,14 @@ export default class VehicleAudio {
 		const telemetry = this.vehicle.getTelemetry();
 		const params = computeVehicleSound(telemetry, definition, this.params);
 		const now = context.currentTime;
+		const sampled = this.sampledEngine!;
+		sampled.select(definition.sound.engineBank ?? null);
+		sampled.update(telemetry.engineRpm, telemetry.engineLoad, params.engineGain * SAMPLED_ENGINE_GAIN, RAMP_TIME);
 		const frequency = params.engineFrequencyHz;
 		this.engineOscillators[0].frequency.setTargetAtTime(frequency, now, RAMP_TIME);
 		this.engineOscillators[1].frequency.setTargetAtTime(frequency * 2, now, RAMP_TIME);
 		this.engineOscillators[2].frequency.setTargetAtTime(frequency / 2, now, RAMP_TIME);
-		this.engineGain.gain.setTargetAtTime(params.engineGain * 0.6, now, RAMP_TIME);
+		this.engineGain.gain.setTargetAtTime(sampled.active ? 0 : params.engineGain * 0.6, now, RAMP_TIME);
 		this.engineFilter.frequency.setTargetAtTime(params.engineCutoffHz, now, RAMP_TIME);
 		this.tireGain.gain.setTargetAtTime(params.tireGain * 0.5, now, RAMP_TIME);
 		this.tireFilter.frequency.setTargetAtTime(params.tireFrequencyHz, now, RAMP_TIME);
@@ -91,6 +98,8 @@ export default class VehicleAudio {
 		for (const source of this.sources) source.stop();
 		this.sources = [];
 		this.engineOscillators = [];
+		this.sampledEngine?.dispose();
+		this.sampledEngine = null;
 		void this.context?.close();
 		this.context = null;
 	}
@@ -118,6 +127,7 @@ export default class VehicleAudio {
 		const compressor = context.createDynamicsCompressor();
 		compressor.connect(context.destination);
 		this.master = this.gain(context, MASTER_GAIN, compressor);
+		this.sampledEngine = new SampledEngine(context, this.master);
 
 		// ruído branco de 2 s, compartilhado pelos pneus, vento, rolamento e impactos
 		const length = context.sampleRate * 2;
