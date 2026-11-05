@@ -138,5 +138,3 @@ dist
 # Claude Code worktrees
 .claude/worktrees/
 
-# Banco de motor gerado por tools/audio a partir de gravação com licença ainda não confirmada (ADR-0007)
-public/audio/engines/

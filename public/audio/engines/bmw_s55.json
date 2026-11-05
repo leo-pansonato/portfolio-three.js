@@ -1,0 +1,199 @@
+{
+	"audio": "bmw_s55.m4a",
+	"layers": [
+		{
+			"rpm": 950,
+			"load": "idle",
+			"loopStart": 0.631587,
+			"loopEnd": 1.263175
+		},
+		{
+			"rpm": 1300,
+			"load": "on",
+			"loopStart": 2.263991,
+			"loopEnd": 2.63322
+		},
+		{
+			"rpm": 1700,
+			"load": "on",
+			"loopStart": 3.425986,
+			"loopEnd": 3.849524
+		},
+		{
+			"rpm": 2200,
+			"load": "on",
+			"loopStart": 4.545782,
+			"loopEnd": 4.818503
+		},
+		{
+			"rpm": 2700,
+			"load": "on",
+			"loopStart": 5.357891,
+			"loopEnd": 5.624558
+		},
+		{
+			"rpm": 3200,
+			"load": "on",
+			"loopStart": 6.191224,
+			"loopEnd": 6.491224
+		},
+		{
+			"rpm": 3700,
+			"load": "on",
+			"loopStart": 7.083107,
+			"loopEnd": 7.374989
+		},
+		{
+			"rpm": 4200,
+			"load": "on",
+			"loopStart": 7.952585,
+			"loopEnd": 8.238299
+		},
+		{
+			"rpm": 4700,
+			"load": "on",
+			"loopStart": 8.804875,
+			"loopEnd": 9.085737
+		},
+		{
+			"rpm": 5200,
+			"load": "on",
+			"loopStart": 9.735828,
+			"loopEnd": 10.105057
+		},
+		{
+			"rpm": 5700,
+			"load": "on",
+			"loopStart": 10.895329,
+			"loopEnd": 11.316372
+		},
+		{
+			"rpm": 6200,
+			"load": "on",
+			"loopStart": 12.240635,
+			"loopEnd": 12.743855
+		},
+		{
+			"rpm": 6700,
+			"load": "on",
+			"loopStart": 13.820204,
+			"loopEnd": 14.393333
+		},
+		{
+			"rpm": 7200,
+			"load": "on",
+			"loopStart": 15.649796,
+			"loopEnd": 16.333129
+		},
+		{
+			"rpm": 7500,
+			"load": "on",
+			"loopStart": 17.448458,
+			"loopEnd": 17.880454
+		},
+		{
+			"rpm": 1700,
+			"load": "off",
+			"loopStart": 18.594807,
+			"loopEnd": 18.877166
+		},
+		{
+			"rpm": 2100,
+			"load": "off",
+			"loopStart": 19.445238,
+			"loopEnd": 19.730952
+		},
+		{
+			"rpm": 2500,
+			"load": "off",
+			"loopStart": 20.304671,
+			"loopEnd": 20.592676
+		},
+		{
+			"rpm": 2900,
+			"load": "off",
+			"loopStart": 21.128957,
+			"loopEnd": 21.377234
+		},
+		{
+			"rpm": 4100,
+			"load": "off",
+			"loopStart": 22.298685,
+			"loopEnd": 22.971859
+		},
+		{
+			"rpm": 4500,
+			"load": "off",
+			"loopStart": 24.365034,
+			"loopEnd": 25.085034
+		},
+		{
+			"rpm": 4900,
+			"load": "off",
+			"loopStart": 26.686667,
+			"loopEnd": 27.568299
+		},
+		{
+			"rpm": 5300,
+			"load": "off",
+			"loopStart": 29.332948,
+			"loopEnd": 30.215964
+		},
+		{
+			"rpm": 5800,
+			"load": "off",
+			"loopStart": 31.988639,
+			"loopEnd": 32.878299
+		}
+	],
+	"events": [
+		{
+			"name": "start",
+			"start": 33.867959,
+			"end": 36.207959,
+			"rpm": 950
+		},
+		{
+			"name": "upshift",
+			"start": 36.407959,
+			"end": 37.087959,
+			"rpm": 6850
+		},
+		{
+			"name": "upshift",
+			"start": 37.287959,
+			"end": 37.797959,
+			"rpm": 7300
+		},
+		{
+			"name": "downshift",
+			"start": 37.997959,
+			"end": 39.057959,
+			"rpm": 4100
+		},
+		{
+			"name": "downshift",
+			"start": 39.257959,
+			"end": 41.077959,
+			"rpm": 4060
+		},
+		{
+			"name": "lift",
+			"start": 41.277959,
+			"end": 42.077959,
+			"rpm": 6000
+		},
+		{
+			"name": "pops",
+			"start": 42.277959,
+			"end": 42.777959,
+			"rpm": 5450
+		},
+		{
+			"name": "pops",
+			"start": 42.977959,
+			"end": 43.777959,
+			"rpm": 2600
+		}
+	]
+}
