@@ -11,7 +11,7 @@ Camadas em laço (lenta, com carga, sem carga):
 5. Sprite com cada laço repetido 3 vezes; os pontos de laço apontam para a cópia do meio, então um atraso do
    codificador AAC menor que o laço não quebra a emenda.
 
-Eventos (partida, troca, redução, estalos): trechos copiados como estão, com a rotação de referência (a do início
+Eventos (partida, troca, redução, estalos): trechos copiados como estão (sem `end`, até o fim do arquivo), com a rotação de referência (a do início
 do evento, onde ele encontra o laço que já toca).
 O nível relativo entre camadas e eventos é o da gravação (um ganho só para o banco todo).
 
@@ -157,7 +157,8 @@ def main():
     padding = np.zeros(int(EVENT_PADDING * SAMPLE_RATE))
     for event in config["events"]:
         x = audio(event["file"])
-        clip = x[int(event["start"] * SAMPLE_RATE) : int(event["end"] * SAMPLE_RATE)].copy()
+        end = event.get("end", len(x) / SAMPLE_RATE)
+        clip = x[int(event["start"] * SAMPLE_RATE) : int(end * SAMPLE_RATE)].copy()
         fade = int(0.005 * SAMPLE_RATE)
         clip[:fade] *= np.linspace(0, 1, fade)
         clip[-fade:] *= np.linspace(1, 0, fade)

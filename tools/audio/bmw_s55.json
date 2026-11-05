@@ -96,16 +96,14 @@
 		{
 			"name": "upshift",
 			"file": "1_to_2_gear_change.mp3",
-			"start": 0.1,
-			"end": 0.48,
-			"rpm": 6850
+			"start": 0,
+			"rpm": 6500
 		},
 		{
 			"name": "upshift",
 			"file": "3_to_4_gear_change.mp3",
-			"start": 0.08,
-			"end": 0.34,
-			"rpm": 7160
+			"start": 0,
+			"rpm": 6900
 		},
 		{
 			"name": "downshift",
