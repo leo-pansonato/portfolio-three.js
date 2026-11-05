@@ -2,12 +2,12 @@
 
 Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar ao fim de cada bloco de trabalho.
 
-## Estado (2026-11-03)
+## Estado (2026-11-04)
 
 - `master` = `origin/master`. P0 completo, P1 completo (P1-1…P1-8, lint/format no CI); P2-1, P2-5, P2-7, P2-8 (protótipo) e P2-9 concluídos.
-- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 231 testes (cenários, mapeamento de áudio, trem de força acoplado, diferenciais, freio-motor, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
+- Mundo em SI (ADR-0002): BMW 1.550 kg, G63 2.500 kg, plano de 2 km. 248 testes (cenários, eventos de contato, impactos, mapeamento de áudio, trem de força acoplado, diferenciais, freio-motor, suspensão, pneu e roda, skidpad, freio de mão, independência de FPS/passo, interpolação, plausibilidade, ciclo de vida).
 - Usuário pediu autonomia total: seguir o ROADMAP em ordem, commits `tipo(escopo): ...` (máx. 3 linhas, sem coautoria), pouco chat, poucos comentários; integrar por fast-forward + push após build e testes verdes.
-- Trabalho delegado a subagentes em worktree (`isolation: "worktree"`); ao integrar: rebase sobre a `master` dentro do worktree, ff na `master`, remover worktree e branches.
+- Usuário proibiu multiagentes (2026-11-04): trabalhar direto na `master`, sem subagentes nem worktrees.
 
 ## Em andamento
 
@@ -21,17 +21,13 @@ Estado para retomar o trabalho sem depender do histórico da conversa. Atualizar
 
 ## Retomar: P2-11 — áudio veicular nos padrões da indústria
 
-Ler antes: [ADR-0007](decisions/ADR-0007-audio-veicular.md) (diagnóstico, práticas, decisão), ROADMAP P2-11 (etapas e conclusão), ARCHITECTURE §3.6.1 (protótipo atual).
+Ler antes: [ADR-0007](decisions/ADR-0007-audio-veicular.md), ROADMAP P2-11, ARCHITECTURE §3.6.1.
 
-- **Decidido:** opção A — motor de áudio próprio em Web Audio, por amostras, sem dependência; contrato no estilo middleware (eventos, parâmetros, barramentos, *snapshots*) para aceitar granular depois.
-- **Bloqueio do usuário (etapas 3–5):** origem e licença das gravações (próprias, biblioteca comprada, CC0), formato (Opus/Ogg + alternativa para Safari, verificar) e orçamento de download por veículo. Nenhuma amostra entra no Git antes disso.
-- **Próximo passo sem bloqueio — etapa 2 (sinais), commits separados:**
-  1. Telemetria: carga do motor (torque pedido ÷ disponível na rpm, de `vehicle/Engine`/`Driveline`), corte ativo, escorregamento normalizado ao pico por roda (`peakSlip` de `vehicle/Tire`). Turbo só se o trem de força ganhar pressão de turbo (hoje não existe; não inventar). Atualizar `VehicleTelemetry` + teste em `test/vehicle/VehicleTelemetry.test.ts`; replay e linha de base `rapier.json` devem continuar idênticos.
-  2. Eventos de contato no contrato `PhysicsWorld` (`physics/PhysicsWorld.ts` + `RapierPhysicsWorld`): `ActiveEvents.CONTACT_FORCE_EVENTS` com limiar por colisor, drenados após `world.step()` em buffer pré-alocado (impulso, ponto, par de corpos), sem alocação por passo; só `src/physics/` importa a Rapier. Teste em `test/physics/`.
-  3. Antes do áudio de impacto: o item **[Investigar]** do P2-11 (se batidas nas caixas passam de 3 g e se o impacto atual só é inaudível).
-- **Depois:** etapa 3 (camadas de rpm com/sem carga, *crossfade* de potência constante, fontes escape/admissão/transmissão/corte/estalos, mix interno × externo por câmera), 4 (pneus por amostras e superfície, depende do P2-3), 5 (impactos/raspagens pelos eventos), 6 (espacialização e barramentos).
-- **Reaproveitar:** `src/audio/vehicleSound.ts` (mapeamento puro, testes em `test/audio/`), partida do `AudioContext` no primeiro gesto, tecla M, suspensão com a aba oculta. Substituir os osciladores e o ruído de `VehicleAudio.ts`.
-- **Verificação no navegador sem ouvido:** envolver `window.AudioContext` antes do primeiro gesto para capturar o contexto e ligar um `AnalyserNode` no compressor; teclas sintéticas precisam ir para `document` (o `InputManager` escuta lá). Aprovação final é de escuta do usuário, no roteiro do P2-11.
+- **Feito (2026-11-04):** etapa 2 completa — telemetria com `engineLoad` (acelerador efetivo), `revLimiterActive` e `normalizedSlip` por roda; `PhysicsWorld` com eventos de força de contato (`ColliderConfig.contactForceThreshold`, `contactEventCount`/`getContactEvent`, buffer de 64 por update). Áudio lê carga e escorregamento da telemetria (não do input; vale no replay). Impactos por `audio/ContactImpactDetector` (chassi com limiar 1 kN): verificado no navegador, uma batida por contato a 57 e 160 km/h. **[Investigar]** resolvido: caixas de 5 kg davam < 1 g; o impacto nunca disparava.
+- **Bloqueio do usuário (etapas 3–5 com amostras):** origem e licença das gravações, formato (Opus/Ogg + alternativa Safari) e orçamento de download por veículo. Nenhuma amostra entra no Git antes disso.
+- **Sem bloqueio, próximos:** etapa 6 sem amostras — barramentos (motor, pneus, impactos, ambiente) e *snapshots* interno × externo por modo de câmera; `PannerNode` com ouvinte na câmera. Raspagem contínua pelos eventos (velocidade tangencial no ponto via `getVelocityAtPoint`). Batente de suspensão pela telemetria (pouso de salto).
+- **Reaproveitar:** `vehicleSound.ts` e `ContactImpactDetector.ts` (puros, testes em `test/audio/`), partida do `AudioContext` no primeiro gesto, tecla M, suspensão com a aba oculta.
+- **Verificação no navegador com o painel oculto:** o rAF para e `document.hidden` suspende o áudio. Servir uma cópia temporária do `index.html` (ex.: `audio-check.html` na raiz, apagar depois) com script inline antes do `main.ts` trocando `requestAnimationFrame` por `setTimeout`, forçando `document.hidden = false` e envolvendo `AudioContext`/`createBufferSource` para contar vozes; teclas sintéticas em `document`. Para posicionar caixas, expor o `Game` em `window` temporariamente (não commitar). Há um volante G29 conectado no navegador do usuário.
 
 ## Próximos itens (ordem)
 
@@ -52,6 +48,8 @@ Ler antes: [ADR-0007](decisions/ADR-0007-audio-veicular.md) (diagnóstico, prát
 - Sem massa não suspensa nem sensibilidade do pneu à carga; reação da suspensão e do pneu não vai ao corpo atingido.
 - CSM `maxFar 50` e intensidade das luzes não revistos para escala real/AgX.
 - Pasta `.claude/worktrees/` pode sobrar no disco (ignorada pelo Git).
+- Caixas do cenário com 5 kg num cubo de 3 m (mais leves que o ar); rever no P2-3.
+- BMW fica ~2 s no corte de giro em 1ª na arrancada com as traseiras patinando (escorregamento normalizado ~50): P2-2.
 - Lint: 4 avisos de `no-explicit-any` em `src/` (`GameComponent.update`, `PerformanceManager.update`, `traverse` em `VehicleManager`); promover a erro quando corrigidos.
 
 ## Fatos técnicos que não estão óbvios no código
