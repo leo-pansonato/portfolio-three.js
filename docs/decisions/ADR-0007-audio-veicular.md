@@ -1,6 +1,6 @@
 # ADR-0007 — Áudio veicular por amostras, parâmetros e eventos de contato
 
-- **Status:** Aceita (2026-11-03) — opção A; origem das gravações pendente
+- **Status:** Aceita (2026-11-03) — opção A; gravações CC0 (2026-11-04), seleção pendente
 - **Data:** 2026-11-03
 - **Escopo:** som de motor, pneus, impactos e mixagem (ROADMAP P2-11, substitui o protótipo do P2-8).
 
@@ -49,7 +49,13 @@ Recomendação inicial: **A**, com contrato espelhando os conceitos de middlewar
 
 ## Pré-requisitos e questões abertas
 
-- **Assets [Investigar]:** origem e licença das gravações (próprias, biblioteca comprada, CC0); formato (Opus/Ogg com alternativa AAC para Safari — verificar suporte); orçamento de download por veículo e carregamento sob demanda (P3-2).
+- **Assets — origem decidida (2026-11-04): CC0.** Levantamento no Freesound com filtro CC0:
+  - **Motor:** não há conjunto CC0 com camadas por rpm com/sem carga. Há rotações livres e acelerações de carros parecidos: "S63 AMG V8 Engine Revs" (marcelweiss, 505321; V8 biturbo da família do G63), "Car, BMW M6, Start, Idle, Accelerate" (Kinoton, 478597), "Import car revs on Chassis Dyno with Turbo" (editboy23, 496171; Supra em dinamômetro, com carga), "RFX_Aceleration Inside the Car" (willybilly1984, 345329; interno). Nenhum é um seis em linha S55. Consequência: as camadas saem fatiadas dessas gravações (trechos de um ciclo, como na opção C/granular), com rpm medida pela frequência de ignição; o conjunto sem carga vem das rotações livres e o com carga do dinamômetro/aceleração.
+  - **Pneus:** poucos guinchos limpos; quase todos têm motor junto. Candidatos: "Tire.ogg" (egomassive, 536769), "Car peels off" (therisingorder, 271337); "screeching tyres" (johnnydekk, 614627) é bolsa de água em azulejo, mas limpo.
+  - **Impactos:** "Metal Hit 2" (dslrguide, 321482) e "Car_Door_Hit.wav" (mickyman5000, 340539) leves; "Fast Collision" e "Collision" (qubodup, 332056/332058) médios; "Car Crash" (squareal, 237375) forte, em camadas.
+  - O Freesound exige conta para baixar o original; as prévias (mp3/ogg com perda) não servem de fonte. Os originais ficam fora do Git; só entram os cortes finais.
+- **Formato:** Safari ainda tem suporte irregular a Opus em `decodeAudioData` (Ogg e WebM). Proposta: AAC-LC em `.m4a` como formato único (decodificado por Chrome, Firefox e Safari), com pontos de laço explícitos nos dados para descartar o preenchimento do codificador. Opus só se a medição de tamanho justificar dois formatos.
+- **Orçamento:** meta de até 1 MB por veículo (~8 camadas × 2 cargas × 2–3 s a 96–128 kbps) e 0,5 MB compartilhado (pneus, impactos), carregados sob demanda (P3-2).
 - **Sinais da simulação:** telemetria precisa de carga do motor (torque pedido ÷ disponível), torque no corte, pressão do turbo e escorregamento por roda já normalizado; contrato `PhysicsWorld` precisa de eventos de contato (impulso, ponto, par de colisores, materiais) — muda `src/physics/` (ARCHITECTURE §5).
 - **Superfícies:** material por colisor vem do P2-3.
 - **Verificação:** além dos testes de mapeamento em Node, roteiro de escuta com o usuário e gravação de referência (ex.: acelerada 0–100 e redução) comparada lado a lado.
