@@ -227,13 +227,13 @@ flowchart LR
 - **Motivo:** avaliação do usuário do P2-8 — motor agudo e artificial, derrapagem como chiado irreconhecível, impacto inaudível. Diagnóstico, práticas e decisão no ADR-0007 (aceito: opção A).
 - **Entregas, em ordem:**
   1. ~~Decidir o ADR-0007~~ — opção A, motor próprio por amostras (2026-11-03). Falta decidir a origem/licença/formato das gravações.
-  2. Sinais: carga do motor, turbo e escorregamento normalizado na telemetria; eventos de força de contato no `PhysicsWorld` (commit próprio).
+  2. ~~Sinais~~ (2026-11-04): carga do motor, corte de giro e escorregamento normalizado na telemetria; eventos de força de contato no `PhysicsWorld`. Turbo fica para quando o trem de força tiver pressão de turbo.
   3. Motor por camadas de rpm com conjuntos com/sem carga, *crossfade* de potência constante, fontes de escape/admissão/transmissão/turbo/corte/estalos; mix interno × externo por câmera.
   4. Pneus por amostras (*scrub*, guincho, travamento) pelo escorregamento normalizado ao pico, por superfície (P2-3).
   5. Impactos e raspagens pelos eventos de contato (nível por impulso, variações, intervalo mínimo por par).
   6. Espacialização (`PannerNode`, distância, Doppler) e barramentos de mixagem com *snapshots*.
 - **Conclusão:** aprovação de escuta do usuário em roteiro fixo (lenta, acelerada 0–100, redução, corte, derrapagem, freio de mão, batida nas caixas) nos três modos de câmera; testes de mapeamento em Node; orçamento de download registrado.
-- **[Investigar] antes do item 5:** se batidas nas caixas passam de 3 g na telemetria e se o impacto atual é só inaudível.
+- **Investigado (2026-11-04), antes do item 5:** as caixas do cenário têm 5 kg (cubo de 3 m); batida a 72 e 144 km/h dá 0,6–1,0 g no chassi (BMW e G63), abaixo dos 3 g do `impactIntensity`: o som de impacto nunca dispara nelas, não é só inaudível. Impulso de contato chassi × caixa ≈ 110–220 N·s; caixa de 500 kg a 72 km/h ≈ 10 kN·s (21–31 g); parede ≈ 34–54 kN·s. Detectar impacto pelos eventos de contato (impulso), não pela aceleração. Massa das caixas (densidade menor que a do ar) fica para o P2-3.
 - **Dependências:** P2-1 (sinais), P2-3 (superfícies, para o item 4 completo), P3-2 (orçamento de assets).
 
 ### [x] P2-9 — Debug físico sincronizado com a pose interpolada

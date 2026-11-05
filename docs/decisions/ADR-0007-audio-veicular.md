@@ -16,7 +16,7 @@ Diagnóstico:
 
 - **Motor:** síntese de forma de onda não reproduz o espectro de um motor real (ordens de combustão moduladas, ressonâncias de admissão e escape, ruído mecânico). Saturação + segunda ordem quadrada + corte até 4,2 kHz deixam os harmônicos altos dominarem.
 - **Pneus:** o guincho real é tonal (stick-slip da borracha, ~1–3 kHz com modulação); ruído de banda larga em um passa-banda não soa como pneu.
-- **Impacto [Investigar]:** medir se a telemetria passa de 3 g em batidas nas caixas (`impactIntensity`) e se o burst atual (ruído em passa-baixas de 300–1200 Hz, decaimento de 80 ms) é audível depois do compressor. Detectar impacto pela aceleração do chassi é indireto de qualquer forma.
+- **Impacto (investigado em 2026-11-04):** batidas nas caixas do cenário (5 kg) dão 0,6–1,0 g no chassi a 72–144 km/h, abaixo do limiar de 3 g do `impactIntensity`: o som nunca disparava. Detectar impacto pela aceleração do chassi é indireto; o impulso de contato (110–220 N·s nas caixas, dezenas de kN·s numa parede) é o sinal certo.
 
 Jogos de corrida comerciais não sintetizam o motor do zero: usam gravações do carro real (em dinamômetro, em várias rotações e cargas) tocadas por um motor de áudio dirigido por parâmetros da simulação.
 
