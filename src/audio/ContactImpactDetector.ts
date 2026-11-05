@@ -24,8 +24,8 @@ interface PairSlot {
 	impulse: number;
 	/** Quadro em que o par teve evento */
 	frame: number;
-	/** O contato já estava em curso no quadro anterior */
-	continuing: boolean;
+	/** O contato em curso já soou (ou foi descartado pelo intervalo mínimo) */
+	triggered: boolean;
 }
 
 /** Intensidade (0–1) de um impulso de contato (N·s); 0 abaixo do mínimo */
@@ -36,8 +36,8 @@ export function impactIntensityFromImpulse(impulse: number): number {
 }
 
 /**
- * Impactos de um corpo pelos eventos de força de contato do PhysicsWorld: soa só o início de cada contato
- * (contato contínuo, como empurrar uma caixa, não repete), com intervalo mínimo por par de corpos.
+ * Impactos de um corpo pelos eventos de força de contato do PhysicsWorld: cada contato soa uma vez, no primeiro
+ * quadro com impulso audível (contato contínuo, como empurrar uma caixa, não repete), com intervalo mínimo por par.
  * Estado fixo por par, sem alocação por quadro.
  */
 export default class ContactImpactDetector {
@@ -54,7 +54,7 @@ export default class ContactImpactDetector {
 				lastTrigger: -Infinity,
 				impulse: 0,
 				frame: -1,
-				continuing: false,
+				triggered: false,
 			});
 		}
 	}
@@ -77,7 +77,7 @@ export default class ContactImpactDetector {
 			const slot = this.slotFor(other);
 			if (slot.frame !== this.frame) {
 				slot.frame = this.frame;
-				slot.continuing = this.time - slot.lastSeen <= CONTACT_GAP;
+				if (this.time - slot.lastSeen > CONTACT_GAP) slot.triggered = false;
 				slot.lastSeen = this.time;
 				slot.impulse = 0;
 			}
@@ -86,10 +86,11 @@ export default class ContactImpactDetector {
 
 		let intensity = 0;
 		for (const slot of this.slots) {
-			if (slot.frame !== this.frame) continue;
-			if (slot.continuing || this.time - slot.lastTrigger < MIN_INTERVAL) continue;
+			if (slot.frame !== this.frame || slot.triggered) continue;
 			const level = impactIntensityFromImpulse(slot.impulse);
 			if (level === 0) continue;
+			slot.triggered = true;
+			if (this.time - slot.lastTrigger < MIN_INTERVAL) continue;
 			slot.lastTrigger = this.time;
 			intensity = Math.max(intensity, level);
 		}

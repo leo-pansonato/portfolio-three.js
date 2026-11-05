@@ -54,6 +54,16 @@ describe("impactos por eventos de contato", () => {
 		for (let i = 0; i < 30; i++) expect(detector.update(frameEvents([box, 5000]), chassis, FRAME)).toBe(0);
 	});
 
+	it("contato que começa fraco soa uma vez quando o impulso fica audível", () => {
+		const detector = new ContactImpactDetector();
+		expect(detector.update(frameEvents([box, 18]), chassis, FRAME)).toBe(0);
+		expect(detector.update(frameEvents([box, 135]), chassis, FRAME)).toBeCloseTo(
+			impactIntensityFromImpulse(135),
+			12,
+		);
+		expect(detector.update(frameEvents([box, 900]), chassis, FRAME)).toBe(0);
+	});
+
 	it("quadros sem passo de física (alta taxa de quadros) não quebram o contato", () => {
 		const detector = new ContactImpactDetector();
 		const fast = 1 / 240;
