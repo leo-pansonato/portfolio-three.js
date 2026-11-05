@@ -14,12 +14,15 @@ const LIFT_SOUND_MIN_RPM = 3500;
 const SHIFT_HOLD = 0.5;
 /** Intervalo mínimo entre eventos (s) */
 const MIN_INTERVAL = 0.3;
+/** Carga máxima para som de redução: reduzir acelerando (kickdown) não tem blip (0–1) */
+const DOWNSHIFT_MAX_LOAD = 0.3;
 /** Chance de estalos ao tirar o pé */
 const POPS_CHANCE = 0.5;
 
 /**
- * Eventos do motor pela telemetria do quadro: troca para cima/baixo pela marcha (só à frente), tirar o pé quando
- * a carga cai de alta a zero em pouco tempo, fora de troca, com estalos sorteados. Sem alocação.
+ * Eventos do motor pela telemetria do quadro: troca para cima/baixo pela marcha (só à frente; redução só sem
+ * acelerador), tirar o pé quando a carga cai de alta a zero em pouco tempo, fora de troca, com estalos sorteados.
+ * Sem alocação.
  */
 export default class EngineEventDetector {
 	private time = 0;
@@ -55,7 +58,7 @@ export default class EngineEventDetector {
 		if (gear !== previousGear) {
 			this.lastShift = this.time;
 			if (previousGear >= 1 && gear > previousGear) event = "upshift";
-			else if (gear >= 1 && gear < previousGear) event = "downshift";
+			else if (gear >= 1 && gear < previousGear && load <= DOWNSHIFT_MAX_LOAD) event = "downshift";
 		} else if (load >= PRESSED_LOAD) {
 			this.lastPressed = this.time;
 			this.released = false;

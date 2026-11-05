@@ -31,6 +31,13 @@ describe("eventos do motor", () => {
 		expect(run(detector, 30, 1, 1000, 0.5)).toEqual([]);
 	});
 
+	it("redução acelerando (kickdown) não toca o blip de redução", () => {
+		const detector = new EngineEventDetector();
+		detector.reset(3);
+		expect(run(detector, 30, 2, 4000, 1)).toEqual([]);
+		expect(run(detector, 30, 1, 3000, 0.2)).toEqual(["downshift"]);
+	});
+
 	it("tirar o pé rápido em rotação alta: corte ou estalos conforme o sorteio", () => {
 		const lift = new EngineEventDetector(() => 0.9);
 		lift.reset(3);
