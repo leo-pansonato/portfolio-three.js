@@ -226,6 +226,19 @@ describe("Powertrain", () => {
 		expect(state.gear).toBe(1);
 	});
 
+	it("acelerar para a frente andando de ré rápido fica na 1ª até andar para a frente", () => {
+		const { state, step } = setup();
+		step({ throttle: 1, reverse: true, boost: false }, -16, 6000);
+		expect(state.gear).toBe(REVERSE_GEAR);
+
+		for (const speed of [-16, -10, -4, 0]) {
+			for (let i = 0; i < 30; i++) step(FULL, speed, 6000);
+			expect(state.gear).toBe(1);
+		}
+		step(FULL, speedAt(6100, 1));
+		expect(state.gear).toBe(2);
+	});
+
 	it("ponto morto fica sem acelerador e sai com acelerador na marcha da velocidade", () => {
 		const { state, step } = setup();
 		state.gear = NEUTRAL_GEAR;

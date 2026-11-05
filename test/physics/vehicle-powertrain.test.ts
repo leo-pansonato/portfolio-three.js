@@ -135,6 +135,29 @@ describe.each(Object.keys(LIMITS))("veículo %s — trem de força", (vehicleId)
 		expect(minRpm).toBeGreaterThanOrEqual(powertrain.idleRpm);
 		expect(maxRpm).toBeLessThanOrEqual(powertrain.revLimitRpm);
 	});
+
+	it("de ré no máximo, acelerar para a frente fica na 1ª até andar para a frente e sobe em ordem", async () => {
+		const sim = await createRapierSim(vehicleId);
+		settle(sim);
+		sim.input.brake = true;
+		for (let i = 0; i < Math.round(8 / FRAME_DT); i++) sim.frame(FRAME_DT);
+		expect(sim.player.getTelemetry().forwardSpeed).toBeLessThan(-10);
+		sim.input.brake = false;
+		sim.input.throttle = true;
+		// a telemetria é a do passo anterior: um quadro para o pedido chegar ao câmbio
+		sim.frame(FRAME_DT);
+
+		const gears: number[] = [];
+		for (let i = 0; i < Math.round(12 / FRAME_DT); i++) {
+			sim.frame(FRAME_DT);
+			const telemetry = sim.player.getTelemetry();
+			if (telemetry.forwardSpeed < 0) expect(telemetry.gear).toBe(1);
+			if (gears[gears.length - 1] !== telemetry.gear) gears.push(telemetry.gear);
+		}
+		expect(gears[0]).toBe(1);
+		expect(gears.length).toBeGreaterThan(2);
+		for (let i = 1; i < gears.length; i++) expect(gears[i]).toBe(gears[i - 1] + 1);
+	});
 });
 
 describe("arrasto aerodinâmico", () => {

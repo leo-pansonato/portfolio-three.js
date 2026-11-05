@@ -34,8 +34,8 @@ export interface PowertrainRequest {
 }
 
 /**
- * Central do motor e do câmbio automático (ADR-0003, etapas 1 e 4): escolhe a marcha pela velocidade do veículo,
- * com histerese, e comanda acelerador, embreagem e conversor para o trem de força (Driveline), que é dono da rotação
+ * Central do motor e do câmbio automático (ADR-0003, etapas 1 e 4): escolhe a marcha pela velocidade do veículo
+ * para a frente (andando de ré, as marchas à frente ficam na 1ª), com histerese, e comanda acelerador, embreagem e conversor para o trem de força (Driveline), que é dono da rotação
  * do motor. Embreagem: fecha com a rotação da entrada do câmbio (rodando) e, sem conversor, também com a do motor
  * quando há acelerador (arrancada). Na troca, embreagem e conversor abrem e voltam a acoplar ao longo do tempo de
  * troca, e o acelerador leva o motor à rotação nova (corta com o motor acima dela, abre com ele abaixo). Com conversor,
@@ -72,11 +72,13 @@ export default class Powertrain {
 			state.gear = request.reverse ? REVERSE_GEAR : 1;
 			state.shiftTimeRemaining = 0;
 		}
+		// marchas à frente pela velocidade para a frente: andando para trás conta como parado (fica na 1ª)
+		const shiftSpeed = Math.max(0, forwardSpeed);
 		if (state.gear === NEUTRAL_GEAR && request.throttle > 0) {
-			state.gear = this.gearForSpeed(forwardSpeed);
+			state.gear = this.gearForSpeed(shiftSpeed);
 			state.shiftTimeRemaining = 0;
 		} else if (state.gear > 0 && state.shiftTimeRemaining === 0) {
-			this.selectForwardGear(forwardSpeed);
+			this.selectForwardGear(shiftSpeed);
 		}
 
 		const ratio = this.overallRatio(state.gear);
@@ -122,9 +124,9 @@ export default class Powertrain {
 		return gearRatio(this.config, gear);
 	}
 
-	/** Rotação da entrada do câmbio na marcha dada com o veículo na velocidade dada (rpm) */
+	/** Rotação da entrada do câmbio na marcha dada com o veículo na velocidade dada (rpm; velocidade ≥ 0) */
 	private drivelineRpm(vehicleSpeed: number, gear: number): number {
-		return (Math.abs(vehicleSpeed) / this.wheelRadius) * Math.abs(this.overallRatio(gear)) * RAD_PER_SECOND_TO_RPM;
+		return (vehicleSpeed / this.wheelRadius) * Math.abs(this.overallRatio(gear)) * RAD_PER_SECOND_TO_RPM;
 	}
 
 	/** Menor marcha à frente em que a rotação fica abaixo do giro de troca */
