@@ -1,35 +1,124 @@
 {
 	"name": "bmw_s55",
-	"cylinders": 6,
-	"firingRangeHz": [40, 420],
+	"trackedOrder": 1.5,
 	"tolerance": 0.06,
-	"minLoopSeconds": 0.35,
-	"maxLoopSeconds": 0.8,
+	"minLoopSeconds": 0.3,
+	"maxLoopSeconds": 0.9,
 	"bitrate": "128k",
-	"segments": {
-		"idle": [[7.6, 9.6]],
-		"on": [
-			[12.65, 14.75],
-			[15.25, 17.25],
-			[17.45, 21.45],
-			[21.65, 22.9]
-		],
-		"off": [
-			[27.95, 29.25],
-			[30.6, 36.3]
-		]
+	"segments": [
+		{
+			"file": "idle_to_7500_progressivo(1 gear).mp3",
+			"load": "idle",
+			"start": 0.05,
+			"end": 0.8,
+			"guide": [
+				[0, 930],
+				[0.8, 950]
+			]
+		},
+		{
+			"file": "start_to_idle.mp3",
+			"load": "idle",
+			"start": 1.5,
+			"end": 2.3,
+			"guide": [
+				[1.5, 920],
+				[2.3, 960]
+			]
+		},
+		{
+			"file": "idle_to_7500_progressivo(1 gear).mp3",
+			"load": "on",
+			"start": 0.85,
+			"end": 3.8,
+			"guide": [
+				[0.85, 1110],
+				[0.9, 1470],
+				[1.0, 1680],
+				[1.5, 1870],
+				[1.75, 2260],
+				[2.0, 3120],
+				[2.5, 4460],
+				[3.0, 5730],
+				[3.5, 7150],
+				[3.8, 7540]
+			]
+		},
+		{
+			"file": "acelerando_segunda_marcha_ate_terceira.mp3",
+			"load": "on",
+			"start": 0.05,
+			"end": 2.0,
+			"guide": [
+				[0, 5010],
+				[1.0, 6370],
+				[2.0, 7490]
+			]
+		},
+		{
+			"file": "desacelerando_progressivo_sem_carga.mp3",
+			"load": "off",
+			"start": 0.05,
+			"end": 3.65,
+			"guide": [
+				[0, 5920],
+				[1.8, 5130],
+				[3.65, 4040]
+			]
+		},
+		{
+			"file": "cut_when_lift_gas_pedal.mp3",
+			"load": "off",
+			"start": 0.5,
+			"end": 1.4,
+			"guide": [
+				[0.5, 5980],
+				[1.4, 5770]
+			]
+		},
+		{
+			"file": "reving_1000_to_3000.mp3",
+			"load": "off",
+			"start": 0.8,
+			"end": 1.55,
+			"guide": [
+				[0.8, 3090],
+				[1.2, 2220],
+				[1.55, 1640]
+			]
+		}
+	],
+	"layers": {
+		"idle": [950],
+		"on": [1300, 1700, 2200, 2700, 3200, 3700, 4200, 4700, 5200, 5700, 6200, 6700, 7200, 7500],
+		"off": [1700, 2100, 2500, 2900, 4100, 4500, 4900, 5300, 5800]
 	},
-	"layers": [
-		{ "rpm": 1050, "load": "idle", "source": "idle" },
-		{ "rpm": 1300, "load": "on", "source": "on" },
-		{ "rpm": 1700, "load": "on", "source": "on" },
-		{ "rpm": 2150, "load": "on", "source": "on" },
-		{ "rpm": 2700, "load": "on", "source": "on" },
-		{ "rpm": 3150, "load": "on", "source": "on" },
-		{ "rpm": 3600, "load": "on", "source": "on" },
-		{ "rpm": 1300, "load": "off", "source": "off" },
-		{ "rpm": 1700, "load": "off", "source": "off" },
-		{ "rpm": 2150, "load": "off", "source": "off" },
-		{ "rpm": 2500, "load": "off", "source": "off" }
+	"events": [
+		{ "name": "start", "file": "start_to_idle.mp3", "start": 0, "end": 2.34, "rpm": 950 },
+		{ "name": "upshift", "file": "1_to_2_gear_change.mp3", "start": 0, "end": 0.68, "rpm": 6850 },
+		{ "name": "upshift", "file": "3_to_4_gear_change.mp3", "start": 0, "end": 0.51, "rpm": 7300 },
+		{
+			"name": "downshift",
+			"file": "reduzindo_marcha_sem_carga_pedal_blip.mp3",
+			"start": 0,
+			"end": 1.06,
+			"rpm": 4100
+		},
+		{
+			"name": "downshift",
+			"file": "reduzindo_marcha_sem_carga__long_pedal_blip_with_pops_on_the_end.mp3",
+			"start": 0,
+			"end": 1.82,
+			"rpm": 4060
+		},
+		{ "name": "lift", "file": "cut_when_lift_gas_pedal.mp3", "start": 0.2, "end": 1.0, "rpm": 6000 },
+		{
+			"name": "pops",
+			"file": "reduzindo_marcha_sem_carga__long_pedal_blip_with_pops_on_the_end.mp3",
+			"start": 0.95,
+			"end": 1.45,
+			"rpm": 5450
+		},
+		{ "name": "pops", "file": "reving_1000_to_3000_with_pops.mp3", "start": 0.75, "end": 1.55, "rpm": 2600 }
 	]
 }

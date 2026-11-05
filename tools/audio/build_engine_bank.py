@@ -1,14 +1,20 @@
 """
-Gera o banco de camadas de motor (P2-11, ADR-0007) a partir de uma gravação com rampas de rpm.
+Gera o banco de áudio do motor (P2-11, ADR-0007) a partir de gravações curtas marcadas no JSON de configuração.
 
-1. Rastreia a frequência de ignição (Hz) por soma de harmônicos + Viterbi (continuidade em log-frequência).
-2. Para cada rpm-alvo, acha nos trechos marcados (com/sem carga, lenta) a janela mais longa perto do alvo.
-3. Achata a rotação por reamostragem com fase: a janela passa a ter frequência de ignição constante no alvo.
-4. Faz o laço com número inteiro de ciclos do motor e crossfade de potência constante na emenda.
-5. Normaliza o RMS de cada camada e grava um sprite com cada laço repetido 3 vezes; os pontos de laço
-   apontam para a cópia do meio, então um atraso do codificador AAC menor que o laço não quebra a emenda.
+Camadas em laço (lenta, com carga, sem carga):
+1. Rotação por trecho: pico mais forte da ordem rastreada (rpm/60 · ordem) numa faixa de ±25% em volta da rampa
+   aproximada dada no JSON, com interpolação parabólica e mediana móvel.
+2. Para cada rpm-alvo, a janela mais longa, nos trechos do conjunto, com rotação a ±tolerância do alvo.
+3. Achatamento por reamostragem com fase: a janela passa a ter rotação constante no alvo.
+4. Laço com número inteiro de ciclos do motor (2 voltas) e emenda em crossfade de potência constante.
+5. Sprite com cada laço repetido 3 vezes; os pontos de laço apontam para a cópia do meio, então um atraso do
+   codificador AAC menor que o laço não quebra a emenda.
 
-Uso: python build_engine_bank.py <config.json> <entrada (wav/mp3)> <diretório de saída>
+Eventos (partida, troca, redução, estalos): trechos copiados como estão, com a rotação de referência (a do início
+do evento, onde ele encontra o laço que já toca).
+O nível relativo entre camadas e eventos é o da gravação (um ganho só para o banco todo).
+
+Uso: python build_engine_bank.py <config.json> <diretório das gravações> <diretório de saída>
 Requer numpy, scipy e imageio-ffmpeg (ferramenta de autoria; não entra no bundle).
 """
 
@@ -21,15 +27,15 @@ import tempfile
 import imageio_ffmpeg
 import numpy as np
 from scipy.io import wavfile
+from scipy.ndimage import median_filter
 
 SAMPLE_RATE = 44100
 HOP = 0.01
 FFT_SIZE = 8192
-HARMONICS = 8
-TRANSITION_WEIGHT = 60.0
-MAX_STEP = 0.12
-CROSSFADE = 0.04
-TARGET_RMS_DB = -18.0
+SEARCH_RANGE = 1.25
+MAX_SEAM = 0.08
+EVENT_PADDING = 0.1
+PEAK = 0.95
 
 
 def ffmpeg(*args):
@@ -44,49 +50,34 @@ def load(path):
     return data.astype(np.float64) / 32768.0
 
 
-def track_firing_frequency(x, low, high):
-    """Frequência de ignição (Hz) a cada HOP s"""
+def track_rpm(x, segment, order):
+    """Rotação (rpm) a cada HOP s dentro do trecho, guiada pela curva aproximada `guide` ([[s, rpm], ...])"""
     freqs = np.fft.rfftfreq(FFT_SIZE, 1 / SAMPLE_RATE)
     window = np.hanning(FFT_SIZE)
-    candidates = np.arange(low, high, 0.25)
-    log_c = np.log(candidates)
-    times = np.arange(0, len(x) / SAMPLE_RATE, HOP)
-    scores = np.empty((len(times), len(candidates)))
+    start, end = segment["start"], segment["end"]
+    times = np.arange(start, end, HOP)
+    guide = np.array(segment["guide"], dtype=float)
+    guess = np.interp(times, guide[:, 0], guide[:, 1])
+    rpm = np.empty_like(times)
     for k, t in enumerate(times):
         i = int(t * SAMPLE_RATE)
         seg = x[max(0, i - FFT_SIZE // 2) : i + FFT_SIZE // 2]
-        seg = np.pad(seg, (0, FFT_SIZE - len(seg)))
-        mag = np.log(np.abs(np.fft.rfft(seg * window)) + 1e-7)
-        scores[k] = sum(np.interp(candidates * h, freqs, mag) for h in range(1, HARMONICS + 1))
-    lo = np.searchsorted(log_c, log_c - MAX_STEP)
-    hi = np.searchsorted(log_c, log_c + MAX_STEP)
-    best = scores[0].copy()
-    back = np.zeros(scores.shape, dtype=np.int32)
-    for k in range(1, len(times)):
-        new = np.empty_like(best)
-        for j in range(len(candidates)):
-            cand = best[lo[j] : hi[j]] - TRANSITION_WEIGHT * np.abs(log_c[lo[j] : hi[j]] - log_c[j])
-            a = int(np.argmax(cand))
-            new[j] = cand[a] + scores[k, j]
-            back[k, j] = lo[j] + a
-        best = new
-    path = np.empty(len(times), dtype=np.int32)
-    path[-1] = int(np.argmax(best))
-    for k in range(len(times) - 1, 0, -1):
-        path[k - 1] = back[k, path[k]]
-    return times, candidates[path]
+        mag = np.abs(np.fft.rfft(np.pad(seg, (0, FFT_SIZE - len(seg))) * window))
+        center = guess[k] / 60 * order
+        band = (freqs >= center / SEARCH_RANGE) & (freqs <= center * SEARCH_RANGE)
+        j = int(np.argmax(np.where(band, mag, 0)))
+        a, b, c = np.log(mag[j - 1 : j + 2] + 1e-12)
+        offset = 0.5 * (a - c) / (a - 2 * b + c) if a - 2 * b + c < 0 else 0.0
+        rpm[k] = (j + offset) * SAMPLE_RATE / FFT_SIZE * 60 / order
+    return times, median_filter(rpm, size=7, mode="nearest")
 
 
-def find_window(times, rpm, segments, target, tolerance, min_length, max_length):
-    """
-    Janela (início, fim) centrada no trecho mais longo com rpm a ±tolerância do alvo, entre min_length e
-    max_length (mais o crossfade); se o trecho for curto (rampa rápida), cresce dentro do segmento (o
-    achatamento corrige a rotação)
-    """
+def find_window(tracks, target, tolerance, min_length, max_length):
+    """(trilha, início, fim): janela centrada no trecho mais longo com rotação a ±tolerância do alvo"""
     best = None
-    best_segment = None
-    for start, end in segments:
-        inside = (times >= start) & (times <= end) & (np.abs(rpm - target) <= tolerance * target)
+    for track in tracks:
+        times, rpm, start, end = track["times"], track["rpm"], track["start"], track["end"]
+        inside = np.abs(rpm - target) <= tolerance * target
         k = 0
         while k < len(times):
             if not inside[k]:
@@ -95,34 +86,34 @@ def find_window(times, rpm, segments, target, tolerance, min_length, max_length)
             j = k
             while j + 1 < len(times) and inside[j + 1]:
                 j += 1
-            if best is None or times[j] - times[k] > best[1] - best[0]:
-                best = (times[k], times[j])
-                best_segment = (start, end)
+            if best is None or times[j] - times[k] > best[2] - best[1]:
+                best = (track, times[k], times[j])
             k = j + 1
     if best is None:
         raise SystemExit(f"sem trecho perto de {target} rpm")
-    center = (best[0] + best[1]) / 2
-    half = min(max((best[1] - best[0]) / 2, min_length / 2), max_length / 2) + CROSSFADE / 2
-    start = max(best_segment[0], center - half)
-    end = min(best_segment[1], start + 2 * half)
-    return max(best_segment[0], end - 2 * half), end
+    track, a, b = best
+    length = min(max(b - a, min_length), max_length) + MAX_SEAM
+    begin = max(track["start"], (a + b) / 2 - length / 2)
+    finish = min(track["end"], begin + length)
+    return track, max(track["start"], finish - length), finish
 
 
-def flatten(x, times, firing, start, end, target_firing):
-    """Reamostra [start, end] para que a frequência de ignição fique constante (fase preservada)"""
+def flatten(x, times, rpm, start, end, target):
+    """Reamostra [start, end] para rotação constante no alvo (fase preservada)"""
     t = np.arange(start, end, 1 / SAMPLE_RATE)
-    phase = np.cumsum(np.interp(t, times, firing)) / SAMPLE_RATE
-    out_phase = np.arange(0, phase[-1], target_firing / SAMPLE_RATE)
+    phase = np.cumsum(np.interp(t, times, rpm)) / SAMPLE_RATE
+    out_phase = np.arange(0, phase[-1], target / SAMPLE_RATE)
     source_time = np.interp(out_phase, phase, t)
     return np.interp(source_time * SAMPLE_RATE, np.arange(len(x)), x)
 
 
-def make_loop(y, cycle_frequency):
-    """Laço com número inteiro de ciclos do motor e emenda em crossfade de potência constante"""
-    fade = int(CROSSFADE * SAMPLE_RATE)
-    available = (len(y) - fade) / SAMPLE_RATE
-    cycles = max(1, int(available * cycle_frequency))
-    length = int(round(cycles / cycle_frequency * SAMPLE_RATE))
+def make_loop(y, rpm):
+    """Laço com número inteiro de ciclos (2 voltas) e emenda de até MAX_SEAM s em potência constante"""
+    cycle = 120 / rpm
+    seam = min(MAX_SEAM, 0.25 * len(y) / SAMPLE_RATE)
+    fade = int(seam * SAMPLE_RATE)
+    cycles = max(1, int((len(y) - fade) / SAMPLE_RATE / cycle))
+    length = int(round(cycles * cycle * SAMPLE_RATE))
     loop = y[:length].copy()
     ramp = np.linspace(0, np.pi / 2, fade)
     loop[:fade] = y[:fade] * np.sin(ramp) + y[length : length + fade] * np.cos(ramp)
@@ -130,41 +121,54 @@ def make_loop(y, cycle_frequency):
 
 
 def main():
-    config_path, input_path, out_dir = sys.argv[1:4]
+    config_path, source_dir, out_dir = sys.argv[1:4]
     with open(config_path, encoding="utf-8") as fp:
         config = json.load(fp)
-    order = config["cylinders"] / 2
-    x = load(input_path)
-    times, firing = track_firing_frequency(x, *config["firingRangeHz"])
-    rpm = firing * 60 / order
+    order = config["trackedOrder"]
+    files = {}
 
-    pieces, layers, offset = [], [], 0.0
-    for layer in config["layers"]:
-        target = layer["rpm"]
-        segments = [tuple(s) for s in config["segments"][layer["source"]]]
-        start, end = find_window(
-            times, rpm, segments, target, config["tolerance"], config["minLoopSeconds"], config["maxLoopSeconds"]
+    def audio(name):
+        if name not in files:
+            files[name] = load(os.path.join(source_dir, name))
+        return files[name]
+
+    tracks = {"idle": [], "on": [], "off": []}
+    for segment in config["segments"]:
+        times, rpm = track_rpm(audio(segment["file"]), segment, order)
+        tracks[segment["load"]].append({**segment, "times": times, "rpm": rpm})
+        print(f"{segment['load']:>4} {segment['file']} {segment['start']:.2f}-{segment['end']:.2f} s: "
+              f"{rpm[0]:.0f} -> {rpm[-1]:.0f} rpm")
+
+    pieces, layers, events, offset = [], [], [], 0.0
+    for kind, targets in config["layers"].items():
+        for target in targets:
+            track, start, end = find_window(
+                tracks[kind], target, config["tolerance"], config["minLoopSeconds"], config["maxLoopSeconds"]
+            )
+            x = audio(track["file"])
+            loop = make_loop(flatten(x, track["times"], track["rpm"], start, end, target), target)
+            length = len(loop) / SAMPLE_RATE
+            pieces.append(np.tile(loop, 3))
+            layers.append({"rpm": target, "load": kind, "loopStart": offset + length, "loopEnd": offset + 2 * length})
+            offset += 3 * length
+            print(f"{kind:>4} {target:5d} rpm  {track['file']} {start:.2f}-{end:.2f} s  laco {length * 1000:4.0f} ms")
+
+    padding = np.zeros(int(EVENT_PADDING * SAMPLE_RATE))
+    for event in config["events"]:
+        x = audio(event["file"])
+        clip = x[int(event["start"] * SAMPLE_RATE) : int(event["end"] * SAMPLE_RATE)].copy()
+        fade = int(0.005 * SAMPLE_RATE)
+        clip[:fade] *= np.linspace(0, 1, fade)
+        clip[-fade:] *= np.linspace(1, 0, fade)
+        pieces += [padding, clip, padding]
+        start = offset + EVENT_PADDING
+        events.append(
+            {"name": event["name"], "start": start, "end": start + len(clip) / SAMPLE_RATE, "rpm": event["rpm"]}
         )
-        y = flatten(x, times, firing, start, end, target / 60 * order)
-        loop = make_loop(y, target / 120)
-        loop *= 10 ** (TARGET_RMS_DB / 20) / np.sqrt(np.mean(loop**2))
-        length = len(loop) / SAMPLE_RATE
-        pieces.append(np.tile(loop, 3))
-        layers.append(
-            {
-                "rpm": target,
-                "load": layer["load"],
-                "loopStart": round(offset + length, 6),
-                "loopEnd": round(offset + 2 * length, 6),
-            }
-        )
-        offset += 3 * length
-        print(f"{layer['load']:>4} {target:5d} rpm  janela {start:6.2f}-{end:6.2f} s  loop {length * 1000:4.0f} ms")
+        offset += 2 * EVENT_PADDING + len(clip) / SAMPLE_RATE
 
     sprite = np.concatenate(pieces)
-    peak = np.max(np.abs(sprite))
-    if peak > 0.99:
-        sprite *= 0.99 / peak
+    sprite *= PEAK / np.max(np.abs(sprite))
     os.makedirs(out_dir, exist_ok=True)
     name = config["name"]
     audio_path = os.path.join(out_dir, f"{name}.m4a")
@@ -172,7 +176,11 @@ def main():
         wav = os.path.join(tmp, "sprite.wav")
         wavfile.write(wav, SAMPLE_RATE, (sprite * 32767).astype(np.int16))
         ffmpeg("-i", wav, "-c:a", "aac", "-b:a", config["bitrate"], audio_path)
-    manifest = {"audio": f"{name}.m4a", "layers": layers}
+
+    def rounded(items):
+        return [{k: round(v, 6) if isinstance(v, float) else v for k, v in item.items()} for item in items]
+
+    manifest = {"audio": f"{name}.m4a", "layers": rounded(layers), "events": rounded(events)}
     with open(os.path.join(out_dir, f"{name}.json"), "w", encoding="utf-8") as fp:
         json.dump(manifest, fp, indent="\t")
         fp.write("\n")
