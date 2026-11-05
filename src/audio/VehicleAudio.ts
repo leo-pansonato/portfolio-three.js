@@ -26,18 +26,14 @@ const ENGINE_RATE_TIME = 0.02;
 const ENGINE_GAIN_TIME = 0.06;
 
 /**
- * Áudio do veículo em Web Audio: motor por amostras (SampledEngine, banco em `sound.engineBank`: partida, camadas
- * por rpm e carga, trocas, redução e estalos pelo EngineEventDetector) ou, sem banco pronto, procedural; chiado dos pneus por escorregamento, vento e rolamento por velocidade,
- * impacto pelos eventos de contato do chassi. O `AudioContext` só nasce no primeiro gesto (política de autoplay).
+ * Áudio do veículo em Web Audio: motor só por amostras (SampledEngine, banco em `sound.engineBank`: partida, camadas
+ * por rpm e carga, trocas, redução e estalos pelo EngineEventDetector; mudo até o banco carregar); chiado dos pneus
+ * por escorregamento, vento e rolamento por velocidade, impacto pelos eventos de contato do chassi. O `AudioContext` só nasce no primeiro gesto (política de autoplay).
  */
 export default class VehicleAudio {
 	private context: AudioContext | null = null;
 	private muted = false;
 	private master!: GainNode;
-	private engineGain!: GainNode;
-	private engineFilter!: BiquadFilterNode;
-	private engineOscillators: OscillatorNode[] = [];
-	private subharmonicGain!: GainNode;
 	private tireGain!: GainNode;
 	private tireFilter!: BiquadFilterNode;
 	private windGain!: GainNode;
@@ -78,26 +74,19 @@ export default class VehicleAudio {
 		const sampled = this.sampledEngine!;
 		if (definition !== this.definition) {
 			// troca de veículo: o motor novo dá partida
-			if (this.definition && sampled.active) sampled.play("start", 0);
+			if (this.definition) sampled.play("start", 0);
 			this.definition = definition;
 			this.engineEvents.reset(telemetry.gear);
-			this.subharmonicGain.gain.setTargetAtTime(definition.sound.subharmonicGain, context.currentTime, RAMP_TIME);
 		}
 
 		const params = computeVehicleSound(telemetry, definition, this.params);
 		const now = context.currentTime;
-		if (sampled.select(definition.sound.engineBank ?? null)) this.engineEvents.reset(telemetry.gear);
+		if (sampled.select(definition.sound.engineBank)) this.engineEvents.reset(telemetry.gear);
 		const rpm = telemetry.engineRpm;
 		const load = telemetry.engineLoad;
 		sampled.update(rpm, load, SAMPLED_ENGINE_GAIN, ENGINE_RATE_TIME, ENGINE_GAIN_TIME);
 		const event = this.engineEvents.update(deltaTime, telemetry.gear, rpm, load);
-		if (event && sampled.active) sampled.play(event, rpm);
-		const frequency = params.engineFrequencyHz;
-		this.engineOscillators[0].frequency.setTargetAtTime(frequency, now, RAMP_TIME);
-		this.engineOscillators[1].frequency.setTargetAtTime(frequency * 2, now, RAMP_TIME);
-		this.engineOscillators[2].frequency.setTargetAtTime(frequency / 2, now, RAMP_TIME);
-		this.engineGain.gain.setTargetAtTime(sampled.active ? 0 : params.engineGain * 0.6, now, RAMP_TIME);
-		this.engineFilter.frequency.setTargetAtTime(params.engineCutoffHz, now, RAMP_TIME);
+		if (event) sampled.play(event, rpm);
 		this.tireGain.gain.setTargetAtTime(params.tireGain * 0.5, now, RAMP_TIME);
 		this.tireFilter.frequency.setTargetAtTime(params.tireFrequencyHz, now, RAMP_TIME);
 		this.windGain.gain.setTargetAtTime(params.windGain * 0.35, now, RAMP_TIME);
@@ -112,7 +101,6 @@ export default class VehicleAudio {
 		document.removeEventListener("visibilitychange", this.visibilityBound);
 		for (const source of this.sources) source.stop();
 		this.sources = [];
-		this.engineOscillators = [];
 		this.sampledEngine?.dispose();
 		this.sampledEngine = null;
 		void this.context?.close();
@@ -149,21 +137,6 @@ export default class VehicleAudio {
 		this.noiseBuffer = context.createBuffer(1, length, context.sampleRate);
 		const samples = this.noiseBuffer.getChannelData(0);
 		for (let i = 0; i < length; i++) samples[i] = Math.random() * 2 - 1;
-
-		// motor: ignição (dente de serra), segunda ordem (quadrada) e meia ordem, saturados e filtrados pela carga
-		this.engineGain = this.gain(context, 0, this.master);
-		this.engineFilter = context.createBiquadFilter();
-		this.engineFilter.type = "lowpass";
-		this.engineFilter.Q.value = 1.5;
-		this.engineFilter.connect(this.engineGain);
-		const shaper = context.createWaveShaper();
-		shaper.curve = softClipCurve(3);
-		shaper.connect(this.engineFilter);
-		const fundamental = this.oscillator(context, "sawtooth", this.gain(context, 0.5, shaper));
-		const second = this.oscillator(context, "square", this.gain(context, 0.12, shaper));
-		this.subharmonicGain = this.gain(context, 0, shaper);
-		const subharmonic = this.oscillator(context, "sawtooth", this.subharmonicGain);
-		this.engineOscillators = [fundamental, second, subharmonic];
 
 		this.tireFilter = context.createBiquadFilter();
 		this.tireFilter.type = "bandpass";
@@ -209,16 +182,6 @@ export default class VehicleAudio {
 		return node;
 	}
 
-	private oscillator(context: AudioContext, type: OscillatorType, destination: AudioNode): OscillatorNode {
-		const node = context.createOscillator();
-		node.type = type;
-		node.frequency.value = 0;
-		node.connect(destination);
-		node.start();
-		this.sources.push(node);
-		return node;
-	}
-
 	private noise(context: AudioContext, destination: AudioNode): void {
 		const source = context.createBufferSource();
 		source.buffer = this.noiseBuffer;
@@ -228,16 +191,4 @@ export default class VehicleAudio {
 		source.start(0, Math.random() * this.noiseBuffer.duration);
 		this.sources.push(source);
 	}
-}
-
-/** Curva de saturação suave tanh(k·x), normalizada */
-function softClipCurve(drive: number): Float32Array<ArrayBuffer> {
-	const size = 1024;
-	const curve = new Float32Array(size);
-	const norm = Math.tanh(drive);
-	for (let i = 0; i < size; i++) {
-		const x = (i / (size - 1)) * 2 - 1;
-		curve[i] = Math.tanh(drive * x) / norm;
-	}
-	return curve;
 }

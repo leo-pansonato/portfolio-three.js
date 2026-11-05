@@ -70,11 +70,7 @@ export const mercedesG63: VehicleDefinition = {
 		frontalArea: 3.3,
 	},
 	sound: {
-		cylinders: 8,
-		subharmonicGain: 0.7,
-		idleCutoffHz: 600,
-		fullLoadCutoffHz: 2600,
-		// provisório: gravação do S55 até haver uma do M177
+		// G63 provisoriamente com o banco do S55 até haver gravação do M177
 		engineBank: "audio/engines/bmw_s55.json",
 	},
 	cameraSettings: {

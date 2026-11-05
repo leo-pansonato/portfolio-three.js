@@ -23,32 +23,10 @@ function telemetryFor(definition: VehicleDefinition) {
 	return telemetry;
 }
 
-describe("som do veículo", () => {
+describe("pneus, vento e rolamento", () => {
 	const bmw = getVehicleDefinition("bmw_f82")!;
-	const g63 = getVehicleDefinition("mercedes_g63")!;
 	const sound = (telemetry: VehicleTelemetry, definition = bmw) =>
 		computeVehicleSound(telemetry, definition, createVehicleSoundParams());
-
-	it("ignição em rpm/60 · cilindros/2", () => {
-		const telemetry = telemetryFor(bmw);
-		telemetry.engineRpm = 6000;
-		expect(sound(telemetry).engineFrequencyHz).toBe(300);
-		expect(sound(telemetry, g63).engineFrequencyHz).toBe(400);
-	});
-
-	it("motor fica mais alto e mais aberto com rotação e carga da simulação", () => {
-		const telemetry = telemetryFor(bmw);
-		const idle = sound(telemetry);
-		telemetry.engineLoad = 1;
-		const loaded = sound(telemetry);
-		telemetry.engineRpm = bmw.powertrain.revLimitRpm;
-		const limit = sound(telemetry);
-		expect(idle.engineCutoffHz).toBe(bmw.sound.idleCutoffHz);
-		expect(loaded.engineGain).toBeGreaterThan(idle.engineGain);
-		expect(loaded.engineCutoffHz).toBeGreaterThan(idle.engineCutoffHz);
-		expect(limit.engineGain).toBe(1);
-		expect(limit.engineCutoffHz).toBe(bmw.sound.fullLoadCutoffHz);
-	});
 
 	it("parado e rolando sem escorregar não há chiado; muito acima do pico em velocidade, satura", () => {
 		const telemetry = telemetryFor(bmw);

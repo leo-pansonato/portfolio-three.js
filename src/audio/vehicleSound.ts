@@ -1,14 +1,8 @@
 import { VehicleDefinition } from "../data/vehicles/types";
 import { STANDARD_GRAVITY, VehicleTelemetry } from "../vehicle/VehicleTelemetry";
 
-/** Parâmetros do som do veículo em um quadro, calculados da telemetria (sem Web Audio, testável em Node) */
+/** Parâmetros dos sons procedurais do veículo (pneus, vento, rolamento) em um quadro, calculados da telemetria (sem Web Audio, testável em Node) */
 export interface VehicleSoundParams {
-	/** Frequência de ignição do motor (Hz) */
-	engineFrequencyHz: number;
-	/** Ganho do motor (0–1) */
-	engineGain: number;
-	/** Corte do passa-baixas do motor (Hz) */
-	engineCutoffHz: number;
 	/** Ganho do chiado dos pneus (0–1) */
 	tireGain: number;
 	/** Centro do chiado (Hz) */
@@ -35,9 +29,6 @@ const TUNING = {
 
 export function createVehicleSoundParams(): VehicleSoundParams {
 	return {
-		engineFrequencyHz: 0,
-		engineGain: 0,
-		engineCutoffHz: 0,
 		tireGain: 0,
 		tireFrequencyHz: TUNING.tireBaseHz,
 		windGain: 0,
@@ -49,23 +40,12 @@ function clamp01(value: number): number {
 	return value < 0 ? 0 : value > 1 ? 1 : value;
 }
 
-/** Som do quadro a partir da telemetria do último passo (carga do motor da simulação, vale também no replay) */
+/** Pneus, vento e rolamento do quadro a partir da telemetria do último passo (o motor é do SampledEngine) */
 export function computeVehicleSound(
 	telemetry: Readonly<VehicleTelemetry>,
 	definition: Readonly<VehicleDefinition>,
 	out: VehicleSoundParams,
 ): VehicleSoundParams {
-	const sound = definition.sound;
-	const powertrain = definition.powertrain;
-	const rpm = Math.max(telemetry.engineRpm, 0);
-	const rpmNorm = clamp01((rpm - powertrain.idleRpm) / (powertrain.revLimitRpm - powertrain.idleRpm));
-	const load = clamp01(telemetry.engineLoad);
-
-	out.engineFrequencyHz = (rpm / 60) * (sound.cylinders / 2);
-	out.engineGain = clamp01(0.3 + 0.3 * rpmNorm + 0.4 * load);
-	out.engineCutoffHz =
-		sound.idleCutoffHz + (sound.fullLoadCutoffHz - sound.idleCutoffHz) * clamp01(0.6 * load + 0.4 * rpmNorm);
-
 	// chiado: o escorregamento combinado acima do pico, pesado pela carga da roda e pela velocidade do contato
 	const staticLoad = (definition.physics.mass * STANDARD_GRAVITY) / Math.max(telemetry.wheels.length, 1);
 	const radius = definition.physics.wheelRadius;

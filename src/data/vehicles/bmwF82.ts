@@ -67,10 +67,6 @@ export const bmwF82: VehicleDefinition = {
 		frontalArea: 2.2,
 	},
 	sound: {
-		cylinders: 6,
-		subharmonicGain: 0.25,
-		idleCutoffHz: 900,
-		fullLoadCutoffHz: 4200,
 		engineBank: "audio/engines/bmw_s55.json",
 	},
 	cameraSettings: {

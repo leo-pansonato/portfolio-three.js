@@ -226,20 +226,10 @@ export interface WheelDefinition {
 	rotation: Vec3;
 }
 
-/** Som procedural do motor (P2-8) */
+/** Som do motor por amostras (P2-11, ADR-0007) */
 export interface VehicleSoundConfig {
-	/** Cilindros de um motor quatro tempos: ignição em rpm/60 · cilindros/2 (Hz) */
-	cylinders: number;
-	/** Peso da meia ordem (rpm/60 · cilindros/4) em relação à ignição (0–1); alto num V8 de virabrequim cruzado */
-	subharmonicGain: number;
-	/** Corte do filtro do motor em lenta sem carga e no corte com carga plena (Hz) */
-	idleCutoffHz: number;
-	fullLoadCutoffHz: number;
-	/**
-	 * Manifesto do banco de camadas do motor (URL relativa à página, gerado por tools/audio); sem ele, ou enquanto não
-	 * carrega, o motor é procedural
-	 */
-	engineBank?: string;
+	/** Manifesto do banco de áudio do motor (URL relativa à página, gerado por tools/audio) */
+	engineBank: string;
 }
 
 export interface VehicleDefinition {

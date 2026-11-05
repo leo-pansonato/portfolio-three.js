@@ -66,7 +66,7 @@ export function pickEventClip(
 /**
  * Motor por amostras (ADR-0007): um laço por camada tocando sempre (playbackRate e ganho do EngineLayerMixer) e
  * eventos tocados uma vez por cima, com os laços abafados enquanto o evento traz o próprio motor. Carrega cada
- * banco uma vez sob demanda; enquanto não há banco pronto, `active` é falso e o chamador usa o motor procedural.
+ * banco uma vez sob demanda; até ficar pronto, o motor fica mudo.
  * Todas as mudanças de nível são rampas (setTargetAtTime / rampas lineares), sem degraus.
  */
 export default class SampledEngine {
@@ -92,21 +92,16 @@ export default class SampledEngine {
 		this.loops.connect(this.output);
 	}
 
-	/** Há um banco tocando */
-	get active(): boolean {
-		return this.mixer !== null;
-	}
-
 	/**
 	 * Banco a tocar (null: nenhum), chamado por quadro: carrega na primeira vez e, quando pronto, começa pela partida
 	 * @returns true no quadro em que o banco passou a tocar
 	 */
-	select(url: string | null): boolean {
+	select(url: string): boolean {
 		if (url !== this.activeUrl) {
 			this.stopLayers();
 			this.activeUrl = url;
 		}
-		if (!url || this.mixer) return false;
+		if (this.mixer) return false;
 		const loaded = this.loaded.get(url);
 		if (!loaded) {
 			this.request(url);
@@ -183,7 +178,7 @@ export default class SampledEngine {
 		loadBank(this.context, url)
 			.then((loaded) => this.loaded.set(url, loaded))
 			.catch((error: unknown) => {
-				console.warn(`Banco de motor ${url} indisponível; usando o motor procedural`, error);
+				console.warn(`Banco de motor ${url} indisponível; motor sem som`, error);
 			});
 	}
 
