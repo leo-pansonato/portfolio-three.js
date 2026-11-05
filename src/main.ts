@@ -114,7 +114,7 @@ class Game {
 			this.inputManager.look,
 			this.physicsManager,
 		);
-		this.audio = new VehicleAudio(this.player, this.inputManager.frame);
+		this.audio = new VehicleAudio(this.player);
 		this.bindInputActions();
 		this.ui.bindReplayControls(this.player);
 		this.ui.mountRaceHud();

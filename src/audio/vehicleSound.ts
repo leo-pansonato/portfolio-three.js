@@ -1,5 +1,4 @@
 import { VehicleDefinition } from "../data/vehicles/types";
-import { peakSlip } from "../vehicle/Tire";
 import { STANDARD_GRAVITY, VehicleTelemetry } from "../vehicle/VehicleTelemetry";
 
 /** Parâmetros do som do veículo em um quadro, calculados da telemetria (sem Web Audio, testável em Node) */
@@ -18,14 +17,6 @@ export interface VehicleSoundParams {
 	windGain: number;
 	/** Ganho do rolamento no piso (0–1) */
 	roadGain: number;
-}
-
-/** Escorregamentos de pico do pneu do veículo, calculados uma vez por definição */
-export interface TirePeaks {
-	/** Escorregamento longitudinal do pico (adimensional) */
-	longitudinal: number;
-	/** Ângulo de deriva do pico (rad) */
-	lateral: number;
 }
 
 const TUNING = {
@@ -57,30 +48,21 @@ export function createVehicleSoundParams(): VehicleSoundParams {
 	};
 }
 
-export function tirePeaks(definition: Readonly<VehicleDefinition>): TirePeaks {
-	return { longitudinal: peakSlip(definition.tire.longitudinal), lateral: peakSlip(definition.tire.lateral) };
-}
-
 function clamp01(value: number): number {
 	return value < 0 ? 0 : value > 1 ? 1 : value;
 }
 
-/**
- * Som do quadro a partir da telemetria do último passo
- * @param throttle acelerador (0–1), usado como carga do motor
- */
+/** Som do quadro a partir da telemetria do último passo (carga do motor da simulação, vale também no replay) */
 export function computeVehicleSound(
 	telemetry: Readonly<VehicleTelemetry>,
-	throttle: number,
 	definition: Readonly<VehicleDefinition>,
-	peaks: Readonly<TirePeaks>,
 	out: VehicleSoundParams,
 ): VehicleSoundParams {
 	const sound = definition.sound;
 	const powertrain = definition.powertrain;
 	const rpm = Math.max(telemetry.engineRpm, 0);
 	const rpmNorm = clamp01((rpm - powertrain.idleRpm) / (powertrain.revLimitRpm - powertrain.idleRpm));
-	const load = clamp01(throttle);
+	const load = clamp01(telemetry.engineLoad);
 
 	out.engineFrequencyHz = (rpm / 60) * (sound.cylinders / 2);
 	out.engineGain = clamp01(0.3 + 0.3 * rpmNorm + 0.4 * load);
@@ -96,8 +78,7 @@ export function computeVehicleSound(
 		const wheel = telemetry.wheels[i];
 		if (!wheel.inContact) continue;
 		contacts++;
-		const slip = Math.hypot(wheel.slipRatio / peaks.longitudinal, wheel.slipAngle / peaks.lateral);
-		const excess = clamp01((slip - TUNING.squealStart) / (TUNING.squealFull - TUNING.squealStart));
+		const excess = clamp01((wheel.normalizedSlip - TUNING.squealStart) / (TUNING.squealFull - TUNING.squealStart));
 		const contactSpeed = Math.max(telemetry.speed, Math.abs(wheel.angularVelocity) * radius);
 		const gate = clamp01(contactSpeed / TUNING.squealSpeed);
 		const loadWeight = clamp01(wheel.suspensionForce / staticLoad);

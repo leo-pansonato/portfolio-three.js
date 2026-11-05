@@ -1,7 +1,6 @@
 import { VehicleDefinition } from "../data/vehicles/types";
-import { InputFrame } from "../input/InputFrame";
 import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
-import { TirePeaks, computeVehicleSound, createVehicleSoundParams, impactIntensity, tirePeaks } from "./vehicleSound";
+import { computeVehicleSound, createVehicleSoundParams, impactIntensity } from "./vehicleSound";
 
 /** O que o áudio lê do veículo */
 export interface VehicleAudioSource {
@@ -36,17 +35,13 @@ export default class VehicleAudio {
 
 	private readonly params = createVehicleSoundParams();
 	private definition: Readonly<VehicleDefinition> | null = null;
-	private peaks: TirePeaks = { longitudinal: 1, lateral: 1 };
 	private previousImpact = 0;
 	private lastImpactTime = -Infinity;
 
 	private readonly startBound = () => this.start();
 	private readonly visibilityBound = () => this.applySuspension();
 
-	constructor(
-		private readonly vehicle: VehicleAudioSource,
-		private readonly input: Readonly<InputFrame>,
-	) {
+	constructor(private readonly vehicle: VehicleAudioSource) {
 		window.addEventListener("keydown", this.startBound);
 		window.addEventListener("pointerdown", this.startBound);
 		document.addEventListener("visibilitychange", this.visibilityBound);
@@ -64,12 +59,11 @@ export default class VehicleAudio {
 		const definition = this.vehicle.getDefinition();
 		if (definition !== this.definition) {
 			this.definition = definition;
-			this.peaks = tirePeaks(definition);
 			this.subharmonicGain.gain.setTargetAtTime(definition.sound.subharmonicGain, context.currentTime, RAMP_TIME);
 		}
 
 		const telemetry = this.vehicle.getTelemetry();
-		const params = computeVehicleSound(telemetry, this.input.throttle, definition, this.peaks, this.params);
+		const params = computeVehicleSound(telemetry, definition, this.params);
 		const now = context.currentTime;
 		const frequency = params.engineFrequencyHz;
 		this.engineOscillators[0].frequency.setTargetAtTime(frequency, now, RAMP_TIME);
