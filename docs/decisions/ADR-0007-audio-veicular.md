@@ -1,6 +1,6 @@
 # ADR-0007 — Áudio veicular por amostras, parâmetros e eventos de contato
 
-- **Status:** Aceita (2026-11-03) — opção A; gravações CC0 (2026-11-04), seleção pendente
+- **Status:** Aceita (2026-11-03) — opção A; gravação livre do M4 em uso (2026-11-04)
 - **Data:** 2026-11-03
 - **Escopo:** som de motor, pneus, impactos e mixagem (ROADMAP P2-11, substitui o protótipo do P2-8).
 
@@ -54,7 +54,7 @@ Recomendação inicial: **A**, com contrato espelhando os conceitos de middlewar
   - **Pneus:** poucos guinchos limpos; quase todos têm motor junto. Candidatos: "Tire.ogg" (egomassive, 536769), "Car peels off" (therisingorder, 271337); "screeching tyres" (johnnydekk, 614627) é bolsa de água em azulejo, mas limpo.
   - **Impactos:** "Metal Hit 2" (dslrguide, 321482) e "Car_Door_Hit.wav" (mickyman5000, 340539) leves; "Fast Collision" e "Collision" (qubodup, 332056/332058) médios; "Car Crash" (squareal, 237375) forte, em camadas.
   - O Freesound exige conta para baixar o original; as prévias (mp3/ogg com perda) não servem de fonte. Os originais ficam fora do Git; só entram os cortes finais.
-- **Primeira gravação (2026-11-04):** o usuário forneceu uma gravação de M4 F82 em mp3 (39 s; metadados: "Sports car - BMW M4 F82 - driving - Emar Vegt", artista Juraj Mravec), com partida, lenta, rotações, acelerações com carga (1ª–4ª, 1080–3750 rpm) e desacelerações sem carga (2610–895 rpm). Licença não confirmada: os laços derivados ficam fora do Git (`public/audio/engines/` no `.gitignore`) e a ferramenta e a configuração (`tools/audio/`) entram, para regerar quando houver fonte com licença clara. Falta rotação alta (> 3750 rpm).
+- **Gravação em uso (2026-11-04):** M4 F82 (metadados "Sports car - BMW M4 F82 - driving - Emar Vegt", artista Juraj Mravec), declarada livre pelo usuário, em 11 trechos curtos mapeados por ele (partida, lenta, rotações com e sem estalos, aceleração de 1ª até 7500 rpm, 2ª–3ª, trocas 1–2 e 3–4, corte ao tirar o pé, desaceleração sem carga, reduções com blip). A linha mais forte do S55 é a 1,5ª ordem (rpm/40 Hz), conferida pelo trecho até 7500 rpm; a primeira versão assumiu a 3ª e tocava uma oitava acima. Laços e eventos entram no Git (`public/audio/engines/`, 694 KiB). Falta sem carga entre 2900 e 4100 rpm e o motor do G63.
 - **Formato:** Safari ainda tem suporte irregular a Opus em `decodeAudioData` (Ogg e WebM). Proposta: AAC-LC em `.m4a` como formato único (decodificado por Chrome, Firefox e Safari), com pontos de laço explícitos nos dados para descartar o preenchimento do codificador. Opus só se a medição de tamanho justificar dois formatos.
 - **Orçamento:** meta de até 1 MB por veículo (~8 camadas × 2 cargas × 2–3 s a 96–128 kbps) e 0,5 MB compartilhado (pneus, impactos), carregados sob demanda (P3-2).
 - **Sinais da simulação:** telemetria precisa de carga do motor (torque pedido ÷ disponível), torque no corte, pressão do turbo e escorregamento por roda já normalizado; contrato `PhysicsWorld` precisa de eventos de contato (impulso, ponto, par de colisores, materiais) — muda `src/physics/` (ARCHITECTURE §5).

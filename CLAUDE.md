@@ -29,7 +29,7 @@ npm run lint          # ESLint (typescript-eslint, regras com tipo)
 npm run format        # Prettier: formata; npm run format:check só verifica
 npm run build         # tsc + vite build
 npm test              # Vitest em Node: cenários de referência da física (test/)
-python tools/audio/build_engine_bank.py tools/audio/bmw_s55.json <gravação> public/audio/engines  # banco do motor
+python tools/audio/build_engine_bank.py tools/audio/bmw_s55.json <pasta das gravações> public/audio/engines  # banco do motor
 ```
 
 `UPDATE_BASELINE=1 npm test` regrava `test/baselines/*.json`. Só faça isso quando a mudança de comportamento for intencional, e diga no commit quais números mudaram e por quê. CI (`.github/workflows/ci.yml`) roda typecheck, lint, verificação de formatação, testes e build em push na `master` e em PRs. Configuração em `eslint.config.mjs` e `.prettierrc.json`; `no-explicit-any` é aviso em `src/` e livre em `test/`.
