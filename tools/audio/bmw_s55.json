@@ -1,0 +1,35 @@
+{
+	"name": "bmw_s55",
+	"cylinders": 6,
+	"firingRangeHz": [40, 420],
+	"tolerance": 0.06,
+	"minLoopSeconds": 0.35,
+	"maxLoopSeconds": 0.8,
+	"bitrate": "128k",
+	"segments": {
+		"idle": [[7.6, 9.6]],
+		"on": [
+			[12.65, 14.75],
+			[15.25, 17.25],
+			[17.45, 21.45],
+			[21.65, 22.9]
+		],
+		"off": [
+			[27.95, 29.25],
+			[30.6, 36.3]
+		]
+	},
+	"layers": [
+		{ "rpm": 1050, "load": "idle", "source": "idle" },
+		{ "rpm": 1300, "load": "on", "source": "on" },
+		{ "rpm": 1700, "load": "on", "source": "on" },
+		{ "rpm": 2150, "load": "on", "source": "on" },
+		{ "rpm": 2700, "load": "on", "source": "on" },
+		{ "rpm": 3150, "load": "on", "source": "on" },
+		{ "rpm": 3600, "load": "on", "source": "on" },
+		{ "rpm": 1300, "load": "off", "source": "off" },
+		{ "rpm": 1700, "load": "off", "source": "off" },
+		{ "rpm": 2150, "load": "off", "source": "off" },
+		{ "rpm": 2500, "load": "off", "source": "off" }
+	]
+}
