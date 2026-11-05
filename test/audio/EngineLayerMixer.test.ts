@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import EngineLayerMixer, { EngineLayer, parseEngineBank } from "../../src/audio/EngineLayerMixer";
+import { pickEventClip } from "../../src/audio/SampledEngine";
 
 const layer = (rpm: number, load: EngineLayer["load"]): EngineLayer => ({ rpm, load, loopStart: 1, loopEnd: 2 });
 const LAYERS: EngineLayer[] = [
@@ -77,6 +78,31 @@ describe("manifesto do banco de motor", () => {
 		);
 		expect(() =>
 			parseEngineBank({ audio: "x.m4a", layers: [...LAYERS, { ...layer(2000, "on"), loopEnd: 0 }] }),
+		).toThrow();
+	});
+});
+
+describe("variante de evento", () => {
+	const events = [
+		{ name: "upshift", start: 0, end: 1, rpm: 6850 },
+		{ name: "upshift", start: 1, end: 2, rpm: 7300 },
+		{ name: "pops", start: 2, end: 3, rpm: 5450 },
+		{ name: "pops", start: 3, end: 4, rpm: 2600 },
+	];
+
+	it("escolhe a de rotação mais próxima e sorteia entre as próximas", () => {
+		expect(pickEventClip(events, "pops", 3000)?.rpm).toBe(2600);
+		expect(pickEventClip(events, "pops", 6000)?.rpm).toBe(5450);
+		expect(pickEventClip(events, "upshift", 7000, () => 0)?.rpm).toBe(6850);
+		expect(pickEventClip(events, "upshift", 7000, () => 0.99)?.rpm).toBe(7300);
+		expect(pickEventClip(events, "downshift", 4000)).toBeNull();
+	});
+
+	it("o manifesto aceita eventos e rejeita evento sem duração", () => {
+		expect(parseEngineBank({ audio: "x.m4a", layers: LAYERS, events }).events).toHaveLength(4);
+		expect(parseEngineBank({ audio: "x.m4a", layers: LAYERS }).events).toEqual([]);
+		expect(() =>
+			parseEngineBank({ audio: "x.m4a", layers: LAYERS, events: [{ name: "pops", start: 1, end: 1, rpm: 1 }] }),
 		).toThrow();
 	});
 });

@@ -2,6 +2,7 @@ import { VehicleDefinition } from "../data/vehicles/types";
 import { PhysicsBody } from "../physics/PhysicsWorld";
 import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
 import ContactImpactDetector, { ContactEventSource } from "./ContactImpactDetector";
+import EngineEventDetector from "./EngineEventDetector";
 import SampledEngine from "./SampledEngine";
 import { computeVehicleSound, createVehicleSoundParams } from "./vehicleSound";
 
@@ -15,12 +16,18 @@ export interface VehicleAudioSource {
 /** Constante de tempo das rampas de parâmetro (s): suaviza a leitura por quadro de um sinal por passo */
 const RAMP_TIME = 0.03;
 const MASTER_GAIN = 0.5;
-/** Nível do motor por camadas em relação ao procedural (as camadas têm RMS de −18 dBFS) */
-const SAMPLED_ENGINE_GAIN = 1.2;
+/** Nível do motor por amostras (o banco guarda a dinâmica da gravação: lenta baixa, carga alta) */
+const SAMPLED_ENGINE_GAIN = 1;
+/**
+ * Constantes de tempo do motor por amostras (s): o tom segue a rotação quase na hora; os ganhos das camadas
+ * (crossfade por rpm e carga) andam mais devagar, para a troca de camada e o tirar o pé não serem degraus
+ */
+const ENGINE_RATE_TIME = 0.02;
+const ENGINE_GAIN_TIME = 0.06;
 
 /**
- * Áudio do veículo em Web Audio: motor por camadas gravadas (SampledEngine, banco em `sound.engineBank`) ou, sem
- * banco pronto, procedural por rpm e carga; chiado dos pneus por escorregamento, vento e rolamento por velocidade,
+ * Áudio do veículo em Web Audio: motor por amostras (SampledEngine, banco em `sound.engineBank`: partida, camadas
+ * por rpm e carga, trocas, redução e estalos pelo EngineEventDetector) ou, sem banco pronto, procedural; chiado dos pneus por escorregamento, vento e rolamento por velocidade,
  * impacto pelos eventos de contato do chassi. O `AudioContext` só nasce no primeiro gesto (política de autoplay).
  */
 export default class VehicleAudio {
@@ -42,6 +49,7 @@ export default class VehicleAudio {
 	private readonly params = createVehicleSoundParams();
 	private definition: Readonly<VehicleDefinition> | null = null;
 	private readonly impacts = new ContactImpactDetector();
+	private readonly engineEvents = new EngineEventDetector();
 
 	private readonly startBound = () => this.start();
 	private readonly visibilityBound = () => this.applySuspension();
@@ -66,17 +74,24 @@ export default class VehicleAudio {
 		const impact = this.impacts.update(this.contacts, this.vehicle.physics.chassisBody, deltaTime);
 
 		const definition = this.vehicle.getDefinition();
+		const telemetry = this.vehicle.getTelemetry();
+		const sampled = this.sampledEngine!;
 		if (definition !== this.definition) {
+			// troca de veículo: o motor novo dá partida
+			if (this.definition && sampled.active) sampled.play("start", 0);
 			this.definition = definition;
+			this.engineEvents.reset(telemetry.gear);
 			this.subharmonicGain.gain.setTargetAtTime(definition.sound.subharmonicGain, context.currentTime, RAMP_TIME);
 		}
 
-		const telemetry = this.vehicle.getTelemetry();
 		const params = computeVehicleSound(telemetry, definition, this.params);
 		const now = context.currentTime;
-		const sampled = this.sampledEngine!;
-		sampled.select(definition.sound.engineBank ?? null);
-		sampled.update(telemetry.engineRpm, telemetry.engineLoad, params.engineGain * SAMPLED_ENGINE_GAIN, RAMP_TIME);
+		if (sampled.select(definition.sound.engineBank ?? null)) this.engineEvents.reset(telemetry.gear);
+		const rpm = telemetry.engineRpm;
+		const load = telemetry.engineLoad;
+		sampled.update(rpm, load, SAMPLED_ENGINE_GAIN, ENGINE_RATE_TIME, ENGINE_GAIN_TIME);
+		const event = this.engineEvents.update(deltaTime, telemetry.gear, rpm, load);
+		if (event && sampled.active) sampled.play(event, rpm);
 		const frequency = params.engineFrequencyHz;
 		this.engineOscillators[0].frequency.setTargetAtTime(frequency, now, RAMP_TIME);
 		this.engineOscillators[1].frequency.setTargetAtTime(frequency * 2, now, RAMP_TIME);

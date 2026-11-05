@@ -10,11 +10,21 @@ export interface EngineLayer {
 	loopEnd: number;
 }
 
-/** Banco de camadas do motor: manifesto JSON gerado por tools/audio/build_engine_bank.py */
+/** Som de evento (partida, troca, redução, estalos) tocado uma vez sobre os laços (tempos em s no áudio do banco) */
+export interface EngineEventClip {
+	name: string;
+	start: number;
+	end: number;
+	/** Rotação no início do evento (rpm): referência do playbackRate */
+	rpm: number;
+}
+
+/** Banco de áudio do motor: manifesto JSON gerado por tools/audio/build_engine_bank.py */
 export interface EngineBank {
-	/** Áudio com todas as camadas, relativo ao manifesto */
+	/** Áudio com camadas e eventos, relativo ao manifesto */
 	audio: string;
 	layers: EngineLayer[];
+	events: EngineEventClip[];
 }
 
 const LOADS: readonly EngineLayerLoad[] = ["idle", "on", "off"];
@@ -38,7 +48,12 @@ export function parseEngineBank(data: unknown): EngineBank {
 	}
 	if (!bank.layers.some((l) => l.load === "on") || !bank.layers.some((l) => l.load === "off"))
 		throw new Error("Banco de motor precisa de camadas com e sem carga");
-	return { audio: bank.audio, layers: bank.layers };
+	const events = bank.events ?? [];
+	for (const event of events) {
+		const valid = event && typeof event.name === "string" && event.rpm > 0 && event.end > event.start;
+		if (!valid) throw new Error(`Evento de motor inválido: ${JSON.stringify(event)}`);
+	}
+	return { audio: bank.audio, layers: bank.layers, events };
 }
 
 /**
