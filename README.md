@@ -75,6 +75,8 @@ O Vite serve em `http://localhost:5173`. Clique na tela para capturar o mouse (p
 | `npm run preview` | Serve o build de produção |
 | `npm test` | Vitest em Node: cenários de referência da física do veículo |
 
+Banco de áudio do motor (opcional; sem ele o motor é procedural): `python tools/audio/build_engine_bank.py tools/audio/bmw_s55.json <gravação> public/audio/engines`, com `numpy`, `scipy` e `imageio-ffmpeg` instalados. A saída fica fora do Git até a licença da gravação ser confirmada (ADR-0007).
+
 Os testes montam o veículo real sem navegador e comparam repouso, aceleração, frenagem e curva com a linha de base em `test/baselines/`. O CI do GitHub Actions roda typecheck, lint, verificação de formatação, testes e build. Mudanças na física ou nos controles também exigem um teste manual de direção (ver [CLAUDE.md](CLAUDE.md#validação)).
 
 ## Estrutura
