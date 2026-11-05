@@ -8,13 +8,14 @@ interface LoadedBank {
 
 /**
  * Mixagem de cada evento: nível dos laços durante o evento (0–1) e tempo final em que os laços voltam (s).
- * Partida e trocas trazem o próprio motor e abafam os laços; estalos somam por cima.
+ * Partida, trocas e redução trazem o próprio motor e quase calam os laços (dois motores audíveis soam dobrados);
+ * estalos somam por cima.
  */
 const EVENT_MIX: Record<EngineEventName | "start", { duck: number; release: number }> = {
 	start: { duck: 0, release: 0.7 },
-	upshift: { duck: 0.3, release: 0.25 },
-	downshift: { duck: 0.35, release: 0.35 },
-	lift: { duck: 0.5, release: 0.35 },
+	upshift: { duck: 0.1, release: 0.25 },
+	downshift: { duck: 0.1, release: 0.35 },
+	lift: { duck: 0.35, release: 0.35 },
 	pops: { duck: 0.9, release: 0.2 },
 };
 /** Faixa de playbackRate dos eventos: fora dela o timbre gravado se desfaz */

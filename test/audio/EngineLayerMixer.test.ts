@@ -61,7 +61,8 @@ describe("mistura das camadas do motor", () => {
 		expect(mixer.gains[5]).toBe(1);
 		expect(mixer.rates[5]).toBe(2.5);
 		mixer.update(600, 1);
-		expect(mixer.rates[0]).toBe(0.6);
+		expect(mixer.rates[0]).toBe(1);
+		expect(mixer.rates[1]).toBe(0.5);
 	});
 });
 

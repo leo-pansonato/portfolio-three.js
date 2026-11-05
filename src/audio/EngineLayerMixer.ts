@@ -60,7 +60,8 @@ export function parseEngineBank(data: unknown): EngineBank {
  * Mistura das camadas por rpm e carga (ADR-0007, prática 1): em cada conjunto (com carga, sem carga; a lenta é a
  * camada mais baixa dos dois) as duas camadas vizinhas da rpm fazem crossfade de potência constante em log-rpm;
  * os conjuntos fazem crossfade de potência constante pela carga. Cada camada toca na rpm atual (playbackRate =
- * rpm / rpm da gravação). Abaixo da primeira e acima da última, só a extrema. Sem alocação por chamada.
+ * rpm / rpm da gravação). Abaixo da primeira e acima da última, só a extrema; abaixo da primeira o tom fica o
+ * gravado (a lenta do jogo pode ser mais baixa que a da gravação e descer de tom soa artificial). Sem alocação por chamada.
  */
 export default class EngineLayerMixer {
 	/** Ganho de cada camada, na ordem do banco (0–1) */
@@ -69,6 +70,8 @@ export default class EngineLayerMixer {
 	readonly rates: Float64Array;
 	private readonly onSet: number[];
 	private readonly offSet: number[];
+	/** Rotação da camada mais baixa (rpm): abaixo dela as camadas não descem de tom */
+	private readonly lowestRpm: number;
 	/** Ganho de cada camada vindo de cada conjunto */
 	private readonly onGains: Float64Array;
 	private readonly offGains: Float64Array;
@@ -86,6 +89,7 @@ export default class EngineLayerMixer {
 				.map(({ index }) => index);
 		this.onSet = set("on");
 		this.offSet = set("off");
+		this.lowestRpm = Math.min(...layers.map((layer) => layer.rpm));
 	}
 
 	/**
@@ -99,7 +103,8 @@ export default class EngineLayerMixer {
 		for (let i = 0; i < this.layers.length; i++) {
 			// a lenta recebe dos dois conjuntos: soma em potência, como as demais camadas entre si
 			this.gains[i] = Math.hypot(this.onGains[i], this.offGains[i]);
-			this.rates[i] = Math.min(MAX_RATE, Math.max(MIN_RATE, rpm / this.layers[i].rpm));
+			const pitchRpm = Math.max(rpm, this.lowestRpm);
+			this.rates[i] = Math.min(MAX_RATE, Math.max(MIN_RATE, pitchRpm / this.layers[i].rpm));
 		}
 	}
 

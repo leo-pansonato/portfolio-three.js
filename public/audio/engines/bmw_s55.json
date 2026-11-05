@@ -2,197 +2,197 @@
 	"audio": "bmw_s55.m4a",
 	"layers": [
 		{
-			"rpm": 950,
+			"rpm": 1090,
 			"load": "idle",
-			"loopStart": 0.631587,
-			"loopEnd": 1.263175
+			"loopStart": 0.880726,
+			"loopEnd": 1.761451
 		},
 		{
 			"rpm": 1300,
 			"load": "on",
-			"loopStart": 2.263991,
-			"loopEnd": 2.63322
+			"loopStart": 3.011406,
+			"loopEnd": 3.380635
 		},
 		{
 			"rpm": 1700,
 			"load": "on",
-			"loopStart": 3.425986,
-			"loopEnd": 3.849524
+			"loopStart": 4.173401,
+			"loopEnd": 4.596939
 		},
 		{
 			"rpm": 2200,
 			"load": "on",
-			"loopStart": 4.545782,
-			"loopEnd": 4.818503
+			"loopStart": 5.293197,
+			"loopEnd": 5.565918
 		},
 		{
 			"rpm": 2700,
 			"load": "on",
-			"loopStart": 5.357891,
-			"loopEnd": 5.624558
+			"loopStart": 6.105306,
+			"loopEnd": 6.371973
 		},
 		{
 			"rpm": 3200,
 			"load": "on",
-			"loopStart": 6.191224,
-			"loopEnd": 6.491224
+			"loopStart": 6.938639,
+			"loopEnd": 7.238639
 		},
 		{
 			"rpm": 3700,
 			"load": "on",
-			"loopStart": 7.083107,
-			"loopEnd": 7.374989
+			"loopStart": 7.830522,
+			"loopEnd": 8.122404
 		},
 		{
 			"rpm": 4200,
 			"load": "on",
-			"loopStart": 7.952585,
-			"loopEnd": 8.238299
+			"loopStart": 8.7,
+			"loopEnd": 8.985714
 		},
 		{
 			"rpm": 4700,
 			"load": "on",
-			"loopStart": 8.804875,
-			"loopEnd": 9.085737
+			"loopStart": 9.55229,
+			"loopEnd": 9.833152
 		},
 		{
 			"rpm": 5200,
 			"load": "on",
-			"loopStart": 9.735828,
-			"loopEnd": 10.105057
+			"loopStart": 10.483243,
+			"loopEnd": 10.852472
 		},
 		{
 			"rpm": 5700,
 			"load": "on",
-			"loopStart": 10.895329,
-			"loopEnd": 11.316372
+			"loopStart": 11.642744,
+			"loopEnd": 12.063787
 		},
 		{
 			"rpm": 6200,
 			"load": "on",
-			"loopStart": 12.240635,
-			"loopEnd": 12.743855
+			"loopStart": 12.98805,
+			"loopEnd": 13.49127
 		},
 		{
 			"rpm": 6700,
 			"load": "on",
-			"loopStart": 13.820204,
-			"loopEnd": 14.393333
+			"loopStart": 14.567619,
+			"loopEnd": 15.140748
 		},
 		{
 			"rpm": 7200,
 			"load": "on",
-			"loopStart": 15.649796,
-			"loopEnd": 16.333129
+			"loopStart": 16.397211,
+			"loopEnd": 17.080544
 		},
 		{
 			"rpm": 7500,
 			"load": "on",
-			"loopStart": 17.448458,
-			"loopEnd": 17.880454
+			"loopStart": 18.195873,
+			"loopEnd": 18.627868
 		},
 		{
 			"rpm": 1700,
 			"load": "off",
-			"loopStart": 18.594807,
-			"loopEnd": 18.877166
+			"loopStart": 19.342222,
+			"loopEnd": 19.62458
 		},
 		{
 			"rpm": 2100,
 			"load": "off",
-			"loopStart": 19.445238,
-			"loopEnd": 19.730952
+			"loopStart": 20.192653,
+			"loopEnd": 20.478367
 		},
 		{
 			"rpm": 2500,
 			"load": "off",
-			"loopStart": 20.304671,
-			"loopEnd": 20.592676
+			"loopStart": 21.052086,
+			"loopEnd": 21.340091
 		},
 		{
 			"rpm": 2900,
 			"load": "off",
-			"loopStart": 21.128957,
-			"loopEnd": 21.377234
+			"loopStart": 21.876372,
+			"loopEnd": 22.124649
 		},
 		{
 			"rpm": 4100,
 			"load": "off",
-			"loopStart": 22.298685,
-			"loopEnd": 22.971859
+			"loopStart": 23.0461,
+			"loopEnd": 23.719274
 		},
 		{
 			"rpm": 4500,
 			"load": "off",
-			"loopStart": 24.365034,
-			"loopEnd": 25.085034
+			"loopStart": 25.112449,
+			"loopEnd": 25.832449
 		},
 		{
 			"rpm": 4900,
 			"load": "off",
-			"loopStart": 26.686667,
-			"loopEnd": 27.568299
+			"loopStart": 27.434082,
+			"loopEnd": 28.315714
 		},
 		{
 			"rpm": 5300,
 			"load": "off",
-			"loopStart": 29.332948,
-			"loopEnd": 30.215964
+			"loopStart": 30.080363,
+			"loopEnd": 30.963379
 		},
 		{
 			"rpm": 5800,
 			"load": "off",
-			"loopStart": 31.988639,
-			"loopEnd": 32.878299
+			"loopStart": 32.736054,
+			"loopEnd": 33.625714
 		}
 	],
 	"events": [
 		{
 			"name": "start",
-			"start": 33.867959,
-			"end": 36.207959,
+			"start": 34.615374,
+			"end": 36.955374,
 			"rpm": 950
 		},
 		{
 			"name": "upshift",
-			"start": 36.407959,
-			"end": 37.087959,
+			"start": 37.155374,
+			"end": 37.735374,
 			"rpm": 6850
 		},
 		{
 			"name": "upshift",
-			"start": 37.287959,
-			"end": 37.797959,
-			"rpm": 7300
+			"start": 37.935374,
+			"end": 38.345374,
+			"rpm": 7160
 		},
 		{
 			"name": "downshift",
-			"start": 37.997959,
-			"end": 39.057959,
+			"start": 38.545374,
+			"end": 39.365374,
+			"rpm": 4000
+		},
+		{
+			"name": "downshift",
+			"start": 39.565374,
+			"end": 40.905374,
 			"rpm": 4100
 		},
 		{
-			"name": "downshift",
-			"start": 39.257959,
-			"end": 41.077959,
-			"rpm": 4060
-		},
-		{
 			"name": "lift",
-			"start": 41.277959,
-			"end": 42.077959,
+			"start": 41.105374,
+			"end": 41.905374,
 			"rpm": 6000
 		},
 		{
 			"name": "pops",
-			"start": 42.277959,
-			"end": 42.777959,
+			"start": 42.105374,
+			"end": 42.605374,
 			"rpm": 5450
 		},
 		{
 			"name": "pops",
-			"start": 42.977959,
-			"end": 43.777959,
+			"start": 42.805374,
+			"end": 43.605374,
 			"rpm": 2600
 		}
 	]

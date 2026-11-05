@@ -7,23 +7,15 @@
 	"bitrate": "128k",
 	"segments": [
 		{
-			"file": "idle_to_7500_progressivo(1 gear).mp3",
+			"file": "idle.mp3",
 			"load": "idle",
-			"start": 0.05,
-			"end": 0.8,
+			"start": 0.04,
+			"end": 1.04,
+			"maxLoopSeconds": 1.0,
 			"guide": [
-				[0, 930],
-				[0.8, 950]
-			]
-		},
-		{
-			"file": "start_to_idle.mp3",
-			"load": "idle",
-			"start": 1.5,
-			"end": 2.3,
-			"guide": [
-				[1.5, 920],
-				[2.3, 960]
+				[0.04, 1080],
+				[0.5, 1120],
+				[1.04, 1060]
 			]
 		},
 		{
@@ -89,29 +81,53 @@
 		}
 	],
 	"layers": {
-		"idle": [950],
+		"idle": [1090],
 		"on": [1300, 1700, 2200, 2700, 3200, 3700, 4200, 4700, 5200, 5700, 6200, 6700, 7200, 7500],
 		"off": [1700, 2100, 2500, 2900, 4100, 4500, 4900, 5300, 5800]
 	},
 	"events": [
-		{ "name": "start", "file": "start_to_idle.mp3", "start": 0, "end": 2.34, "rpm": 950 },
-		{ "name": "upshift", "file": "1_to_2_gear_change.mp3", "start": 0, "end": 0.68, "rpm": 6850 },
-		{ "name": "upshift", "file": "3_to_4_gear_change.mp3", "start": 0, "end": 0.51, "rpm": 7300 },
+		{
+			"name": "start",
+			"file": "start_to_idle.mp3",
+			"start": 0,
+			"end": 2.34,
+			"rpm": 950
+		},
+		{
+			"name": "upshift",
+			"file": "1_to_2_gear_change.mp3",
+			"start": 0.1,
+			"end": 0.68,
+			"rpm": 6850
+		},
+		{
+			"name": "upshift",
+			"file": "3_to_4_gear_change.mp3",
+			"start": 0.1,
+			"end": 0.51,
+			"rpm": 7160
+		},
 		{
 			"name": "downshift",
 			"file": "reduzindo_marcha_sem_carga_pedal_blip.mp3",
-			"start": 0,
+			"start": 0.24,
 			"end": 1.06,
-			"rpm": 4100
+			"rpm": 4000
 		},
 		{
 			"name": "downshift",
 			"file": "reduzindo_marcha_sem_carga__long_pedal_blip_with_pops_on_the_end.mp3",
-			"start": 0,
+			"start": 0.48,
 			"end": 1.82,
-			"rpm": 4060
+			"rpm": 4100
 		},
-		{ "name": "lift", "file": "cut_when_lift_gas_pedal.mp3", "start": 0.2, "end": 1.0, "rpm": 6000 },
+		{
+			"name": "lift",
+			"file": "cut_when_lift_gas_pedal.mp3",
+			"start": 0.2,
+			"end": 1.0,
+			"rpm": 6000
+		},
 		{
 			"name": "pops",
 			"file": "reduzindo_marcha_sem_carga__long_pedal_blip_with_pops_on_the_end.mp3",
@@ -119,6 +135,12 @@
 			"end": 1.45,
 			"rpm": 5450
 		},
-		{ "name": "pops", "file": "reving_1000_to_3000_with_pops.mp3", "start": 0.75, "end": 1.55, "rpm": 2600 }
+		{
+			"name": "pops",
+			"file": "reving_1000_to_3000_with_pops.mp3",
+			"start": 0.75,
+			"end": 1.55,
+			"rpm": 2600
+		}
 	]
 }

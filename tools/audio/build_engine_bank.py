@@ -4,7 +4,8 @@ Gera o banco de áudio do motor (P2-11, ADR-0007) a partir de gravações curtas
 Camadas em laço (lenta, com carga, sem carga):
 1. Rotação por trecho: pico mais forte da ordem rastreada (rpm/60 · ordem) numa faixa de ±25% em volta da rampa
    aproximada dada no JSON, com interpolação parabólica e mediana móvel.
-2. Para cada rpm-alvo, a janela mais longa, nos trechos do conjunto, com rotação a ±tolerância do alvo.
+2. Para cada rpm-alvo, a janela mais longa, nos trechos do conjunto, com rotação a ±tolerância do alvo (até
+   maxLoopSeconds, que o trecho pode sobrepor; a lenta usa laço longo para não soar repetida).
 3. Achatamento por reamostragem com fase: a janela passa a ter rotação constante no alvo.
 4. Laço com número inteiro de ciclos do motor (2 voltas) e emenda em crossfade de potência constante.
 5. Sprite com cada laço repetido 3 vezes; os pontos de laço apontam para a cópia do meio, então um atraso do
@@ -92,7 +93,7 @@ def find_window(tracks, target, tolerance, min_length, max_length):
     if best is None:
         raise SystemExit(f"sem trecho perto de {target} rpm")
     track, a, b = best
-    length = min(max(b - a, min_length), max_length) + MAX_SEAM
+    length = min(max(b - a, min_length), track.get("maxLoopSeconds", max_length)) + MAX_SEAM
     begin = max(track["start"], (a + b) / 2 - length / 2)
     finish = min(track["end"], begin + length)
     return track, max(track["start"], finish - length), finish
