@@ -28,6 +28,8 @@ export interface WheelTelemetry {
 	lateralForce: number;
 	/** Torque do trem de força na roda (N·m; 0 nas não motrizes) */
 	driveTorque: number;
+	/** Escorregamento combinado normalizado ao pico: |(κ/κpico, α/αpico)| (adimensional; 1 no pico de aderência) */
+	normalizedSlip: number;
 }
 
 export interface VehicleTelemetry {
@@ -53,6 +55,10 @@ export interface VehicleTelemetry {
 	clutchSlipRpm: number;
 	/** Embreagem (ou travamento do conversor) travada no último passo */
 	clutchLocked: boolean;
+	/** Carga do motor: fração do torque a plena carga pedida na rotação, com lenta e corte (0–1) */
+	engineLoad: number;
+	/** Corte de giro retirando acelerador pedido no último passo */
+	revLimiterActive: boolean;
 	wheels: WheelTelemetry[];
 }
 
@@ -71,6 +77,8 @@ export function createVehicleTelemetry(): VehicleTelemetry {
 		gear: 1,
 		clutchSlipRpm: 0,
 		clutchLocked: false,
+		engineLoad: 0,
+		revLimiterActive: false,
 		wheels: [],
 	};
 }
@@ -90,5 +98,6 @@ export function createWheelTelemetry(suspensionRestLength: number): WheelTelemet
 		longitudinalForce: 0,
 		lateralForce: 0,
 		driveTorque: 0,
+		normalizedSlip: 0,
 	};
 }

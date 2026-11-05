@@ -54,7 +54,12 @@ export default class Engine {
 	effectiveThrottle(rpm: number, throttle: number): number {
 		const config = this.config;
 		const governor = ramp((config.idleRpm + IDLE_GOVERNOR_BAND_RPM - rpm) / IDLE_GOVERNOR_BAND_RPM);
-		return Math.max(throttle, governor) * ramp((config.revLimitRpm - rpm) / REV_LIMITER_RAMP_RPM);
+		return Math.max(throttle, governor) * (1 - this.revLimiterCut(rpm));
+	}
+
+	/** Fração do acelerador retirada pelo corte de giro na rotação dada (0 abaixo da rampa, 1 no corte) */
+	revLimiterCut(rpm: number): number {
+		return 1 - ramp((this.config.revLimitRpm - rpm) / REV_LIMITER_RAMP_RPM);
 	}
 
 	/**

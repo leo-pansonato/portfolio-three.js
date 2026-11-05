@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getVehicleDefinition } from "../../src/data/vehicles";
+import { peakSlip } from "../../src/vehicle/Tire";
 import { STANDARD_GRAVITY } from "../../src/vehicle/VehicleTelemetry";
 import { createRapierSim, RapierSimHandle } from "../support/rapierSim";
 
@@ -120,5 +121,67 @@ describe.each(["bmw_f82", "mercedes_g63"])("telemetria — %s", (vehicleId) => {
 
 		expect(t.longitudinalAccelerationG).toBe(0);
 		expect(t.lateralAccelerationG).toBe(0);
+	});
+
+	it("carga do motor: lenta parcial, plena acelerando, zero sem acelerador acima da lenta", async () => {
+		const sim = await createRapierSim(vehicleId);
+		const powertrain = getVehicleDefinition(vehicleId)!.powertrain;
+		run(sim, 2);
+		let t = sim.player.getTelemetry();
+		expect(t.engineLoad).toBeGreaterThan(0);
+		expect(t.engineLoad).toBeLessThan(0.2);
+		expect(t.revLimiterActive).toBe(false);
+
+		sim.input.throttle = true;
+		run(sim, 0.25);
+		t = sim.player.getTelemetry();
+		expect(t.engineLoad).toBe(1);
+		expect(t.engineRpm).toBeLessThan(powertrain.revLimitRpm - 200);
+
+		run(sim, 3);
+		sim.input.throttle = false;
+		run(sim, 0.5);
+		t = sim.player.getTelemetry();
+		expect(t.engineRpm).toBeGreaterThan(powertrain.idleRpm + 500);
+		expect(t.engineLoad).toBe(0);
+		expect(t.revLimiterActive).toBe(false);
+	});
+
+	it("corte de giro: ré com acelerador pleno chega ao corte e reduz a carga", async () => {
+		const sim = await createRapierSim(vehicleId);
+		const powertrain = getVehicleDefinition(vehicleId)!.powertrain;
+		run(sim, 2);
+		sim.input.brake = true;
+		run(sim, 8);
+		const t = sim.player.getTelemetry();
+
+		expect(t.gear).toBe(-1);
+		expect(t.revLimiterActive).toBe(true);
+		expect(t.engineRpm).toBeGreaterThan(powertrain.revLimitRpm - 200);
+		expect(t.engineLoad).toBeLessThan(0.5);
+	});
+
+	it("escorregamento normalizado: zero parado, acima do pico nas motrizes na arrancada, combinação de κ e α", async () => {
+		const sim = await createRapierSim(vehicleId);
+		const definition = getVehicleDefinition(vehicleId)!;
+		const peakRatio = peakSlip(definition.tire.longitudinal);
+		const peakAngle = peakSlip(definition.tire.lateral);
+		const driven = definition.configs.tractionDisplacement === "all" ? [0, 1, 2, 3] : [2, 3];
+		run(sim, 2);
+		let t = sim.player.getTelemetry();
+		expect(t.wheels.every((w) => w.normalizedSlip < 0.01)).toBe(true);
+
+		sim.input.throttle = true;
+		run(sim, 0.25);
+		t = sim.player.getTelemetry();
+		for (const i of driven) expect(t.wheels[i].normalizedSlip).toBeGreaterThan(1);
+
+		sim.input.right = true;
+		run(sim, 1);
+		t = sim.player.getTelemetry();
+		for (const wheel of t.wheels) {
+			const expected = Math.hypot(wheel.slipRatio / peakRatio, wheel.slipAngle / peakAngle);
+			expect(wheel.normalizedSlip).toBeCloseTo(expected, 12);
+		}
 	});
 });

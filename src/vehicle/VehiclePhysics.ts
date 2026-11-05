@@ -384,6 +384,9 @@ export default class VehiclePhysics {
 			(driveline.engineSpeed - this.drivelineCommands.gearRatio * driveline.outputSpeed(this.wheelStates)) *
 			RAD_PER_SECOND_TO_RPM;
 		telemetry.clutchLocked = driveline.clutchLocked;
+		const throttle = this.drivelineCommands.throttle;
+		telemetry.engineLoad = driveline.engine.effectiveThrottle(telemetry.engineRpm, throttle);
+		telemetry.revLimiterActive = throttle > 0 && driveline.engine.revLimiterCut(telemetry.engineRpm) > 0;
 		const velocity = this.chassisBody.getLinearVelocity(this.tempVelocity);
 		this.chassisBody.getRotation(this.tempQuaternion);
 		const forward = this.tempVector3.copy(VehiclePhysics.LOCAL_FORWARD).applyQuaternion(this.tempQuaternion);
@@ -426,6 +429,10 @@ export default class VehiclePhysics {
 			wheel.longitudinalForce = tire.longitudinalForce;
 			wheel.lateralForce = tire.lateralForce;
 			wheel.driveTorque = this.driven[i] ? this.wheelSteps[i].driveTorque : 0;
+			wheel.normalizedSlip = Math.hypot(
+				tire.slipRatio / this.tire.peakSlipRatio,
+				tire.slipAngle / this.tire.peakSlipAngle,
+			);
 		}
 	}
 
