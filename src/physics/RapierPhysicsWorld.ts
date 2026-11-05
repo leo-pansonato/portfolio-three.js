@@ -4,6 +4,8 @@ import { devMode } from "../managers/DevModeManager";
 import PhysicsDebugRenderer from "./PhysicsDebugRenderer";
 import {
 	ColliderConfig,
+	ContactForceEvent,
+	createContactForceEvent,
 	PhysicsBody,
 	PhysicsObjectCounts,
 	PhysicsWorld,
@@ -23,6 +25,9 @@ interface PhysicsEntity {
 	previousPosition: THREE.Vector3;
 	previousQuaternion: THREE.Quaternion;
 }
+
+/** Eventos de força de contato guardados por update */
+const MAX_CONTACT_EVENTS = 64;
 
 function rapierBody(body: PhysicsBody): RapierBody {
 	if (!(body instanceof RapierBody)) throw new Error("Corpo não pertence a um RapierPhysicsWorld");
@@ -53,6 +58,24 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 	private _quaternion = new THREE.Quaternion();
 
 	private preStepCallbacks: Array<(dt: number) => void> = [];
+
+	private eventQueue!: RAPIER.EventQueue;
+	private readonly contactEvents: ContactForceEvent[] = [];
+	private contactEventTotal = 0;
+	/** Soma dos pontos e número de contatos do par em leitura (contactPair) */
+	private readonly contactPointSum = new THREE.Vector3();
+	private contactPointCount = 0;
+	private readonly onContactForceEvent = (event: RAPIER.TempContactForceEvent): void =>
+		this.recordContactEvent(event);
+	private readonly onContactManifold = (manifold: RAPIER.TempContactManifold): void => {
+		for (let i = 0; i < manifold.numSolverContacts(); i++) {
+			const point = manifold.solverContactPoint(i);
+			this.contactPointSum.x += point.x;
+			this.contactPointSum.y += point.y;
+			this.contactPointSum.z += point.z;
+			this.contactPointCount++;
+		}
+	};
 
 	// Grupos de colisão
 	public static readonly COLLISION_GROUP_GROUND = 0x0001;
@@ -86,10 +109,13 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		const gravity = new RAPIER.Vector3(0, -9.82, 0);
 		this.world = new RAPIER.World(gravity);
 		this.world.timestep = this.fixedTimeStep;
+		this.eventQueue = new RAPIER.EventQueue(true);
+		for (let i = 0; i < MAX_CONTACT_EVENTS; i++) this.contactEvents.push(createContactForceEvent());
 	}
 
 	update(deltaTime: number): void {
 		this.accumulator += deltaTime;
+		this.contactEventTotal = 0;
 
 		while (this.accumulator >= this.fixedTimeStep) {
 			this.savePreviousPoses();
@@ -98,13 +124,45 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 				callback(this.fixedTimeStep);
 			}
 
-			this.world.step();
+			this.world.step(this.eventQueue);
+			this.eventQueue.drainContactForceEvents(this.onContactForceEvent);
 			this.accumulator -= this.fixedTimeStep;
 		}
 		this.interpolationAlpha = this.accumulator / this.fixedTimeStep;
 
 		this.syncTargets();
 		this.updateDebugger();
+	}
+
+	/** Copia o evento da Rapier para o buffer; ponto pela média dos contatos do par (a Rapier aloca os vetores) */
+	private recordContactEvent(event: RAPIER.TempContactForceEvent): void {
+		if (this.contactEventTotal >= MAX_CONTACT_EVENTS) return;
+		const collider1 = this.world.getCollider(event.collider1());
+		const collider2 = this.world.getCollider(event.collider2());
+		if (!collider1 || !collider2) return;
+		const out = this.contactEvents[this.contactEventTotal++];
+		const parent1 = collider1.parent();
+		const parent2 = collider2.parent();
+		out.bodyA = parent1 ? (this.bodyByHandle.get(parent1.handle) ?? null) : null;
+		out.bodyB = parent2 ? (this.bodyByHandle.get(parent2.handle) ?? null) : null;
+		out.impulse = event.totalForceMagnitude() * this.fixedTimeStep;
+		this.contactPointSum.set(0, 0, 0);
+		this.contactPointCount = 0;
+		this.world.contactPair(collider1, collider2, this.onContactManifold);
+		const scale = this.contactPointCount > 0 ? 1 / this.contactPointCount : 0;
+		out.point.x = this.contactPointSum.x * scale;
+		out.point.y = this.contactPointSum.y * scale;
+		out.point.z = this.contactPointSum.z * scale;
+	}
+
+	contactEventCount(): number {
+		return this.contactEventTotal;
+	}
+
+	getContactEvent(index: number): Readonly<ContactForceEvent> {
+		if (index < 0 || index >= this.contactEventTotal)
+			throw new RangeError(`Evento de contato ${index} inexistente`);
+		return this.contactEvents[index];
 	}
 
 	addPreStepCallback(callback: (dt: number) => void): void {
@@ -284,6 +342,12 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 			);
 		}
 
+		if (config.contactForceThreshold !== undefined) {
+			colliderDesc
+				.setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS)
+				.setContactForceEventThreshold(config.contactForceThreshold);
+		}
+
 		if (config.translation) {
 			colliderDesc.setTranslation(config.translation.x, config.translation.y, config.translation.z);
 		}
@@ -432,6 +496,8 @@ export default class RapierPhysicsWorld implements PhysicsWorld {
 		this.entities = [];
 		this.entityByHandle.clear();
 		this.bodyByHandle.clear();
+		this.contactEventTotal = 0;
+		this.eventQueue.free();
 		this.world.free();
 	}
 }

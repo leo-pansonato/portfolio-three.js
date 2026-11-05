@@ -54,6 +54,11 @@ export interface ColliderConfig {
 	/** Offset local em relação ao corpo (m) */
 	translation?: Vec3Like;
 	rotation?: QuatLike;
+	/**
+	 * Soma dos módulos das forças de contato (N) a partir da qual um contato deste colisor gera ContactForceEvent;
+	 * sem ela, não gera
+	 */
+	contactForceThreshold?: number;
 }
 
 /** Corpo rígido. Leituras escrevem em `out` e o devolvem; escritas acordam o corpo. */
@@ -92,6 +97,21 @@ export interface RaycastHit {
 
 export function createRaycastHit(): RaycastHit {
 	return { distance: 0, point: { x: 0, y: 0, z: 0 }, normal: { x: 0, y: 1, z: 0 }, body: null };
+}
+
+/** Contato que passou do limiar de força num passo; reescrito no lugar a cada update */
+export interface ContactForceEvent {
+	/** Corpos donos dos dois colisores; null se o colisor não tem corpo */
+	bodyA: PhysicsBody | null;
+	bodyB: PhysicsBody | null;
+	/** Soma dos módulos dos impulsos de contato entre os dois colisores no passo (N·s) */
+	impulse: number;
+	/** Média dos pontos de contato no mundo (m) */
+	point: Vec3Like;
+}
+
+export function createContactForceEvent(): ContactForceEvent {
+	return { bodyA: null, bodyB: null, impulse: 0, point: { x: 0, y: 0, z: 0 } };
 }
 
 /** Alvo da pose interpolada (ex.: THREE.Object3D) */
@@ -157,6 +177,13 @@ export interface PhysicsWorld {
 		out: RaycastHit,
 		excludeBody?: PhysicsBody,
 	): boolean;
+
+	/**
+	 * Eventos de força de contato dos passos do último update, na ordem (até um limite por update; o excesso é
+	 * descartado). Válidos até o próximo update.
+	 */
+	contactEventCount(): number;
+	getContactEvent(index: number): Readonly<ContactForceEvent>;
 
 	countObjects(): PhysicsObjectCounts;
 	dispose(): void;
