@@ -176,10 +176,11 @@ Modelo físico do veículo: todo próprio sobre o corpo rígido (ADR-0003): trem
 
 ### 3.6.1 Áudio — `src/audio/` [Implementado]
 
-- `vehicleSound.ts` (puro, testado em Node): telemetria do último passo + acelerador → frequência de ignição (rpm/60 · cilindros/2), ganho e corte do motor, chiado dos pneus (escorregamento combinado acima do pico de `peakSlip`, pela carga e velocidade do contato), vento (v²), rolamento (v) e intensidade de impacto (aceleração horizontal do chassi > 3 g).
-- `VehicleAudio.ts`: grafo Web Audio procedural, sem assets — osciladores do motor (ignição, 2ª ordem, meia ordem por `VehicleDefinition.sound`) com saturação e passa-baixas; ruído branco filtrado para pneus, vento, rolamento e impactos; compressor na saída. Lido por quadro com rampas de 30 ms (`setTargetAtTime`), sem alocação por quadro. O `AudioContext` nasce no primeiro gesto (autoplay); `M` suspende, aba oculta também.
+- `vehicleSound.ts` (puro, testado em Node): telemetria do último passo → frequência de ignição (rpm/60 · cilindros/2), ganho e corte do motor pela carga da simulação (`engineLoad`, vale no replay), chiado dos pneus (`normalizedSlip` acima do pico, pela carga e velocidade do contato), vento (v²) e rolamento (v).
+- `ContactImpactDetector.ts` (testado em Node): impactos do chassi pelos eventos de força de contato do `PhysicsWorld` (limiar de 1 kN no colisor do chassi): soa só o início de cada contato por par de corpos (pausa > 0,1 s, intervalo mínimo 0,15 s), nível logarítmico do impulso (20 N·s → 0,25; 20 kN·s → 1). Batida numa caixa do cenário a 72 km/h ≈ 0,5.
+- `VehicleAudio.ts`: grafo Web Audio procedural, sem assets — osciladores do motor (ignição, 2ª ordem, meia ordem por `VehicleDefinition.sound`) com saturação e passa-baixas; ruído branco filtrado para pneus, vento, rolamento e impactos; compressor na saída. Recebe o `PhysicsWorld` só como fonte de eventos de contato. Lido por quadro com rampas de 30 ms (`setTargetAtTime`), sem alocação por quadro. O `AudioContext` nasce no primeiro gesto (autoplay); `M` suspende, aba oculta também.
 - Avaliação do usuário: motor agudo e artificial, derrapagem irreconhecível, impacto inaudível; refatoração por amostras e eventos de contato proposta no ADR-0007 (P2-11).
-- Limitações: carga do motor = acelerador do `InputFrame` ao vivo (no replay, não o gravado); impacto só por aceleração horizontal (pouso de salto não soa); sem som espacial, superfície nem ambiente de cenário.
+- Limitações: pouso de salto não soa (o chassi não toca o chão; batente pela telemetria fica para o P2-11); sem raspagem contínua, som espacial, superfície nem ambiente de cenário.
 
 ### 3.7 Código morto [Implementado]
 

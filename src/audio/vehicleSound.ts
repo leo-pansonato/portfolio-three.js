@@ -31,9 +31,6 @@ const TUNING = {
 	windFullSpeed: 75,
 	/** Velocidade com rolamento pleno (m/s) */
 	roadFullSpeed: 45,
-	/** Aceleração horizontal do chassi acima da qual há impacto, e a de impacto pleno (g) */
-	impactThresholdG: 3,
-	impactFullG: 15,
 };
 
 export function createVehicleSoundParams(): VehicleSoundParams {
@@ -91,13 +88,4 @@ export function computeVehicleSound(
 	out.windGain = clamp01(windRatio * windRatio);
 	out.roadGain = contacts > 0 ? clamp01(telemetry.speed / TUNING.roadFullSpeed) : 0;
 	return out;
-}
-
-/** Intensidade de impacto (0–1; 0 sem impacto) pela aceleração horizontal do chassi no último passo */
-export function impactIntensity(telemetry: Readonly<VehicleTelemetry>): number {
-	const accelerationG = Math.hypot(telemetry.longitudinalAccelerationG, telemetry.lateralAccelerationG);
-	if (accelerationG < TUNING.impactThresholdG) return 0;
-	return clamp01(
-		0.2 + (0.8 * (accelerationG - TUNING.impactThresholdG)) / (TUNING.impactFullG - TUNING.impactThresholdG),
-	);
 }

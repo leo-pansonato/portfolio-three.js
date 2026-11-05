@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeVehicleSound, createVehicleSoundParams, impactIntensity } from "../../src/audio/vehicleSound";
+import { computeVehicleSound, createVehicleSoundParams } from "../../src/audio/vehicleSound";
 import { getVehicleDefinition } from "../../src/data/vehicles";
 import { VehicleDefinition } from "../../src/data/vehicles/types";
 import {
@@ -81,16 +81,5 @@ describe("som do veículo", () => {
 		const slow = sound(telemetry).windGain;
 		telemetry.speed = 40;
 		expect(sound(telemetry).windGain).toBeCloseTo(slow * 4, 9);
-	});
-
-	it("impacto só acima do limiar de aceleração (frenagem e curva fortes não contam)", () => {
-		const telemetry = telemetryFor(bmw);
-		telemetry.longitudinalAccelerationG = -1.1;
-		telemetry.lateralAccelerationG = 1.1;
-		expect(impactIntensity(telemetry)).toBe(0);
-		telemetry.longitudinalAccelerationG = -5;
-		expect(impactIntensity(telemetry)).toBeGreaterThan(0);
-		telemetry.longitudinalAccelerationG = -40;
-		expect(impactIntensity(telemetry)).toBe(1);
 	});
 });

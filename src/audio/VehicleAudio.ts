@@ -1,21 +1,23 @@
 import { VehicleDefinition } from "../data/vehicles/types";
+import { PhysicsBody } from "../physics/PhysicsWorld";
 import { VehicleTelemetry } from "../vehicle/VehicleTelemetry";
-import { computeVehicleSound, createVehicleSoundParams, impactIntensity } from "./vehicleSound";
+import ContactImpactDetector, { ContactEventSource } from "./ContactImpactDetector";
+import { computeVehicleSound, createVehicleSoundParams } from "./vehicleSound";
 
 /** O que o áudio lê do veículo */
 export interface VehicleAudioSource {
 	getTelemetry(): Readonly<VehicleTelemetry>;
 	getDefinition(): Readonly<VehicleDefinition>;
+	readonly physics: { readonly chassisBody: PhysicsBody };
 }
 
 /** Constante de tempo das rampas de parâmetro (s): suaviza a leitura por quadro de um sinal por passo */
 const RAMP_TIME = 0.03;
 const MASTER_GAIN = 0.5;
-const IMPACT_COOLDOWN = 0.3;
 
 /**
  * Áudio procedural do veículo (Web Audio, sem assets): motor por rpm e carga, chiado dos pneus por escorregamento,
- * vento e rolamento por velocidade, impacto por pico de aceleração. O `AudioContext` só nasce no primeiro gesto do
+ * vento e rolamento por velocidade, impacto pelos eventos de contato do chassi. O `AudioContext` só nasce no primeiro gesto do
  * usuário (política de autoplay).
  */
 export default class VehicleAudio {
@@ -35,13 +37,15 @@ export default class VehicleAudio {
 
 	private readonly params = createVehicleSoundParams();
 	private definition: Readonly<VehicleDefinition> | null = null;
-	private previousImpact = 0;
-	private lastImpactTime = -Infinity;
+	private readonly impacts = new ContactImpactDetector();
 
 	private readonly startBound = () => this.start();
 	private readonly visibilityBound = () => this.applySuspension();
 
-	constructor(private readonly vehicle: VehicleAudioSource) {
+	constructor(
+		private readonly vehicle: VehicleAudioSource,
+		private readonly contacts: ContactEventSource,
+	) {
 		window.addEventListener("keydown", this.startBound);
 		window.addEventListener("pointerdown", this.startBound);
 		document.addEventListener("visibilitychange", this.visibilityBound);
@@ -52,9 +56,10 @@ export default class VehicleAudio {
 		this.applySuspension();
 	}
 
-	update(_deltaTime: number): void {
+	update(deltaTime: number): void {
 		const context = this.context;
 		if (!context || context.state !== "running") return;
+		const impact = this.impacts.update(this.contacts, this.vehicle.physics.chassisBody, deltaTime);
 
 		const definition = this.vehicle.getDefinition();
 		if (definition !== this.definition) {
@@ -76,12 +81,7 @@ export default class VehicleAudio {
 		this.windGain.gain.setTargetAtTime(params.windGain * 0.35, now, RAMP_TIME);
 		this.roadGain.gain.setTargetAtTime(params.roadGain * 0.25, now, RAMP_TIME);
 
-		const impact = impactIntensity(telemetry);
-		if (impact > 0 && this.previousImpact === 0 && now - this.lastImpactTime > IMPACT_COOLDOWN) {
-			this.lastImpactTime = now;
-			this.playImpact(impact);
-		}
-		this.previousImpact = impact;
+		if (impact > 0) this.playImpact(impact);
 	}
 
 	dispose(): void {

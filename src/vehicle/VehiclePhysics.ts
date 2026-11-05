@@ -18,6 +18,12 @@ import WheelDynamics, {
 	WheelStepInput,
 } from "./WheelDynamics";
 
+/**
+ * Força de contato do chassi (N) a partir da qual o PhysicsWorld reporta o contato (impactos e raspagens);
+ * ~17 N·s num passo de 1/60 s
+ */
+const CHASSIS_CONTACT_FORCE_THRESHOLD = 1000;
+
 /** Valores de uma roda no passo anterior, para a interpolação visual */
 export interface WheelStepState {
 	/** Comprimento da suspensão (m) */
@@ -152,6 +158,7 @@ export default class VehiclePhysics {
 				restitution: 0.1,
 				density: physicsData.mass / (chassisSize.x * chassisSize.y * chassisSize.z),
 				centerOfMass: physicsData.centerOfMass,
+				contactForceThreshold: CHASSIS_CONTACT_FORCE_THRESHOLD,
 			},
 			this.chassisBody,
 		);
